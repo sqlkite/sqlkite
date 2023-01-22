@@ -1,0 +1,6 @@
+{
+	"root_path": "/tmp",
+	"super": {
+		"sqlite": {"url": "/tmp/sqlkite"}
+	}
+}

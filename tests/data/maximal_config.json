@@ -1,0 +1,30 @@
+{
+	"instance_id": 0,
+	"migrations": true,
+	"root_path": "/tmp",
+
+	"log": {
+		"level": "info",
+		"pool_size": 100,
+		"format": "kv",
+		"kv": {
+			"max_size": 4096
+		}
+	},
+
+	"http": {
+		"listen": "127.0.0.1:5201",
+		"project": {
+			"type": "subdomain"
+		},
+		"authentication": {
+			"type": "headers"
+		}
+	},
+
+	"super": {
+		"postgres": {
+			"url": "postgres://localhost:5432/gobl_sqlkite"
+		}
+	}
+}

@@ -1,0 +1,7 @@
+{
+	"root_path": "./tests/databases",
+	"log": {"level": "warn"},
+	"super": {
+		"sqlite": {"path": "/tmp/sqlkite.super"}
+	}
+}
