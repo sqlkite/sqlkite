@@ -1,6 +1,9 @@
 {
 	"root_path": "./tests/databases",
 	"log": {"level": "warn"},
+	"http": {
+		"super": "127.0.0.1:5101"
+	},
 	"super": {
 		"sqlite": {"path": "/tmp/sqlkite.super"}
 	}

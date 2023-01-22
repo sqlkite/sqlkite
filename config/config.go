@@ -29,7 +29,7 @@ type Buffer struct {
 
 type HTTP struct {
 	Super          string             `json:"super"`
-	Admin          string             `json:"super"`
+	Admin          string             `json:"admin"`
 	Listen         string             `json:"listen"`
 	Project        HTTPProject        `json:"project"`
 	Authentication HTTPAuthentication `json:"authentication"`

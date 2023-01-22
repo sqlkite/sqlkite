@@ -33,14 +33,14 @@ func Test_Server_Env_Project_FromHeader(t *testing.T) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
 	})(conn)
-	request.Res(t, conn).ExpectInvalid(202002)
+	request.Res(t, conn).ExpectInvalid(302_002)
 
 	conn = request.Req(t).ProjectId("nope").Conn()
 	http.Handler("", createEnvLoader(nil, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
 	})(conn)
-	request.Res(t, conn).ExpectInvalid(202004)
+	request.Res(t, conn).ExpectInvalid(302_004)
 }
 
 func Test_Server_Env_Project_FromSubdomain(t *testing.T) {
@@ -49,21 +49,21 @@ func Test_Server_Env_Project_FromSubdomain(t *testing.T) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
 	})(conn)
-	request.Res(t, conn).ExpectInvalid(202003)
+	request.Res(t, conn).ExpectInvalid(302_003)
 
 	conn = request.Req(t).Host("sqlkite.com").Conn()
 	http.Handler("", createEnvLoader(nil, loadProjectIdFromSubdomain), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
 	})(conn)
-	request.Res(t, conn).ExpectInvalid(202004)
+	request.Res(t, conn).ExpectInvalid(302_004)
 
 	conn = request.Req(t).Host("n1.sqlkite.com").Conn()
 	http.Handler("", createEnvLoader(nil, loadProjectIdFromSubdomain), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
 	})(conn)
-	request.Res(t, conn).ExpectInvalid(202004)
+	request.Res(t, conn).ExpectInvalid(302_004)
 }
 
 func Test_Server_Env_Unknown_Project(t *testing.T) {
@@ -72,7 +72,7 @@ func Test_Server_Env_Unknown_Project(t *testing.T) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
 	})(conn)
-	request.Res(t, conn).ExpectInvalid(202004)
+	request.Res(t, conn).ExpectInvalid(302_004)
 }
 
 func Test_Server_Env_CallsHandlerWithProject(t *testing.T) {

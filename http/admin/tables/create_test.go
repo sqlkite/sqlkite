@@ -61,5 +61,5 @@ func Test_Create_InvalidDefault(t *testing.T) {
 			},
 		}).
 		Post(Create).
-		ExpectValidation("columns.0.default", 1002, "columns.1.default", 1005, "columns.2.default", 1016, "columns.3.default", 201_017)
+		ExpectValidation("columns.0.default", 1002, "columns.1.default", 1005, "columns.2.default", 1016, "columns.3.default", 301_017)
 }

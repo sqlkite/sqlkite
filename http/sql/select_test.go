@@ -60,7 +60,7 @@ func Test_Select_InvalidData(t *testing.T) {
 			"where":  []any{[]string{"id", "====", "?1"}},
 		}).
 		Post(Select).
-		ExpectValidation("select.0", 201_001, "from.1", 201_015, "where", 201_005)
+		ExpectValidation("select.0", 301_001, "from.1", 301_015, "where", 301_005)
 }
 
 func Test_Select_InvalidTable(t *testing.T) {
@@ -106,7 +106,7 @@ func Test_Select_SQLTooLong(t *testing.T) {
 			"from":   []string{"and_this_table_is_even_longer"},
 		}).
 		Post(Select).
-		ExpectValidation("", 201_022)
+		ExpectValidation("", 301_022)
 }
 
 func Test_Select_OverLimits(t *testing.T) {
@@ -120,11 +120,11 @@ func Test_Select_OverLimits(t *testing.T) {
 		}).
 		Post(Select).
 		ExpectValidation(
-			"parameters", 201_024,
-			"from", 201_026,
-			"limit", 201_025,
-			"select", 201_029,
-			"order", 201_030)
+			"parameters", 301_024,
+			"from", 301_026,
+			"limit", 301_025,
+			"select", 301_029,
+			"order", 301_030)
 }
 
 func Test_Select_AtLimits(t *testing.T) {

@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -21,8 +22,9 @@ import (
 	"src.goblgobl.com/utils/log"
 )
 
-type ProjectIdLoader func(conn *fasthttp.RequestCtx) (string, http.Response)
+type EnvLoader func(conn *fasthttp.RequestCtx) (*sqlkite.Env, http.Response, error)
 type UserLoader func(conn *fasthttp.RequestCtx) (*sqlkite.User, http.Response)
+type ProjectIdLoader func(conn *fasthttp.RequestCtx) (string, http.Response)
 
 var (
 	resNotFoundPath         = http.StaticNotFound(codes.RES_UNKNOWN_ROUTE)
@@ -36,14 +38,33 @@ var (
 func Listen() {
 	config := sqlkite.Config.HTTP
 
-	listen := config.Listen
-	if listen == "" {
-		listen = "127.0.0.1:5200"
+	if a := config.Admin; a != "" && a != "super" && a != "public" {
+		err := log.Errf(codes.ERR_CONFIG_HTTP_ADMIN, "http.admin must be one of: 'super' (default) or 'public'")
+		log.Fatal("server_admin_config").Err(err).Log()
+		return
 	}
 
-	handler, err := handler(config)
+	superLoaded := make(chan bool, 1)
+	go listenSuper(config, superLoaded)
+	if ok := <-superLoaded; !ok {
+		return
+	}
+
+	// blocks
+	listenMain(config)
+}
+
+func listenMain(config config.HTTP) {
+	listen := config.Listen
+	if listen == "" {
+		listen = "127.0.0.1:5100"
+	}
+
+	logger := log.Info("public_server").String("address", listen)
+
+	handler, err := mainHandler(config, logger)
 	if err != nil {
-		log.Fatal("server_build_handler").Err(err).Log()
+		log.Fatal("server_public_handler").Err(err).Log()
 		return
 	}
 
@@ -55,20 +76,52 @@ func Listen() {
 		DisablePreParseMultipartForm: true,
 	}
 
-	log.Info("server_listening").String("address", listen).Log()
+	logger.Log()
 	err = fast.ListenAndServe(listen)
-	log.Fatal("server_fail").Err(err).String("address", listen).Log()
+	log.Fatal("server_public_fail").Err(err).String("address", listen).Log()
 }
 
-func handler(config config.HTTP) (func(ctx *fasthttp.RequestCtx), error) {
+func listenSuper(config config.HTTP, loaded chan bool) {
+	listen := config.Super
+	logger := log.Info("super_server").String("address", listen)
+
+	if listen == "" {
+		loaded <- true
+		logger.Log()
+		return
+	}
+
+	handler, err := superHandler(config, logger)
+	if err != nil {
+		log.Fatal("server_super_handler").Err(err).Log()
+		loaded <- false
+		return
+	}
+
+	fast := fasthttp.Server{
+		Handler:                      handler,
+		NoDefaultContentType:         true,
+		NoDefaultServerHeader:        true,
+		SecureErrorLogMessage:        true,
+		DisablePreParseMultipartForm: true,
+	}
+
+	logger.Log()
+	loaded <- true
+	err = fast.ListenAndServe(listen)
+	log.Fatal("server_super_fail").Err(err).String("address", listen).Log()
+}
+
+func mainHandler(config config.HTTP, logger log.Logger) (func(ctx *fasthttp.RequestCtx), error) {
 	var userLoader UserLoader
 	var projectIdLoader ProjectIdLoader
 
-	handlerConfigLog := log.Info("server.handler_config")
-
 	switch strings.ToLower(config.Authentication.Type) {
-	case "", "header":
-		handlerConfigLog.String("auth", "header")
+	case "":
+		logger.String("auth", "disabled")
+		userLoader = loadUserDisabled
+	case "header":
+		logger.String("auth", "header")
 		userLoader = loadUserFromHeader
 	default:
 		return nil, log.Errf(codes.ERR_CONFIG_HTTP_AUTHENTICATION_TYPE, "http.authentication.type must be one of: 'header'")
@@ -76,10 +129,10 @@ func handler(config config.HTTP) (func(ctx *fasthttp.RequestCtx), error) {
 
 	switch strings.ToLower(config.Project.Type) {
 	case "", "subdomain":
+		logger.String("project", "subdomain")
 		projectIdLoader = loadProjectIdFromSubdomain
-		handlerConfigLog.String("project", "subdomain")
 	case "header":
-		log.Info("server.project_loader").String("type", "header").Log()
+		logger.String("project", "header")
 		projectIdLoader = loadProjectIdFromHeader
 	default:
 		return nil, log.Errf(codes.ERR_CONFIG_HTTP_PROJECT_TYPE, "http.project.type must be one of: 'subdomain' or 'header'")
@@ -91,22 +144,11 @@ func handler(config config.HTTP) (func(ctx *fasthttp.RequestCtx), error) {
 
 	r.POST("/v1/sql/select", http.Handler("sql_select", envLoader, sql.Select))
 
-	if config.Admin != "" {
-		handlerConfigLog.String("admin", "true")
-		r.POST("/v1/admin/tables", http.Handler("table_create", envLoader, tables.Create))
+	adminIsPublic := config.Admin == "public"
+	logger.Bool("admin", adminIsPublic)
+	if adminIsPublic {
+		attachAdmin(r, envLoader)
 	}
-
-	// diagnostics routes
-	r.GET("/v1/diagnostics/ping", http.NoEnvHandler("ping", diagnostics.Ping))
-	r.GET("/v1/diagnostics/info", http.NoEnvHandler("info", diagnostics.Info))
-
-	if config.Super != "" {
-		handlerConfigLog.String("super", "true")
-		r.POST("/v1/super/projects", http.Handler("project_create", loadSuperEnv, projects.Create))
-		r.PUT("/v1/super/projects/{id}", http.Handler("project_update", loadSuperEnv, projects.Update))
-	}
-
-	handlerConfigLog.Log()
 
 	// catch all
 	r.NotFound = func(ctx *fasthttp.RequestCtx) {
@@ -114,6 +156,41 @@ func handler(config config.HTTP) (func(ctx *fasthttp.RequestCtx), error) {
 	}
 
 	return r.Handler, nil
+}
+
+func superHandler(config config.HTTP, logger log.Logger) (func(ctx *fasthttp.RequestCtx), error) {
+	r := router.New()
+
+	// diagnostics routes
+	r.GET("/v1/diagnostics/ping", http.NoEnvHandler("ping", diagnostics.Ping))
+	r.GET("/v1/diagnostics/info", http.NoEnvHandler("info", diagnostics.Info))
+
+	r.POST("/v1/super/projects", http.Handler("project_create", loadSuperEnv, projects.Create))
+	r.PUT("/v1/super/projects/{id}", http.Handler("project_update", loadSuperEnv, projects.Update))
+
+	adminIsSuper := config.Admin == "" || config.Admin == "super"
+	fmt.Println(adminIsSuper)
+	logger.Bool("admin", adminIsSuper)
+	if adminIsSuper {
+		attachAdmin(r, loadSuperEnv)
+	}
+
+	// catch all
+	r.NotFound = func(ctx *fasthttp.RequestCtx) {
+		resNotFoundPath.Write(ctx, log.Noop{})
+	}
+
+	return r.Handler, nil
+}
+
+// Admin routes can either be attached to the main/public http listener or the
+// super listener (assuming it's even enabled). This is done to support the two
+// foreseen usecase of a relatively static/controlled deployment (likely single-
+// tenancy) where the admins fully manage the system, including project definition,
+// and a more dynamic deployment (likely multi-tenancy) where project owners
+// fully manage their own projects.
+func attachAdmin(r *router.Router, envLoader EnvLoader) {
+	r.POST("/v1/admin/tables", http.Handler("table_create", envLoader, tables.Create))
 }
 
 // The "super" endpoints are powerful. They are executed outside of a typical
@@ -128,7 +205,7 @@ func loadSuperEnv(conn *fasthttp.RequestCtx) (*sqlkite.Env, http.Response, error
 	return sqlkite.NewEnv(nil, requestId), nil, nil
 }
 
-func createEnvLoader(userLoader UserLoader, projectIdLoader ProjectIdLoader) func(conn *fasthttp.RequestCtx) (*sqlkite.Env, http.Response, error) {
+func createEnvLoader(userLoader UserLoader, projectIdLoader ProjectIdLoader) EnvLoader {
 	return func(conn *fasthttp.RequestCtx) (*sqlkite.Env, http.Response, error) {
 		projectId, res := projectIdLoader(conn)
 		if res != nil {
@@ -167,5 +244,9 @@ func loadProjectIdFromSubdomain(conn *fasthttp.RequestCtx) (string, http.Respons
 }
 
 func loadUserFromHeader(conn *fasthttp.RequestCtx) (*sqlkite.User, http.Response) {
+	return nil, nil
+}
+
+func loadUserDisabled(conn *fasthttp.RequestCtx) (*sqlkite.User, http.Response) {
 	return nil, nil
 }
