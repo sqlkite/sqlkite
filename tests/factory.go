@@ -28,7 +28,7 @@ type factory struct {
 	// Most of our tests are going to be run against the standard project
 	StandardId string
 
-	// A project with very low limits (like the max allowed # of parameters is 2).
+	// A database with very low limits (used to test reaching/exceeding those limits)
 	LimitedId string
 }
 
@@ -38,8 +38,38 @@ type factory struct {
 // database to provide each test with a clean slate
 func (_ factory) DynamicId() string {
 	id := "00001111-0000-0000-0000-000000000002"
+	resetDatabase(id)
+	return id
+}
+
+func init() {
+	f.DB = super.DB.(f.SQLStorage)
+	Factory.Project = f.NewTable("sqlkite_projects", func(args f.KV) f.KV {
+		return f.KV{
+			"id":                      args.UUID("id", uuid.String()),
+			"max_concurrency":         args.Int("max_concurrency", 2),
+			"max_sql_length":          args.Int("max_sql_length", 4000),
+			"max_sql_parameter_count": args.Int("max_sql_parameter_count", 100),
+			"max_database_size":       args.Int("max_database_size", 100000),
+			"max_row_count":           args.Int("max_row_count", 100),
+			"max_result_length":       args.Int("max_result_length", 10000),
+			"max_from_count":          args.Int("max_from_count", 10),
+			"max_select_column_count": args.Int("max_select_column_count", 10),
+			"max_condition_count":     args.Int("max_condition_count", 10),
+			"max_order_by_count":      args.Int("max_order_by_count", 5),
+			"max_table_count":         args.Int("max_table_count", 10),
+			"created":                 args.Time("created", time.Now()),
+			"updated":                 args.Time("updated", time.Now()),
+		}
+	}, "id")
+
+	Factory.StandardId = "00001111-0000-0000-0000-000000000001"
+	Factory.LimitedId = "00001111-0000-0000-0000-000000000003"
+}
+
+func resetDatabase(id string) {
 	// clear out all the tables in this "messy" database
-	conn, err := sqlite.Open("tests/databases/"+id+"/main.sqlite", false)
+	conn, err := sqlite.Open(TestDBRoot()+"/"+id+"/main.sqlite", false)
 	if err != nil {
 		panic(err)
 	}
@@ -67,31 +97,4 @@ func (_ factory) DynamicId() string {
 	if err := conn.Exec("delete from sqlkite_tables"); err != nil {
 		panic(err)
 	}
-
-	return id
-}
-
-func init() {
-	f.DB = super.DB.(f.SQLStorage)
-	Factory.Project = f.NewTable("sqlkite_projects", func(args f.KV) f.KV {
-		return f.KV{
-			"id":                      args.UUID("id", uuid.String()),
-			"max_concurrency":         args.Int("max_concurrency", 2),
-			"max_sql_length":          args.Int("max_sql_length", 4000),
-			"max_sql_parameter_count": args.Int("max_sql_parameter_count", 100),
-			"max_database_size":       args.Int("max_database_size", 100000),
-			"max_row_count":           args.Int("max_row_count", 100),
-			"max_result_length":       args.Int("max_result_length", 10000),
-			"max_from_count":          args.Int("max_from_count", 10),
-			"max_select_column_count": args.Int("max_select_column_count", 10),
-			"max_condition_count":     args.Int("max_condition_count", 10),
-			"max_order_by_count":      args.Int("max_order_by_count", 5),
-			"max_table_count":         args.Int("max_table_count", 10),
-			"created":                 args.Time("created", time.Now()),
-			"updated":                 args.Time("updated", time.Now()),
-		}
-	}, "id")
-
-	Factory.StandardId = "00001111-0000-0000-0000-000000000001"
-	Factory.LimitedId = "00001111-0000-0000-0000-000000000003"
 }

@@ -62,7 +62,6 @@ func init() {
 	if err := super.DB.EnsureMigrations(); err != nil {
 		panic(err)
 	}
-
 }
 
 func String(constraints ...int) string {
@@ -89,9 +88,8 @@ func Rows(sql string, args ...any) []typed.Typed {
 // tests/setup/main.go script. They always begin with "00001111". We
 // need to keep those around. But various tests might create their own
 // DB (say, to test creating DBs), and those we want to cleanup
-func CleanTestDBs() {
-	_, b, _, _ := runtime.Caller(0)
-	root := filepath.Dir(b) + "/databases/"
+func RemoveTempDBs() {
+	root := TestDBRoot()
 
 	entries, _ := ioutil.ReadDir(root)
 	for _, entry := range entries {
@@ -103,4 +101,9 @@ func CleanTestDBs() {
 			panic(err)
 		}
 	}
+}
+
+func TestDBRoot() string {
+	_, b, _, _ := runtime.Caller(0)
+	return filepath.Dir(b) + "/databases/"
 }

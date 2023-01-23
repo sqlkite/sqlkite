@@ -9,8 +9,10 @@ import (
 	"src.goblgobl.com/tests/request"
 )
 
-var limitedProject *sqlkite.Project
-var standardProject *sqlkite.Project
+var (
+	limitedProject  *sqlkite.Project
+	standardProject *sqlkite.Project
+)
 
 func init() {
 	var err error

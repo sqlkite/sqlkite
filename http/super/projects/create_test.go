@@ -59,7 +59,7 @@ func Test_Create_InvalidData(t *testing.T) {
 }
 
 func Test_Create_DefaultInput(t *testing.T) {
-	defer tests.CleanTestDBs()
+	defer tests.RemoveTempDBs()
 
 	res := request.ReqT(t, sqlkite.BuildEnv().NoProject().Env()).
 		Post(Create).
@@ -78,7 +78,7 @@ func Test_Create_DefaultInput(t *testing.T) {
 }
 
 func Test_Create_ExplicitInput(t *testing.T) {
-	defer tests.CleanTestDBs()
+	defer tests.RemoveTempDBs()
 
 	res := request.ReqT(t, sqlkite.BuildEnv().NoProject().Env()).
 		Body(map[string]any{

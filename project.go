@@ -86,7 +86,17 @@ func (p *Project) WithTransaction(cb func(sqlite.Conn) error) (err error) {
 	return
 }
 
-func (p *Project) CreateTable(table data.Table) error {
+func (p *Project) CreateTable(env *Env, table data.Table) error {
+	if max := p.MaxTableCount; len(p.tables) >= int(max) {
+		invalid := validation.Invalid{
+			Code:  codes.VAL_TOO_MANY_TABLES,
+			Error: "Maximum table count reached",
+			Data:  validation.Max(max),
+		}
+		env.Validator.AddInvalid(invalid)
+		return nil
+	}
+
 	definition, err := json.Marshal(table)
 	if err != nil {
 		return fmt.Errorf("Project.CreateTable json - %w", err)
@@ -118,7 +128,7 @@ func (p *Project) CreateTable(table data.Table) error {
 	}
 
 	// update our in-memory project
-	_, err = reloadProject(p.Id)
+	_, err = ReloadProject(p.Id)
 	return err
 }
 
@@ -193,6 +203,19 @@ func (p *Project) Select(env *Env, sel sql.Select) (SelectResult, error) {
 		RowCount: rowCount,
 		Status:   SELECT_RESULT_OK,
 	}, nil
+}
+
+func (p *Project) bufferErrorToValidation(env *Env, err error) bool {
+	if errors.Is(err, buffer.ErrMaxSize) {
+		invalid := validation.Invalid{
+			Code:  codes.VAL_SQL_TOO_LONG,
+			Error: "Generated SQL query is too large",
+			Data:  validation.Max(p.MaxSQLLength),
+		}
+		env.Validator.AddInvalid(invalid)
+		return true
+	}
+	return false
 }
 
 func loadProject(id string) (*Project, error) {
@@ -319,24 +342,11 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 	}, nil
 }
 
-func reloadProject(id string) (*Project, error) {
+func ReloadProject(id string) (*Project, error) {
 	project, err := loadProject(id)
 	if err != nil {
 		return nil, err
 	}
 	Projects.Put(id, project)
 	return project, nil
-}
-
-func (p *Project) bufferErrorToValidation(env *Env, err error) bool {
-	if errors.Is(err, buffer.ErrMaxSize) {
-		invalid := validation.Invalid{
-			Code:  codes.VAL_SQL_TOO_LONG,
-			Error: "Generated SQL query is too large",
-			Data:  validation.Max(p.MaxSQLLength),
-		}
-		env.Validator.AddInvalid(invalid)
-		return true
-	}
-	return false
 }

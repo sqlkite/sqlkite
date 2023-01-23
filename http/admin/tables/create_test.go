@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"src.goblgobl.com/sqlkite"
+	"src.goblgobl.com/sqlkite/tests"
 	"src.goblgobl.com/tests/request"
 )
 
@@ -62,4 +63,17 @@ func Test_Create_InvalidDefault(t *testing.T) {
 		}).
 		Post(Create).
 		ExpectValidation("columns.0.default", 1002, "columns.1.default", 1005, "columns.2.default", 1016, "columns.3.default", 301_017)
+}
+
+func Test_Create_TooManyTables(t *testing.T) {
+	project, _ := sqlkite.Projects.Get(tests.Factory.LimitedId)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"name": "an_extra_table",
+			"columns": []any{
+				map[string]any{"name": "c1", "type": "text", "nullable": false},
+			},
+		}).
+		Post(Create).
+		ExpectValidation("", 301032)
 }

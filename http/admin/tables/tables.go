@@ -11,7 +11,7 @@ import (
 
 var (
 	// column and table names
-	dataFieldPattern = "^[a-zA-Z_][a-zA-Z0-9]*$"
+	dataFieldPattern = "^[a-zA-Z_][a-zA-Z0-9_]*$"
 	dataFieldError   = "must begin with a letter or underscore, and only contain letters, numbers or underscores"
 	nameValidation   = validation.String().Required().Length(1, 100).Pattern(dataFieldPattern, dataFieldError)
 	columnValidation = validation.Object().

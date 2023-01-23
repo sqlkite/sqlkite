@@ -55,7 +55,7 @@ func Test_Projects_Get_Known(t *testing.T) {
 
 func Test_Project_CreateTable(t *testing.T) {
 	project := dynamicProject(t)
-	err := project.CreateTable(data.Table{
+	err := project.CreateTable(project.Env(), data.Table{
 		Name: "tab1",
 		Columns: []data.Column{
 			data.BuildColumn().Name("c1").Type("text").Nullable().Column(),
@@ -66,7 +66,7 @@ func Test_Project_CreateTable(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	err = project.CreateTable(data.Table{
+	err = project.CreateTable(project.Env(), data.Table{
 		Name: "tab2",
 		Columns: []data.Column{
 			data.BuildColumn().Name("c1").Type("text").NotNullable().Default("def-1").Column(),

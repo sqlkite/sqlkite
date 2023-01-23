@@ -38,10 +38,15 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		}
 	}
 
-	err = env.Project.CreateTable(data.Table{
+	err = env.Project.CreateTable(env, data.Table{
 		Name:    input.String("name"),
 		Columns: columns,
 	})
+
+	// possible CreateTable added validation errors
+	if !validator.IsValid() {
+		return http.Validation(validator), nil
+	}
 
 	return http.Ok(nil), err
 }

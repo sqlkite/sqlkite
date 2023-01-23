@@ -56,7 +56,8 @@ func setupStandardProject() {
 		panic(err)
 	}
 
-	err = project.CreateTable(data.Table{
+	env := project.Env()
+	err = project.CreateTable(env, data.Table{
 		Name: "products",
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
@@ -148,7 +149,8 @@ func setupLimitedProject() {
 		panic(err)
 	}
 
-	err = project.CreateTable(data.Table{
+	env := project.Env()
+	err = project.CreateTable(env, data.Table{
 		Name: "t1",
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
@@ -158,7 +160,7 @@ func setupLimitedProject() {
 		panic(err)
 	}
 
-	err = project.CreateTable(data.Table{
+	err = project.CreateTable(env, data.Table{
 		Name: "t2",
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
