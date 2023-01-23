@@ -56,7 +56,8 @@ func (c Conn) GetProject(id string) (*data.Project, error) {
 	row := c.Row(`
 		select id, max_concurrency, max_sql_length, max_sql_parameter_count,
 		       max_database_size, max_row_count, max_result_length, max_from_count,
-		       max_select_column_count, max_condition_count, max_order_by_count
+		       max_select_column_count, max_condition_count, max_order_by_count,
+		       max_table_count
 		from sqlkite_projects
 		where id = ?1
 	`, id)
@@ -87,7 +88,8 @@ func (c Conn) GetUpdatedProjects(timestamp time.Time) ([]*data.Project, error) {
 	rows := c.Rows(`
 		select id, max_concurrency, max_sql_length, max_sql_parameter_count,
 		       max_database_size, max_row_count, max_result_length, max_from_count
-		       max_select_column_count, max_condition_count, max_order_by_count
+		       max_select_column_count, max_condition_count, max_order_by_count,
+		       max_table_count
 		from sqlkite_projects
 		where updated > ?1
 	`, timestamp)
@@ -114,13 +116,15 @@ func (c Conn) CreateProject(data data.Project) error {
 		insert into sqlkite_projects (
 			id, max_concurrency, max_sql_length, max_sql_parameter_count,
 			max_database_size, max_row_count, max_result_length, max_from_count,
-			max_select_column_count, max_condition_count, max_order_by_count
+			max_select_column_count, max_condition_count, max_order_by_count,
+			max_table_count
 		)
-		values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+		values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
 	`,
 		data.Id, data.MaxConcurrency, data.MaxSQLLength, data.MaxSQLParameterCount,
 		data.MaxDatabaseSize, data.MaxRowCount, data.MaxResultLength, data.MaxFromCount,
-		data.MaxSelectColumnCount, data.MaxConditionCount, data.MaxOrderByCount)
+		data.MaxSelectColumnCount, data.MaxConditionCount, data.MaxOrderByCount,
+		data.MaxTableCount)
 }
 
 func (c Conn) UpdateProject(data data.Project) (bool, error) {
@@ -135,12 +139,14 @@ func (c Conn) UpdateProject(data data.Project) (bool, error) {
 		  max_from_count = ?8,
 		  max_select_column_count = ?9,
 		  max_condition_count = ?10,
-		  max_order_by_count = ?11
+		  max_order_by_count = ?11,
+		  max_table_count = ?12
 		where id = ?1
 	`,
 		data.Id, data.MaxConcurrency, data.MaxSQLLength, data.MaxSQLParameterCount,
 		data.MaxDatabaseSize, data.MaxRowCount, data.MaxResultLength, data.MaxFromCount,
-		data.MaxSelectColumnCount, data.MaxConditionCount, data.MaxOrderByCount)
+		data.MaxSelectColumnCount, data.MaxConditionCount, data.MaxOrderByCount,
+		data.MaxTableCount)
 
 	if err != nil {
 		return false, err
@@ -158,6 +164,7 @@ func scanProject(scanner sqlite.Scanner) (*data.Project, error) {
 	err := scanner.Scan(&project.Id,
 		&project.MaxConcurrency, &project.MaxSQLLength, &project.MaxSQLParameterCount,
 		&project.MaxDatabaseSize, &project.MaxRowCount, &project.MaxResultLength, &project.MaxFromCount,
-		&project.MaxSelectColumnCount, &project.MaxConditionCount, &project.MaxOrderByCount)
+		&project.MaxSelectColumnCount, &project.MaxConditionCount, &project.MaxOrderByCount,
+		&project.MaxTableCount)
 	return &project, err
 }

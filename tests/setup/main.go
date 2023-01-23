@@ -48,6 +48,7 @@ func setupStandardProject() {
 		MaxSelectColumnCount: 10,
 		MaxConditionCount:    10,
 		MaxOrderByCount:      5,
+		MaxTableCount:        10,
 	})
 
 	project, err := sqlkite.Projects.Get(id)
@@ -96,6 +97,7 @@ func setupDynamicProject() {
 		MaxSelectColumnCount: 10,
 		MaxConditionCount:    10,
 		MaxOrderByCount:      5,
+		MaxTableCount:        10,
 	})
 
 	project, err := sqlkite.Projects.Get(id)
@@ -138,6 +140,7 @@ func setupLimitedProject() {
 		MaxSelectColumnCount: 2,
 		MaxConditionCount:    2,
 		MaxOrderByCount:      2,
+		MaxTableCount:        2,
 	})
 
 	project, err := sqlkite.Projects.Get(id)

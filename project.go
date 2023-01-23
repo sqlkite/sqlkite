@@ -52,6 +52,7 @@ type Project struct {
 	MaxSelectColumnCount uint16
 	MaxConditionCount    uint16
 	MaxOrderByCount      uint16
+	MaxTableCount        uint16
 	tables               map[string]data.Table
 }
 
@@ -309,6 +310,7 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 		MaxSelectColumnCount: projectData.MaxSelectColumnCount,
 		MaxConditionCount:    projectData.MaxConditionCount,
 		MaxOrderByCount:      projectData.MaxOrderByCount,
+		MaxTableCount:        projectData.MaxTableCount,
 
 		// If we let this start at 0, then restarts are likely to produce duplicates.
 		// While we make no guarantees about the uniqueness of the requestId, there's

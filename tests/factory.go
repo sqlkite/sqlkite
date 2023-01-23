@@ -86,6 +86,7 @@ func init() {
 			"max_select_column_count": args.Int("max_select_column_count", 10),
 			"max_condition_count":     args.Int("max_condition_count", 10),
 			"max_order_by_count":      args.Int("max_order_by_count", 5),
+			"max_table_count":         args.Int("max_table_count", 10),
 			"created":                 args.Time("created", time.Now()),
 			"updated":                 args.Time("updated", time.Now()),
 		}

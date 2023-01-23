@@ -12,4 +12,5 @@ type Project struct {
 	MaxSelectColumnCount uint16 `json:"max_select_column_count"`
 	MaxConditionCount    uint16 `json:"max_condition_count"`
 	MaxOrderByCount      uint16 `json:"max_order_by_count"`
+	MaxTableCount        uint16 `json:"max_table_count"`
 }

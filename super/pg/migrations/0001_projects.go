@@ -22,6 +22,7 @@ func Migrate_0001(tx pgx.Tx) error {
 			max_select_column_count int not null,
 			max_condition_count int not null,
 			max_order_by_count int not null,
+			max_table_count int not null,
 			created timestamptz not null default now(),
 			updated timestamptz not null default now()
 		)`); err != nil {
