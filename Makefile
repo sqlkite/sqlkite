@@ -10,7 +10,7 @@ testdb: tests/setup/main.go
 	touch tests/databases/
 
 .PHONY: t
-t: commit.txt t_sqlite t_pg t_cr
+t: testdb commit.txt t_sqlite t_pg t_cr
 
 .PHONY: t_sqlite
 t_sqlite:
