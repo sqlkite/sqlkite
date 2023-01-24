@@ -64,8 +64,9 @@ func Test_GetProject_Unknown(t *testing.T) {
 }
 
 func Test_GetProject_Success(t *testing.T) {
-	id := uuid.String()
 	defer cleanupTempProjects()
+
+	id := uuid.String()
 	db.MustExec(`
 		insert into sqlkite_projects (id,
 			max_concurrency, max_sql_length, max_sql_parameter_count,
@@ -93,8 +94,9 @@ func Test_GetProject_Success(t *testing.T) {
 }
 
 func Test_GetUpdatedProjects_None(t *testing.T) {
-	id := uuid.String()
 	defer cleanupTempProjects()
+
+	id := uuid.String()
 	db.MustExec(`
 		insert into sqlkite_projects (id, updated,
 			max_concurrency, max_sql_length, max_sql_parameter_count,
@@ -110,8 +112,12 @@ func Test_GetUpdatedProjects_None(t *testing.T) {
 }
 
 func Test_GetUpdatedProjects_Success(t *testing.T) {
-	id1, id2, id3, id4 := uuid.String(), uuid.String(), uuid.String(), uuid.String()
 	defer cleanupTempProjects()
+
+	// make it so no other project interferes with our test
+	db.MustExec("update sqlkite_projects set updated = now() - interval '500 seconds'")
+
+	id1, id2, id3, id4 := uuid.String(), uuid.String(), uuid.String(), uuid.String()
 	db.MustExec(`
 		insert into sqlkite_projects (id, updated,
 			max_concurrency, max_sql_length, max_sql_parameter_count,
