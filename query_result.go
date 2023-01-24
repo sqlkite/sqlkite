@@ -9,9 +9,6 @@ const (
 	MUTATE_RESULT_OK MutateResultStatus = iota
 	MUTATE_RESULT_INVALID
 	MUTATE_RESULT_ACCESS_DENIED
-
-	SELECT_RESULT_OK SelectResultStatus = iota
-	SELECT_RESULT_INVALID
 )
 
 type MutateResult struct {
@@ -20,7 +17,6 @@ type MutateResult struct {
 }
 
 type SelectResult struct {
-	Status   SelectResultStatus
 	Result   *buffer.Buffer
 	RowCount int
 }

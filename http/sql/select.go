@@ -66,12 +66,7 @@ func Select(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.Validation(validator), nil
 	}
 
-	if result.Status == sqlkite.SELECT_RESULT_OK {
-		return NewSelectResponse(result), nil
-	}
-
-	// all known cases should have been reached
-	return nil, fmt.Errorf("sql_select_unreachable (%d)", result.Status)
+	return NewSelectResponse(result), nil
 }
 
 func selectParseColumns(input any, validator *validation.Result, p *sqlkite.Project) []sql.DataField {
@@ -242,7 +237,7 @@ func selectParseOffset(input any, validator *validation.Result) optional.Value[i
 	return optional.Int(int(offset))
 }
 
-func NewSelectResponse(result sqlkite.SelectResult) *SelectResponse {
+func NewSelectResponse(result *sqlkite.SelectResult) *SelectResponse {
 	buffer := result.Result
 	// ignore error, whatever called us should have handled any buffer errors already
 	data, _ := buffer.Bytes()

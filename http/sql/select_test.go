@@ -58,21 +58,13 @@ func Test_Select_InvalidData(t *testing.T) {
 }
 
 func Test_Select_InvalidTable(t *testing.T) {
-	var errorId string
-	log := tests.CaptureLog(func() {
-		res := request.ReqT(t, standardProject.Env()).
-			Body(map[string]any{
-				"select": []string{"id"},
-				"from":   []string{"not_a_real_table"},
-			}).
-			Post(Select).
-			ExpectStatus(500)
-
-		errorId = res.Json.String("error_id")
-	})
-
-	assert.StringContains(t, log, "no such table: not_a_real_table (code: 1)")
-	assert.StringContains(t, log, "eid="+errorId)
+	request.ReqT(t, standardProject.Env()).
+		Body(map[string]any{
+			"select": []string{"id"},
+			"from":   []string{"not_a_real_table"},
+		}).
+		Post(Select).
+		ExpectValidation("", 302033)
 }
 
 func Test_Select_InvalidColumn(t *testing.T) {
@@ -96,8 +88,8 @@ func Test_Select_InvalidColumn(t *testing.T) {
 func Test_Select_SQLTooLong(t *testing.T) {
 	request.ReqT(t, limitedProject.Env()).
 		Body(map[string]any{
-			"select": []string{"this_id_is_quite_long"},
-			"from":   []string{"and_this_table_is_even_longer"},
+			"select": []string{"this_id_is_quite_long", "and_another_really_long_one"},
+			"from":   []string{"t1"},
 		}).
 		Post(Select).
 		ExpectValidation("", 301_022)

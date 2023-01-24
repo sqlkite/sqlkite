@@ -141,7 +141,26 @@ func (p *Project) Buffer() *buffer.Buffer {
 	return Buffer.CheckoutMax(p.MaxSQLLength)
 }
 
-func (p *Project) Select(env *Env, sel sql.Select) (SelectResult, error) {
+func (p *Project) Select(env *Env, sel sql.Select) (*SelectResult, error) {
+	validator := env.Validator
+
+	tables := p.tables
+	for _, from := range sel.Froms {
+		tableName := from.TableName()
+		_, exists := tables[tableName]
+		if !exists {
+			validator.AddInvalid(validation.Invalid{
+				Code:  codes.VAL_UNKNOWN_TABLE,
+				Error: "Unknown table: " + tableName,
+				Data:  validation.Value(tableName),
+			})
+		}
+	}
+
+	if !validator.IsValid() {
+		return nil, nil
+	}
+
 	writer := p.Buffer()
 	defer writer.Release()
 
@@ -150,9 +169,9 @@ func (p *Project) Select(env *Env, sel sql.Select) (SelectResult, error) {
 
 	if err != nil {
 		if p.bufferErrorToValidation(env, err) {
-			return SelectResult{Status: SELECT_RESULT_INVALID}, nil
+			return nil, nil
 		}
-		return SelectResult{}, err
+		return nil, err
 	}
 
 	pool := p.dbPool
@@ -177,20 +196,19 @@ func (p *Project) Select(env *Env, sel sql.Select) (SelectResult, error) {
 
 	if err := rows.Error(); err != nil {
 		result.Release()
-		return SelectResult{}, err
+		return nil, err
 	}
 
 	if err := result.Error(); err != nil {
 		result.Release()
 		if errors.Is(err, buffer.ErrMaxSize) {
-			invalid := validation.Invalid{
+			validator.AddInvalid(validation.Invalid{
 				Code:  codes.VAL_RESULT_TOO_LONG,
 				Error: "Result too large",
 				Data:  validation.Max(p.MaxResultLength),
-			}
-			env.Validator.AddInvalid(invalid)
+			})
 		}
-		return SelectResult{}, err
+		return nil, err
 	}
 
 	if rowCount > 0 {
@@ -198,10 +216,9 @@ func (p *Project) Select(env *Env, sel sql.Select) (SelectResult, error) {
 		result.Truncate(1)
 	}
 
-	return SelectResult{
+	return &SelectResult{
 		Result:   result,
 		RowCount: rowCount,
-		Status:   SELECT_RESULT_OK,
 	}, nil
 }
 

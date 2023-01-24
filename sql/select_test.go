@@ -3,8 +3,14 @@ package sql
 import (
 	"testing"
 
+	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/utils/optional"
 )
+
+func Test_SelectFrom_TableName(t *testing.T) {
+	sf := SelectFrom{From: From{"table1", nil}}
+	assert.Equal(t, sf.TableName(), "table1")
+}
 
 func Test_SelectFrom_Write(t *testing.T) {
 	assertSQL(t, SelectFrom{

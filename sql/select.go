@@ -71,6 +71,10 @@ type SelectFrom struct {
 	On   *Condition `json:"on",omitempty`
 }
 
+func (f SelectFrom) TableName() string {
+	return f.From.Table
+}
+
 func (f SelectFrom) Write(b *buffer.Buffer) {
 	switch f.Join {
 	case JOIN_TYPE_INNER:
