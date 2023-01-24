@@ -5,6 +5,6 @@
 		"super": "127.0.0.1:5101"
 	},
 	"super": {
-		"sqlite": {"path": "/tmp/sqlkite.super"}
+		"sqlite": {"path": "./tests/databases/sqlkite.super"}
 	}
 }

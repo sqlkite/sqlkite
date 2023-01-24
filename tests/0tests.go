@@ -46,7 +46,7 @@ func init() {
 	superConfig := super.Config{}
 	switch tests.StorageType() {
 	case "sqlite":
-		superConfig.Sqlite = &sqlite.Config{Path: "/tmp/sqlkite.super"}
+		superConfig.Sqlite = &sqlite.Config{Path: TestDBRoot() + "/sqlkite.super"}
 	case "postgres":
 		superConfig.Postgres = &pg.Config{URL: tests.PG()}
 	case "cockroach":
@@ -95,6 +95,9 @@ func RemoveTempDBs() {
 	for _, entry := range entries {
 		name := entry.Name()
 		if strings.HasPrefix(name, "00001111-") {
+			continue
+		}
+		if name == "sqlkite.super" {
 			continue
 		}
 		if err := os.RemoveAll(path.Join(root, name)); err != nil {

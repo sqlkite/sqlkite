@@ -15,16 +15,8 @@ var (
 )
 
 func init() {
-	var err error
-	limitedProject, err = sqlkite.Projects.Get(tests.Factory.LimitedId)
-	if err != nil {
-		panic(err)
-	}
-
-	standardProject, err = sqlkite.Projects.Get(tests.Factory.StandardId)
-	if err != nil {
-		panic(err)
-	}
+	limitedProject, _ = sqlkite.Projects.Get(tests.Factory.LimitedId)
+	standardProject, _ = sqlkite.Projects.Get(tests.Factory.StandardId)
 }
 
 func Test_Select_InvalidBody(t *testing.T) {
