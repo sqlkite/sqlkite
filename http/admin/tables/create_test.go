@@ -98,9 +98,9 @@ func Test_Create_Success_Defaults(t *testing.T) {
 
 	// reload the project, because in-memory projects are immutable
 	project, _ = sqlkite.Projects.Get(id)
-	table, exists := project.Table("Test_Create_Success_Defaults")
+	table, exists := project.Table("test_create_success_defaults")
 	assert.True(t, exists)
-	assert.Equal(t, table.Name, "Test_Create_Success_Defaults")
+	assert.Equal(t, table.Name, "test_create_success_defaults")
 	assert.Equal(t, len(table.Columns), 4)
 
 	assert.Equal(t, table.Columns[0].Name, "c1")

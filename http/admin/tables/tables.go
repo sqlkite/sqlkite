@@ -5,6 +5,7 @@ import (
 
 	"src.goblgobl.com/sqlkite/codes"
 	"src.goblgobl.com/sqlkite/data"
+	"src.goblgobl.com/utils/ascii"
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
 )
@@ -13,7 +14,12 @@ var (
 	// column and table names
 	dataFieldPattern = "^[a-zA-Z_][a-zA-Z0-9_]*$"
 	dataFieldError   = "must begin with a letter or underscore, and only contain letters, numbers or underscores"
-	nameValidation   = validation.String().Required().Length(1, 100).Pattern(dataFieldPattern, dataFieldError)
+	nameValidation   = validation.String().
+				Required().
+				Length(1, 100).
+				Pattern(dataFieldPattern, dataFieldError).
+				Transformer(ascii.Lowercase)
+
 	columnValidation = validation.Object().
 				Field("name", validation.String().Required().Length(1, 100).Pattern(dataFieldPattern, dataFieldError)).
 				Field("type", validation.String().Required().Choice("text", "int", "real", "blob").Convert(columnTypeConverter)).
