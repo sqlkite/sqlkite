@@ -38,10 +38,10 @@ func init() {
 		panic(err)
 	}
 
-	url := tests.PG()
+	url := tests.PG("sqlkite_test")
 	tpe := tests.StorageType()
 	if tpe == "cockroach" {
-		url = tests.CR()
+		url = tests.CR("sqlkite_test")
 	}
 
 	db, err = New(Config{URL: url}, tpe)
@@ -65,7 +65,7 @@ func Test_GetProject_Unknown(t *testing.T) {
 
 func Test_GetProject_Success(t *testing.T) {
 	id := uuid.String()
-	db.MustExec("truncate table sqlkite_projects")
+	defer cleanupTempProjects()
 	db.MustExec(`
 		insert into sqlkite_projects (id,
 			max_concurrency, max_sql_length, max_sql_parameter_count,
@@ -94,7 +94,7 @@ func Test_GetProject_Success(t *testing.T) {
 
 func Test_GetUpdatedProjects_None(t *testing.T) {
 	id := uuid.String()
-	db.MustExec("truncate table sqlkite_projects")
+	defer cleanupTempProjects()
 	db.MustExec(`
 		insert into sqlkite_projects (id, updated,
 			max_concurrency, max_sql_length, max_sql_parameter_count,
@@ -102,7 +102,7 @@ func Test_GetUpdatedProjects_None(t *testing.T) {
 			max_select_column_count, max_condition_count, max_order_by_count,
 			max_table_count
 		)
-		values ($1, now() - interval '1 second', 0, 0, 0, 0, 0, 0, 0, 0, 0)
+		values ($1, now() - interval '1 second', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 	`, id)
 	updated, err := db.GetUpdatedProjects(time.Now())
 	assert.Nil(t, err)
@@ -111,11 +111,11 @@ func Test_GetUpdatedProjects_None(t *testing.T) {
 
 func Test_GetUpdatedProjects_Success(t *testing.T) {
 	id1, id2, id3, id4 := uuid.String(), uuid.String(), uuid.String(), uuid.String()
-	db.MustExec("truncate table sqlkite_projects")
+	defer cleanupTempProjects()
 	db.MustExec(`
 		insert into sqlkite_projects (id, updated,
 			max_concurrency, max_sql_length, max_sql_parameter_count,
-			max_database_size,  max_row_count, max_result_length, max_from_count
+			max_database_size, max_row_count, max_result_length, max_from_count,
 			max_select_column_count, max_condition_count, max_order_by_count,
 			max_table_count
 		) values
@@ -213,4 +213,8 @@ func Test_UpdateProject(t *testing.T) {
 	assert.Equal(t, project.MaxConditionCount, 28)
 	assert.Equal(t, project.MaxOrderByCount, 29)
 	assert.Equal(t, project.MaxTableCount, 30)
+}
+
+func cleanupTempProjects() {
+	db.MustExec("delete from sqlkite_projects where id::text not like '00001111-%'")
 }

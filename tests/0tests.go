@@ -31,6 +31,7 @@ func init() {
 	err := log.Configure(log.Config{
 		Level: "WARN",
 	})
+
 	if err != nil {
 		panic(err)
 	}
@@ -39,6 +40,7 @@ func init() {
 		PoolSize:  1,
 		MaxErrors: 10,
 	})
+
 	if err != nil {
 		panic(err)
 	}
@@ -48,9 +50,9 @@ func init() {
 	case "sqlite":
 		superConfig.Sqlite = &sqlite.Config{Path: TestDBRoot() + "/sqlkite.super"}
 	case "postgres":
-		superConfig.Postgres = &pg.Config{URL: tests.PG()}
+		superConfig.Postgres = &pg.Config{URL: tests.PG("sqlkite_test")}
 	case "cockroach":
-		superConfig.Cockroach = &pg.Config{URL: tests.CR()}
+		superConfig.Cockroach = &pg.Config{URL: tests.CR("sqlkite_test")}
 	default:
 		panic("invalid storage type")
 	}

@@ -29,7 +29,7 @@ func Test_Configure_PG(t *testing.T) {
 		return
 	}
 	config := Config{
-		Postgres: &pg.Config{URL: tests.PG()},
+		Postgres: &pg.Config{URL: tests.PG("sqlkite_test")},
 	}
 	err := Configure(config)
 	assert.Nil(t, err)

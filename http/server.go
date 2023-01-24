@@ -16,6 +16,7 @@ import (
 	"src.goblgobl.com/sqlkite/http/super/projects"
 	"src.goblgobl.com/utils"
 	"src.goblgobl.com/utils/http"
+	"src.goblgobl.com/utils/uuid"
 
 	"github.com/fasthttp/router"
 	"github.com/valyala/fasthttp"
@@ -211,6 +212,11 @@ func createEnvLoader(userLoader UserLoader, projectIdLoader ProjectIdLoader) Env
 		if res != nil {
 			return nil, res, nil
 		}
+
+		if !uuid.IsValid(projectId) {
+			return nil, resProjectNotFound, nil
+		}
+
 		project, err := sqlkite.Projects.Get(projectId)
 
 		if err != nil {

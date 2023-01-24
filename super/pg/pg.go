@@ -91,7 +91,7 @@ func (db DB) GetUpdatedProjects(timestamp time.Time) ([]*data.Project, error) {
 
 	rows, err := db.Query(context.Background(), `
 		select id, max_concurrency, max_sql_length, max_sql_parameter_count,
-		       max_database_size, max_row_count, max_result_length, max_from_count
+		       max_database_size, max_row_count, max_result_length, max_from_count,
 		       max_select_column_count, max_condition_count, max_order_by_count,
 		       max_table_count
 		from sqlkite_projects where updated > $1
@@ -139,11 +139,11 @@ func (db DB) UpdateProject(data data.Project) (bool, error) {
 		  max_sql_parameter_count = $4,
 		  max_database_size = $5,
 		  max_row_count = $6,
-		  max_result_length = $7
+		  max_result_length = $7,
 		  max_from_count = $8,
 		  max_select_column_count = $9,
 		  max_condition_count = $10,
-		  max_order_by_count = $11
+		  max_order_by_count = $11,
 		  max_table_count = $12
 		where id = $1
 	`,

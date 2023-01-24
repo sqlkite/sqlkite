@@ -12,6 +12,7 @@ import (
 	"src.goblgobl.com/tests/request"
 	"src.goblgobl.com/utils/http"
 	"src.goblgobl.com/utils/log"
+	"src.goblgobl.com/utils/uuid"
 )
 
 var projectId string
@@ -35,7 +36,16 @@ func Test_Server_Env_Project_FromHeader(t *testing.T) {
 	})(conn)
 	request.Res(t, conn).ExpectInvalid(302_002)
 
+	// invalid project id
 	conn = request.Req(t).ProjectId("nope").Conn()
+	http.Handler("", createEnvLoader(nil, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		assert.Fail(t, "next should not be called")
+		return nil, nil
+	})(conn)
+	request.Res(t, conn).ExpectInvalid(302_004)
+
+	// project id not found
+	conn = request.Req(t).ProjectId(uuid.String()).Conn()
 	http.Handler("", createEnvLoader(nil, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
