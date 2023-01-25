@@ -48,7 +48,7 @@ func init() {
 	superConfig := super.Config{}
 	switch tests.StorageType() {
 	case "sqlite":
-		superConfig.Sqlite = &sqlite.Config{Path: TestDBRoot() + "/sqlkite.super"}
+		superConfig.Sqlite = &sqlite.Config{Path: TestDBRoot() + "/../sqlkite.super"}
 	case "postgres":
 		superConfig.Postgres = &pg.Config{URL: tests.PG("sqlkite_test")}
 	case "cockroach":

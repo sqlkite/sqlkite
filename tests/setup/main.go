@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"strings"
 
 	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/sqlkite"
@@ -23,16 +24,32 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
 	if err := sqlkite.Init(config); err != nil {
 		panic(err)
 	}
 
-	executeForEachSuper(func() {
-		if err := super.DB.EnsureMigrations(); err != nil {
-			panic(err)
-		}
-	})
+	superType := ""
+	if args := os.Args; len(args) == 2 {
+		superType = args[1]
+	}
+
+	var superConfig super.Config
+	switch strings.ToLower(superType) {
+	case "pg":
+		superConfig = super.Config{Postgres: &pg.Config{URL: tests.PG("sqlkite_test")}}
+	case "cr":
+		superConfig = super.Config{Cockroach: &pg.Config{URL: tests.CR("sqlkite_test")}}
+	default:
+		superConfig = super.Config{Sqlite: &superSqlite.Config{"tests/sqlkite.super"}}
+	}
+
+	if err := super.Configure(superConfig); err != nil {
+		panic(err)
+	}
+
+	if err := super.DB.EnsureMigrations(); err != nil {
+		panic(err)
+	}
 
 	setupStandardProject()
 	setupDynamicProject()
@@ -212,28 +229,11 @@ func createProjectDatabase(d data.Project) {
 		panic(err)
 	}
 
-	executeForEachSuper(func() {
-		if err := super.DB.DeleteProject(id); err != nil {
-			panic(err)
-		}
-
-		if err := super.DB.CreateProject(d); err != nil {
-			panic(err)
-		}
-	})
-}
-
-func executeForEachSuper(cb func()) {
-	configs := []super.Config{
-		super.Config{Sqlite: &superSqlite.Config{"tests/databases/sqlkite.super"}},
-		super.Config{Postgres: &pg.Config{URL: tests.PG("sqlkite_test")}},
-		super.Config{Cockroach: &pg.Config{URL: tests.CR("sqlkite_test")}},
+	if err := super.DB.DeleteProject(id); err != nil {
+		panic(err)
 	}
 
-	for _, config := range configs {
-		if err := super.Configure(config); err != nil {
-			panic(err)
-		}
-		cb()
+	if err := super.DB.CreateProject(d); err != nil {
+		panic(err)
 	}
 }
