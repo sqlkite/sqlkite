@@ -74,7 +74,6 @@ func setupStandardProject() {
 	if err != nil {
 		panic(err)
 	}
-
 	project.WithDB(func(conn sqlite.Conn) {
 		conn.MustExec(`
 			insert into products (id, name, rating, image) values
@@ -85,6 +84,36 @@ func setupStandardProject() {
 			1, "KF99", 4.8, nil,
 			2, "Absolute", 4.1, []byte{1, 2, 3, 4},
 			3, "Keemun", 4.0, []byte{5, 6, 7},
+		)
+	})
+
+	err = project.CreateTable(env, data.Table{
+		Name: "users",
+		Columns: []data.Column{
+			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
+			data.Column{Name: "name", Type: data.COLUMN_TYPE_TEXT},
+			data.Column{Name: "public", Type: data.COLUMN_TYPE_INT},
+		},
+		Select: &data.SelectAccessControl{
+			Name: "sqlkite_cte_users",
+			CTE:  "select * from users where public = 1",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	project.WithDB(func(conn sqlite.Conn) {
+		conn.MustExec(`
+			insert into users (id, name, public) values
+			(?1, ?2, ?3),
+			(?4, ?5, ?6),
+			(?7, ?8, ?9),
+			(?10, ?11, ?12)
+		`,
+			1, "Leto", 0,
+			2, "Ghanima", 0,
+			3, "Duncan", 1,
+			4, "Teg", 1,
 		)
 	})
 }

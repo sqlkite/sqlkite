@@ -80,7 +80,7 @@ func Test_Create_TooManyTables(t *testing.T) {
 		ExpectValidation("", 301032)
 }
 
-func Test_Create_Success_Defaults(t *testing.T) {
+func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 	id := tests.Factory.DynamicId()
 	project, _ := sqlkite.Projects.Get(id)
 	request.ReqT(t, project.Env()).
@@ -91,6 +91,9 @@ func Test_Create_Success_Defaults(t *testing.T) {
 				map[string]any{"name": "c2", "type": "int", "nullable": true, "default": 32},
 				map[string]any{"name": "c3", "type": "real", "nullable": true, "default": 9000.1},
 				map[string]any{"name": "c4", "type": "blob", "nullable": true, "default": "b3ZlcjkwMDA="},
+			},
+			"access": map[string]any{
+				"select": "select * from a_table where user_id = sqlkite_user_id()",
 			},
 		}).
 		Post(Create).
@@ -122,4 +125,53 @@ func Test_Create_Success_Defaults(t *testing.T) {
 	assert.Equal(t, string(table.Columns[3].Default.([]byte)), "over9000")
 	assert.Equal(t, table.Columns[3].Nullable, true)
 	assert.Equal(t, table.Columns[3].Type, data.COLUMN_TYPE_BLOB)
+
+	assert.Equal(t, table.Select.Name, "sqlkite_cte_test_create_success_defaults")
+	assert.Equal(t, table.Select.CTE, "select * from a_table where user_id = sqlkite_user_id()")
+}
+
+func Test_Create_Success_NoDefaults_NoAccessControl(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"name": "Test_Create_Success_Defaults",
+			"columns": []any{
+				map[string]any{"name": "c1", "type": "text", "nullable": false},
+				map[string]any{"name": "c2", "type": "int", "nullable": false},
+				map[string]any{"name": "c3", "type": "real", "nullable": false},
+				map[string]any{"name": "c4", "type": "blob", "nullable": false},
+			},
+		}).
+		Post(Create).
+		OK()
+
+	// reload the project, because in-memory projects are immutable
+	project, _ = sqlkite.Projects.Get(id)
+	table, exists := project.Table("test_create_success_defaults")
+	assert.True(t, exists)
+	assert.Equal(t, table.Name, "test_create_success_defaults")
+	assert.Equal(t, len(table.Columns), 4)
+
+	assert.Equal(t, table.Columns[0].Name, "c1")
+	assert.Nil(t, table.Columns[0].Default)
+	assert.Equal(t, table.Columns[0].Nullable, false)
+	assert.Equal(t, table.Columns[0].Type, data.COLUMN_TYPE_TEXT)
+
+	assert.Equal(t, table.Columns[1].Name, "c2")
+	assert.Nil(t, table.Columns[1].Default)
+	assert.Equal(t, table.Columns[1].Nullable, false)
+	assert.Equal(t, table.Columns[1].Type, data.COLUMN_TYPE_INT)
+
+	assert.Equal(t, table.Columns[2].Name, "c3")
+	assert.Nil(t, table.Columns[2].Default)
+	assert.Equal(t, table.Columns[2].Nullable, false)
+	assert.Equal(t, table.Columns[2].Type, data.COLUMN_TYPE_REAL)
+
+	assert.Equal(t, table.Columns[3].Name, "c4")
+	assert.Nil(t, table.Columns[3].Default)
+	assert.Equal(t, table.Columns[3].Nullable, false)
+	assert.Equal(t, table.Columns[3].Type, data.COLUMN_TYPE_BLOB)
+
+	assert.Nil(t, table.Select)
 }

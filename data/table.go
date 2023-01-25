@@ -14,6 +14,7 @@ const (
 type Table struct {
 	Name    string `json:"name"`
 	Columns []Column
+	Select  *SelectAccessControl `json:"select",omitempty`
 }
 
 type Column struct {
@@ -35,4 +36,9 @@ func (c ColumnType) String() string {
 		return "blob"
 	}
 	panic(fmt.Sprintf("ColumnType.String(%d)", c))
+}
+
+type SelectAccessControl struct {
+	CTE  string `json:"cte"`
+	Name string `json:"name"`
 }

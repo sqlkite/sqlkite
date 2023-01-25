@@ -144,16 +144,28 @@ func (p *Project) Buffer() *buffer.Buffer {
 func (p *Project) Select(env *Env, sel sql.Select) (*SelectResult, error) {
 	validator := env.Validator
 
+	// This is important. We're going to inject our access control into our select
+	// query. We do this by examing every table in the select statement and seeing
+	// if it has a configured access control CTE. If it does, we'll inform the
+	// select query about the CTE and we'll mutate the table name to use the CTE
+	// (sqlite CTEs don't shadow table names, so we need to give the CTE a distinct
+	// name and change the query's table name(s) to use the CTE name(s)).
+	selRef := &sel
 	tables := p.tables
-	for _, from := range sel.Froms {
+	for i, from := range sel.Froms {
 		tableName := from.TableName()
-		_, exists := tables[tableName]
+		table, exists := tables[tableName]
 		if !exists {
+			// while we're looping through these tables, we might as well exit early
+			// (and with a good errorr message) on an unknown table.
 			validator.AddInvalid(validation.Invalid{
 				Code:  codes.VAL_UNKNOWN_TABLE,
 				Error: "Unknown table: " + tableName,
 				Data:  validation.Value(tableName),
 			})
+		}
+		if tableSelect := table.Select; tableSelect != nil {
+			selRef.CTE(i, tableSelect.Name, tableSelect.CTE)
 		}
 	}
 

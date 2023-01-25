@@ -28,6 +28,9 @@ var (
 
 	columnsValidation = validation.Array().Min(1).Max(100).Required().Validator(columnValidation)
 
+	accessValidation = validation.Object().
+				Field("select", validation.String().Length(0, 4096))
+
 	blobDefaultError = validation.Invalid{
 		Code:  codes.VAL_NON_BASE64_COLUMN_DEFAULT,
 		Error: "blob default should be base64 encoded",

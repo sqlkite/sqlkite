@@ -18,6 +18,7 @@ const (
 )
 
 type Select struct {
+	CTEs       []CTE
 	Columns    []DataField
 	Froms      []SelectFrom
 	Where      Condition
@@ -27,7 +28,23 @@ type Select struct {
 	OrderBy    []OrderBy
 }
 
+// we trust that our caller knows that index < len(s.Froms)
+func (s *Select) CTE(index int, name string, cte string) {
+	s.Froms[index].From.Table = name
+	s.CTEs = append(s.CTEs, CTE{Name: name, CTE: cte})
+}
+
 func (s Select) Write(b *buffer.Buffer) {
+	if ctes := s.CTEs; len(ctes) > 0 {
+		b.Write([]byte("with "))
+		ctes[0].Write(b)
+		for _, cte := range ctes[1:] {
+			b.Write([]byte(", "))
+			cte.Write(b)
+		}
+		b.WriteByte(' ')
+	}
+
 	b.Write([]byte("select json_object("))
 	columns := s.Columns
 	columns[0].WriteAsJsonObject(b)

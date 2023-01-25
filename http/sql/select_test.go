@@ -219,3 +219,15 @@ func Test_Select_Paging(t *testing.T) {
 		OK()
 	assert.Equal(t, res.Body, `{"r":[]}`)
 }
+
+func Test_Select_AccessControl_NoUser(t *testing.T) {
+	p, _ := sqlkite.Projects.Get(tests.Factory.StandardId)
+	res := request.ReqT(t, p.Env()).
+		Body(map[string]any{
+			"select": []string{"id", "public"},
+			"from":   []string{"users"},
+		}).
+		Post(Select).
+		OK()
+	assert.Equal(t, res.Body, `{"r":[{"id":3,"public":1},{"id":4,"public":1}]}`)
+}

@@ -88,3 +88,15 @@ func (df DataField) WriteAsJsonObject(b *buffer.Buffer) {
 	}
 	b.WriteUnsafe(name)
 }
+
+type CTE struct {
+	Name string
+	CTE  string
+}
+
+func (cte CTE) Write(b *buffer.Buffer) {
+	b.WriteUnsafe(cte.Name)
+	b.Write([]byte(" as ("))
+	b.WriteUnsafe(cte.CTE)
+	b.WriteByte(')')
+}

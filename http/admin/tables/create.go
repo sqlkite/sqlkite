@@ -12,7 +12,8 @@ import (
 var (
 	createValidation = validation.Object().
 		Field("name", nameValidation).
-		Field("columns", columnsValidation)
+		Field("columns", columnsValidation).
+		Field("access", accessValidation)
 )
 
 // This is a "global" env: env.Project is nil
@@ -27,6 +28,8 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.Validation(validator), nil
 	}
 
+	tableName := input.String("name")
+
 	columnsInput := input.Objects("columns")
 	columns := make([]data.Column, len(columnsInput))
 	for i, ci := range columnsInput {
@@ -38,9 +41,20 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		}
 	}
 
+	var selectAccess *data.SelectAccessControl
+	if access, ok := input.ObjectIf("access"); ok {
+		if cte, ok := access.StringIf("select"); ok {
+			selectAccess = &data.SelectAccessControl{
+				CTE:  cte,
+				Name: "sqlkite_cte_" + tableName,
+			}
+		}
+	}
+
 	err = env.Project.CreateTable(env, data.Table{
-		Name:    input.String("name"),
+		Name:    tableName,
 		Columns: columns,
+		Select:  selectAccess,
 	})
 
 	// possible CreateTable added validation errors

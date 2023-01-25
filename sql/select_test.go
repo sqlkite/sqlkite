@@ -107,3 +107,30 @@ func Test_Select_Write_MultipleColumn_MultipleFrom(t *testing.T) {
 		},
 	}, "select json_object('id', t1.id, 'name', t2.full_name) from table1 as t1 inner join table2 as t2 on (t1.id = t2.parent_id) where (enabled = ?1) order by id,t2.parent_id desc limit 3 offset 4")
 }
+
+func Test_Select_Single_CTE(t *testing.T) {
+	sel := Select{
+		Columns: []DataField{DataField{Name: "id"}},
+		Froms: []SelectFrom{
+			SelectFrom{From: From{"table1", &Alias{"t1"}}},
+		},
+	}
+
+	sel.CTE(0, "table1_cte", "select * from table1 where public")
+	assertSQL(t, sel, "with table1_cte as (select * from table1 where public) select json_object('id', id) from table1_cte as t1 where true limit 0")
+}
+
+func Test_Select_Multiple_CTE(t *testing.T) {
+	sel := Select{
+		Columns: []DataField{DataField{Name: "id"}},
+		Froms: []SelectFrom{
+			SelectFrom{From: From{"table1", &Alias{"t1"}}},
+			SelectFrom{Join: JOIN_TYPE_LEFT, From: From{"table2", nil}},
+			SelectFrom{Join: JOIN_TYPE_LEFT, From: From{"table3", nil}},
+		},
+	}
+
+	sel.CTE(0, "table1_cte", "select * from table1 where public")
+	sel.CTE(2, "table3_cte", "select * from table3")
+	assertSQL(t, sel, "with table1_cte as (select * from table1 where public), table3_cte as (select * from table3) select json_object('id', id) from table1_cte as t1 left join table2 left join table3_cte where true limit 0")
+}
