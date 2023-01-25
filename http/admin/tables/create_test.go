@@ -50,6 +50,17 @@ func Test_Create_InvalidData(t *testing.T) {
 		}).
 		Post(Create).
 		ExpectValidation("name", 1004, "columns.0.name", 1004, "columns.0.type", 1015, "columns.0.nullable", 1009)
+
+	// table name cannot start with sqlkite
+	request.ReqT(t, sqlkite.BuildEnv().Env()).
+		Body(map[string]any{
+			"name": "sqlKite_hello",
+			"columns": []any{
+				map[string]any{"name": "low", "type": "float64", "nullable": true},
+			},
+		}).
+		Post(Create).
+		ExpectValidation("name", 302_034)
 }
 
 func Test_Create_InvalidDefault(t *testing.T) {

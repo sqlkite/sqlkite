@@ -2,6 +2,7 @@ package tables
 
 import (
 	"encoding/base64"
+	"strings"
 
 	"src.goblgobl.com/sqlkite/codes"
 	"src.goblgobl.com/sqlkite/data"
@@ -18,7 +19,7 @@ var (
 				Required().
 				Length(1, 100).
 				Pattern(dataFieldPattern, dataFieldError).
-				Transformer(ascii.Lowercase)
+				Func(validateTableNamePrefix) // this also lowercases our name
 
 	columnValidation = validation.Object().
 				Field("name", validation.String().Required().Length(1, 100).Pattern(dataFieldPattern, dataFieldError)).
@@ -36,6 +37,18 @@ var (
 		Error: "blob default should be base64 encoded",
 	}
 )
+
+func validateTableNamePrefix(field validation.Field, value string, object typed.Typed, input typed.Typed, res *validation.Result) string {
+	name := ascii.Lowercase(value)
+	if strings.HasPrefix(name, "sqlkite_") {
+		res.AddInvalidField(field, validation.Invalid{
+			Code:  codes.VAL_RESERVED_TABLE_NAME,
+			Error: "Table name cannot start with 'sqlkite_'",
+			Data:  validation.Value(value),
+		})
+	}
+	return name
+}
 
 func validateDefault(field validation.Field, value any, object typed.Typed, input typed.Typed, res *validation.Result) any {
 	if value == nil {
