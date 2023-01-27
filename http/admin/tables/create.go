@@ -11,12 +11,11 @@ import (
 
 var (
 	createValidation = validation.Object().
-		Field("name", nameValidation).
+		Field("name", tableNameValidation).
 		Field("columns", columnsValidation).
 		Field("access", accessValidation)
 )
 
-// This is a "global" env: env.Project is nil
 func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 	input, err := typed.Json(conn.PostBody())
 	if err != nil {
@@ -28,11 +27,27 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.Validation(validator), nil
 	}
 
-	tableName := input.String("name")
+	name := input.String("name")
+	columns := mapColumns(input.Objects("columns"))
+	access := mapAccess(input.Object("access"))
 
-	columnsInput := input.Objects("columns")
-	columns := make([]data.Column, len(columnsInput))
-	for i, ci := range columnsInput {
+	err = env.Project.CreateTable(env, data.Table{
+		Name:    name,
+		Access:  access,
+		Columns: columns,
+	})
+
+	// possible that CreateTable added validation errors
+	if !validator.IsValid() {
+		return http.Validation(validator), nil
+	}
+
+	return http.Ok(nil), err
+}
+
+func mapColumns(input []typed.Typed) []data.Column {
+	columns := make([]data.Column, len(input))
+	for i, ci := range input {
 		columns[i] = data.Column{
 			Name:     ci.String("name"),
 			Nullable: ci.Bool("nullable"),
@@ -40,27 +55,18 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 			Type:     ci["type"].(data.ColumnType),
 		}
 	}
+	return columns
+}
 
-	var selectAccess *data.SelectAccessControl
-	if access, ok := input.ObjectIf("access"); ok {
-		if cte, ok := access.StringIf("select"); ok {
-			selectAccess = &data.SelectAccessControl{
-				CTE:  cte,
-				Name: "sqlkite_cte_" + tableName,
-			}
-		}
+func mapAccess(input typed.Typed) data.TableAccess {
+	var access data.TableAccess
+	if input == nil {
+		return access
 	}
 
-	err = env.Project.CreateTable(env, data.Table{
-		Name:    tableName,
-		Columns: columns,
-		Select:  selectAccess,
-	})
-
-	// possible CreateTable added validation errors
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
+	if cte, ok := input.StringIf("select"); ok {
+		access.Select = &data.SelectTableAccess{CTE: cte}
 	}
 
-	return http.Ok(nil), err
+	return access
 }

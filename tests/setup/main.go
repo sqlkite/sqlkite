@@ -111,9 +111,11 @@ func setupStandardProject() {
 			data.Column{Name: "name", Type: data.COLUMN_TYPE_TEXT},
 			data.Column{Name: "public", Type: data.COLUMN_TYPE_INT},
 		},
-		Select: &data.SelectAccessControl{
-			Name: "sqlkite_cte_users",
-			CTE:  "select * from users where public = 1",
+		Access: data.TableAccess{
+			Select: &data.SelectTableAccess{
+				Name: "sqlkite_cte_users",
+				CTE:  "select * from users where public = 1",
+			},
 		},
 	})
 	if err != nil {

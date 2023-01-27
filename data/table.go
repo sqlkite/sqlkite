@@ -5,16 +5,17 @@ import "fmt"
 type ColumnType int
 
 const (
-	COLUMN_TYPE_INT ColumnType = iota
+	COLUMN_TYPE_INVALID ColumnType = iota
+	COLUMN_TYPE_INT
 	COLUMN_TYPE_REAL
 	COLUMN_TYPE_TEXT
 	COLUMN_TYPE_BLOB
 )
 
 type Table struct {
-	Name    string `json:"name"`
-	Columns []Column
-	Select  *SelectAccessControl `json:"select",omitempty`
+	Name    string      `json:"name"`
+	Columns []Column    `json:"columns"`
+	Access  TableAccess `json:"access"`
 }
 
 type Column struct {
@@ -38,7 +39,13 @@ func (c ColumnType) String() string {
 	panic(fmt.Sprintf("ColumnType.String(%d)", c))
 }
 
-type SelectAccessControl struct {
-	CTE  string `json:"cte"`
-	Name string `json:"name"`
+type TableAccess struct {
+	Select *SelectTableAccess `json:"select",omitempty`
+}
+
+type SelectTableAccess struct {
+	CTE string `json:"cte"`
+	// Not persisted, but set when the table is loaded.
+	// Makes it easier to deal with table renamed
+	Name string `json:"-"`
 }

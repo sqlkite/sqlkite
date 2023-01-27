@@ -13,16 +13,22 @@ import (
 
 var (
 	// column and table names
-	dataFieldPattern = "^[a-zA-Z_][a-zA-Z0-9_]*$"
-	dataFieldError   = "must begin with a letter or underscore, and only contain letters, numbers or underscores"
-	nameValidation   = validation.String().
+	dataFieldPattern    = "^[a-zA-Z_][a-zA-Z0-9_]*$"
+	dataFieldError      = "must begin with a letter or underscore, and only contain letters, numbers or underscores"
+	tableNameValidation = validation.String().
 				Required().
 				Length(1, 100).
 				Pattern(dataFieldPattern, dataFieldError).
 				Func(validateTableNamePrefix) // this also lowercases our name
 
+	columnNameValidation = validation.String().
+				Required().
+				Length(1, 100).
+				Pattern(dataFieldPattern, dataFieldError)
+
 	columnValidation = validation.Object().
-				Field("name", validation.String().Required().Length(1, 100).Pattern(dataFieldPattern, dataFieldError)).
+				Required().
+				Field("name", columnNameValidation).
 				Field("type", validation.String().Required().Choice("text", "int", "real", "blob").Convert(columnTypeConverter)).
 				Field("nullable", validation.Bool().Required()).
 				Field("default", validation.Any().Func(validateDefault))
@@ -91,6 +97,8 @@ func validateDefault(field validation.Field, value any, object typed.Typed, inpu
 			res.AddInvalidField(field, blobDefaultError)
 		}
 		return bytes
+	case data.COLUMN_TYPE_INVALID:
+		return nil
 	}
 
 	panic("should not reach here")
@@ -108,5 +116,5 @@ func columnTypeConverter(field validation.Field, value string, object typed.Type
 		return data.COLUMN_TYPE_BLOB
 	}
 	// cannot be valid, Choice must have already flagged it as invalid
-	return value
+	return data.COLUMN_TYPE_INVALID
 }

@@ -88,12 +88,11 @@ func (p *Project) WithTransaction(cb func(sqlite.Conn) error) (err error) {
 
 func (p *Project) CreateTable(env *Env, table data.Table) error {
 	if max := p.MaxTableCount; len(p.tables) >= int(max) {
-		invalid := validation.Invalid{
+		env.Validator.Add(validation.Invalid{
 			Code:  codes.VAL_TOO_MANY_TABLES,
 			Error: "Maximum table count reached",
 			Data:  validation.Max(max),
-		}
-		env.Validator.AddInvalid(invalid)
+		})
 		return nil
 	}
 
@@ -132,6 +131,22 @@ func (p *Project) CreateTable(env *Env, table data.Table) error {
 	return err
 }
 
+func (p *Project) UpdateTable(env *Env, alter sql.AlterTable, access data.TableAccess) error {
+	// existing, exists := p.tables[change.Name]
+	// if !exists {
+	// 	env.Validator.Add(unknownTable(change.Name))
+	// 	return nil
+	// }
+
+	// table := data.Table{}
+
+	// definition, err := json.Marshal(table)
+	// if err != nil {
+	// 	return fmt.Errorf("Project.CreateTable json - %w", err)
+	// }
+	return nil
+}
+
 func (p *Project) Buffer() *buffer.Buffer {
 	// We get a buffer from our pool, but set the max to this project's max sql length
 	// This allows us to share buffers across projects (which is going to be significantly
@@ -158,14 +173,10 @@ func (p *Project) Select(env *Env, sel sql.Select) (*SelectResult, error) {
 		if !exists {
 			// while we're looping through these tables, we might as well exit early
 			// (and with a good errorr message) on an unknown table.
-			validator.AddInvalid(validation.Invalid{
-				Code:  codes.VAL_UNKNOWN_TABLE,
-				Error: "Unknown table: " + tableName,
-				Data:  validation.Value(tableName),
-			})
+			validator.Add(unknownTable(tableName))
 		}
-		if tableSelect := table.Select; tableSelect != nil {
-			selRef.CTE(i, tableSelect.Name, tableSelect.CTE)
+		if selectAccess := table.Access.Select; selectAccess != nil {
+			selRef.CTE(i, selectAccess.Name, selectAccess.CTE)
 		}
 	}
 
@@ -214,7 +225,7 @@ func (p *Project) Select(env *Env, sel sql.Select) (*SelectResult, error) {
 	if err := result.Error(); err != nil {
 		result.Release()
 		if errors.Is(err, buffer.ErrMaxSize) {
-			validator.AddInvalid(validation.Invalid{
+			validator.Add(validation.Invalid{
 				Code:  codes.VAL_RESULT_TOO_LONG,
 				Error: "Result too large",
 				Data:  validation.Max(p.MaxResultLength),
@@ -241,7 +252,7 @@ func (p *Project) bufferErrorToValidation(env *Env, err error) bool {
 			Error: "Generated SQL query is too large",
 			Data:  validation.Max(p.MaxSQLLength),
 		}
-		env.Validator.AddInvalid(invalid)
+		env.Validator.Add(invalid)
 		return true
 	}
 	return false
@@ -330,6 +341,9 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 				table.Columns[i] = c
 			}
 		}
+		if s := table.Access.Select; s != nil {
+			table.Access.Select.Name = "sqlkite_cte_" + name
+		}
 		tables[name] = table
 	}
 	rows.Close()
@@ -378,4 +392,12 @@ func ReloadProject(id string) (*Project, error) {
 	}
 	Projects.Put(id, project)
 	return project, nil
+}
+
+func unknownTable(tableName string) validation.Invalid {
+	return validation.Invalid{
+		Code:  codes.VAL_UNKNOWN_TABLE,
+		Error: "Unknown table: " + tableName,
+		Data:  validation.Value(tableName),
+	}
 }

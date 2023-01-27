@@ -26,19 +26,19 @@ func Test_Create_InvalidData(t *testing.T) {
 		Body(map[string]any{
 			"name":    "4",
 			"columns": []any{},
+			"access":  9,
 		}).
 		Post(Create).
-		ExpectValidation("name", 1004, "columns", 1012)
+		ExpectValidation("name", 1004, "columns", 1012, "access", 1022)
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
-			"name": "h@t",
-			"columns": []any{
-				map[string]any{},
-			},
+			"name":    "h@t",
+			"columns": []any{map[string]any{}},
+			"access":  map[string]any{"select": 32},
 		}).
 		Post(Create).
-		ExpectValidation("name", 1004, "columns.0.name", 1001, "columns.0.type", 1001, "columns.0.nullable", 1001).
+		ExpectValidation("name", 1004, "columns.0.name", 1001, "columns.0.type", 1001, "columns.0.nullable", 1001, "access.select", 1002).
 		ExpectNoValidation("columns.0.default")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
@@ -137,8 +137,8 @@ func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 	assert.Equal(t, table.Columns[3].Nullable, true)
 	assert.Equal(t, table.Columns[3].Type, data.COLUMN_TYPE_BLOB)
 
-	assert.Equal(t, table.Select.Name, "sqlkite_cte_test_create_success_defaults")
-	assert.Equal(t, table.Select.CTE, "select * from a_table where user_id = sqlkite_user_id()")
+	assert.Equal(t, table.Access.Select.Name, "sqlkite_cte_test_create_success_defaults")
+	assert.Equal(t, table.Access.Select.CTE, "select * from a_table where user_id = sqlkite_user_id()")
 }
 
 func Test_Create_Success_NoDefaults_NoAccessControl(t *testing.T) {
@@ -184,5 +184,5 @@ func Test_Create_Success_NoDefaults_NoAccessControl(t *testing.T) {
 	assert.Equal(t, table.Columns[3].Nullable, false)
 	assert.Equal(t, table.Columns[3].Type, data.COLUMN_TYPE_BLOB)
 
-	assert.Nil(t, table.Select)
+	assert.Nil(t, table.Access.Select)
 }

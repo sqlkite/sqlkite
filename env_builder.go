@@ -41,7 +41,7 @@ func (eb *EnvBuilder) Env() *Env {
 
 	validator := eb.validator
 	if validator == nil {
-		validator = validation.NewResult(10)
+		validator = validation.NewResult(25)
 	}
 
 	return &Env{

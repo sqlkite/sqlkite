@@ -74,6 +74,9 @@ func Test_Project_CreateTable(t *testing.T) {
 			data.BuildColumn().Name("c3").Type("real").NotNullable().Default(8999.9).Column(),
 			data.BuildColumn().Name("c4").Type("blob").NotNullable().Default([]byte("d9")).Column(),
 		},
+		Access: data.TableAccess{
+			Select: &data.SelectTableAccess{CTE: "select * from tab2 where public"},
+		},
 	})
 	assert.Nil(t, err)
 
@@ -107,6 +110,8 @@ func Test_Project_CreateTable(t *testing.T) {
 	assert.Equal(t, table.Columns[3].Nullable, true)
 	assert.Equal(t, table.Columns[3].Type, data.COLUMN_TYPE_BLOB)
 
+	assert.Nil(t, table.Access.Select)
+
 	table, ok = project.Table("tab2")
 	assert.True(t, ok)
 
@@ -133,6 +138,9 @@ func Test_Project_CreateTable(t *testing.T) {
 	assert.Equal(t, table.Columns[3].Nullable, false)
 	assert.Equal(t, string(table.Columns[3].Default.([]byte)), "d9")
 	assert.Equal(t, table.Columns[3].Type, data.COLUMN_TYPE_BLOB)
+
+	assert.Equal(t, table.Access.Select.CTE, "select * from tab2 where public")
+	assert.Equal(t, table.Access.Select.Name, "sqlkite_cte_tab2")
 }
 
 func dynamicProject(t *testing.T) *Project {

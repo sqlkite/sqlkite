@@ -2,7 +2,6 @@ package http
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -170,7 +169,6 @@ func superHandler(config config.HTTP, logger log.Logger) (func(ctx *fasthttp.Req
 	r.PUT("/v1/super/projects/{id}", http.Handler("project_update", loadSuperEnv, projects.Update))
 
 	adminIsSuper := config.Admin == "" || config.Admin == "super"
-	fmt.Println(adminIsSuper)
 	logger.Bool("admin", adminIsSuper)
 	if adminIsSuper {
 		attachAdmin(r, loadSuperEnv)
@@ -192,6 +190,7 @@ func superHandler(config config.HTTP, logger log.Logger) (func(ctx *fasthttp.Req
 // fully manage their own projects.
 func attachAdmin(r *router.Router, envLoader EnvLoader) {
 	r.POST("/v1/admin/tables", http.Handler("table_create", envLoader, tables.Create))
+	r.PUT("/v1/admin/tables/{name}", http.Handler("table_update", envLoader, tables.Update))
 }
 
 // The "super" endpoints are powerful. They are executed outside of a typical
