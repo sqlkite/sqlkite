@@ -59,7 +59,7 @@ func Select(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 
 	result, err := project.Select(env, sel)
 	if err != nil {
-		return handleError(env, err)
+		return nil, err
 	}
 
 	if !validator.IsValid() {

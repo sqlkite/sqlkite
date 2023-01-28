@@ -49,7 +49,7 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 
 	err = env.Project.UpdateTable(env, alterTable, access)
 	if err != nil {
-		return handleError(env, err)
+		return nil, err
 	}
 
 	// possible that UpdateTable added validation errors
