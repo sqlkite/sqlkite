@@ -98,6 +98,11 @@ func CreateDB(projectId string) error {
 	}
 	defer db.Close()
 
+	err = db.Exec("pragma journal_mode=wal")
+	if err != nil {
+		return fmt.Errorf("CreateDB(%s).journal_mode - %w", projectId, err)
+	}
+
 	err = db.Exec(`create table sqlkite_tables (
 		name text not null primary key,
 		definition text not null

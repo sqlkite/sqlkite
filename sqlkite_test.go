@@ -31,4 +31,10 @@ func Test_CreateDB(t *testing.T) {
 		name text not null primary key,
 		definition text not null
 	)`)
+
+	var journalMode string
+	if err := conn.Row("pragma journal_mode").Scan(&journalMode); err != nil {
+		panic(err)
+	}
+	assert.Equal(t, journalMode, "wal")
 }
