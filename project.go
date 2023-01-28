@@ -101,16 +101,16 @@ func (p *Project) CreateTable(env *Env, table data.Table) error {
 		return fmt.Errorf("Project.CreateTable json - %w", err)
 	}
 
+	buffer := p.Buffer()
+	defer buffer.Release()
+
+	sql.CreateTable(table, buffer)
+	createSQL, err := buffer.SqliteBytes()
+	if err != nil {
+		return fmt.Errorf("Project.CreateTable createSQL buffer - %w", err)
+	}
+
 	err = p.WithTransaction(func(conn sqlite.Conn) error {
-		buffer := p.Buffer()
-		defer buffer.Release()
-
-		sql.CreateTable(table, buffer)
-		createSQL, err := buffer.SqliteBytes()
-		if err != nil {
-			return fmt.Errorf("Project.CreateTable createSQL buffer - %w", err)
-		}
-
 		if err := conn.ExecB(createSQL); err != nil {
 			return fmt.Errorf("Project.CreateTable exec - %w", err)
 		}
@@ -132,19 +132,47 @@ func (p *Project) CreateTable(env *Env, table data.Table) error {
 }
 
 func (p *Project) UpdateTable(env *Env, alter sql.AlterTable, access data.TableAccess) error {
-	// existing, exists := p.tables[change.Name]
-	// if !exists {
-	// 	env.Validator.Add(unknownTable(change.Name))
-	// 	return nil
-	// }
+	existing, exists := p.tables[alter.Name]
+	if !exists {
+		env.Validator.Add(unknownTable(alter.Name))
+		return nil
+	}
 
-	// table := data.Table{}
+	table := applyTableChanges(existing, alter, access)
 
-	// definition, err := json.Marshal(table)
-	// if err != nil {
-	// 	return fmt.Errorf("Project.CreateTable json - %w", err)
-	// }
-	return nil
+	definition, err := json.Marshal(table)
+	if err != nil {
+		return fmt.Errorf("Project.UpdateTable json - %w", err)
+	}
+
+	buffer := p.Buffer()
+	defer buffer.Release()
+
+	alter.Write(buffer)
+	alterSQL, err := buffer.SqliteBytes()
+	if err != nil {
+		return fmt.Errorf("Project.UpdateTable alterSQL buffer - %w", err)
+	}
+
+	err = p.WithTransaction(func(conn sqlite.Conn) error {
+		if err := conn.ExecB(alterSQL); err != nil {
+			return fmt.Errorf("Project.AlterTable exec - %w", err)
+		}
+
+		if err := conn.Exec("update sqlkite_tables set name = $1, definition = $2 where name = $3", table.Name, definition, existing.Name); err != nil {
+			return fmt.Errorf("Project.AlterTable sqlkite_tables - %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// update our in-memory project
+	_, err = ReloadProject(p.Id)
+	return err
 }
 
 func (p *Project) Buffer() *buffer.Buffer {
@@ -400,4 +428,53 @@ func unknownTable(tableName string) validation.Invalid {
 		Error: "Unknown table: " + tableName,
 		Data:  validation.Value(tableName),
 	}
+}
+
+// Take an existin data.Table and return a new data.Table which merges the changes
+// from the sql.AlterTable applied and the new data.TableAccess
+func applyTableChanges(table data.Table, alter sql.AlterTable, access data.TableAccess) data.Table {
+	for _, change := range alter.Changes {
+		switch c := change.(type) {
+		case sql.RenameTable:
+			table.Name = c.To
+		case sql.AddColumn:
+			table.Columns = append(table.Columns, c.Column)
+		case sql.DropColumn:
+			target := c.Name
+			columns := table.Columns
+			for i, column := range columns {
+				if column.Name == target {
+					for j := i + 1; j < len(columns); j++ {
+						columns[j-1] = columns[j]
+					}
+					table.Columns = columns[:len(columns)-1]
+					break
+				}
+			}
+		case sql.RenameColumn:
+			target := c.Name
+			for i, column := range table.Columns {
+				if column.Name == target {
+					table.Columns[i].Name = c.To
+					break
+				}
+			}
+		default:
+			// should not be possible
+			panic("Unknown AlterTableChange")
+		}
+	}
+
+	// empty means erase
+	// nil means keep the existing one
+	// a bit reverse
+	if s := access.Select; s != nil {
+		if s.CTE == "" {
+			table.Access.Select = nil
+		} else {
+			table.Access.Select = s
+		}
+	}
+
+	return table
 }

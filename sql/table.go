@@ -52,9 +52,13 @@ func writeColumn(column data.Column, buffer *buffer.Buffer) {
 	}
 }
 
+type AlterTableChange interface {
+	Part
+}
+
 type AlterTable struct {
-	Name    string `json:"name"`
-	Changes []Part `json:"changes"`
+	Name    string             `json:"name"`
+	Changes []AlterTableChange `json:"changes"`
 }
 
 func (a *AlterTable) Write(b *buffer.Buffer) {

@@ -48,14 +48,18 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 func mapColumns(input []typed.Typed) []data.Column {
 	columns := make([]data.Column, len(input))
 	for i, ci := range input {
-		columns[i] = data.Column{
-			Name:     ci.String("name"),
-			Nullable: ci.Bool("nullable"),
-			Default:  ci["default"],
-			Type:     ci["type"].(data.ColumnType),
-		}
+		columns[i] = mapColumn(ci)
 	}
 	return columns
+}
+
+func mapColumn(input typed.Typed) data.Column {
+	return data.Column{
+		Name:     input.String("name"),
+		Nullable: input.Bool("nullable"),
+		Default:  input["default"],
+		Type:     input["type"].(data.ColumnType),
+	}
 }
 
 func mapAccess(input typed.Typed) data.TableAccess {

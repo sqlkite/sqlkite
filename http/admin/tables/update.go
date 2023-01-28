@@ -42,19 +42,22 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		Name: ascii.Lowercase(conn.UserValue("name").(string)),
 	}
 	if changes := input["changes"]; changes != nil {
-		alterTable.Changes = changes.([]sql.Part)
+		alterTable.Changes = changes.([]sql.AlterTableChange)
 	}
 
 	access := mapAccess(input.Object("access"))
 
 	err = env.Project.UpdateTable(env, alterTable, access)
+	if err != nil {
+		return handleError(env, err)
+	}
 
 	// possible that UpdateTable added validation errors
 	if !validator.IsValid() {
 		return http.Validation(validator), nil
 	}
 
-	return http.Ok(nil), err
+	return http.Ok(nil), nil
 }
 
 func changeValidation(field validation.Field, value typed.Typed, input typed.Typed, res *validation.Result) any {
@@ -64,7 +67,7 @@ func changeValidation(field validation.Field, value typed.Typed, input typed.Typ
 	case "rename column":
 		return renameColumnValidaiton(field, value, res)
 	case "add column":
-		return addColumnValidaiton(field, value, res)
+		return addColumnValidation(field, value, res)
 	case "drop column":
 		return dropColumnValidation(field, value, res)
 	case "":
@@ -91,9 +94,14 @@ func renameColumnValidaiton(field validation.Field, change typed.Typed, res *val
 	}
 }
 
-func addColumnValidaiton(field validation.Field, change typed.Typed, res *validation.Result) any {
+func addColumnValidation(field validation.Field, change typed.Typed, res *validation.Result) any {
 	updateAddColumnValidator.ValidateObjectField(updateChangeColumnField, change, change, res)
-	return nil
+	if !res.IsValid() {
+		return nil
+	}
+	return sql.AddColumn{
+		Column: mapColumn(change.Object("column")),
+	}
 }
 
 func dropColumnValidation(field validation.Field, change typed.Typed, res *validation.Result) any {
@@ -110,13 +118,13 @@ func changeMap(changes []any) any {
 	if changes == nil {
 		return nil
 	}
-	parts := make([]sql.Part, len(changes))
+	parts := make([]sql.AlterTableChange, len(changes))
 	for i, change := range changes {
 		if change == nil {
 			// Some (or all) of the changes were invalid, no need to do this
 			return changes
 		}
-		parts[i] = change.(sql.Part)
+		parts[i] = change.(sql.AlterTableChange)
 	}
 	return parts
 }

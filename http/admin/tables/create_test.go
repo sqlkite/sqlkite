@@ -98,9 +98,9 @@ func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 		Body(map[string]any{
 			"name": "Test_Create_Success_Defaults",
 			"columns": []any{
-				map[string]any{"name": "c1", "type": "text", "nullable": true, "default": "a"},
+				map[string]any{"name": "C1", "type": "text", "nullable": true, "default": "a"},
 				map[string]any{"name": "c2", "type": "int", "nullable": true, "default": 32},
-				map[string]any{"name": "c3", "type": "real", "nullable": true, "default": 9000.1},
+				map[string]any{"name": "C3", "type": "real", "nullable": true, "default": 9000.1},
 				map[string]any{"name": "c4", "type": "blob", "nullable": true, "default": "b3ZlcjkwMDA="},
 			},
 			"access": map[string]any{

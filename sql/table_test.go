@@ -52,7 +52,7 @@ func Test_AlterTable(t *testing.T) {
 	buffer := buffer.New(1024, 1024)
 	alter := AlterTable{
 		Name: "test1",
-		Changes: []Part{
+		Changes: []AlterTableChange{
 			DropColumn{Name: "col1"},
 			RenameColumn{Name: "col1", To: "col2"},
 			AddColumn{Column: data.Column{Name: "c3", Type: data.COLUMN_TYPE_TEXT, Nullable: false, Default: "def-1"}},
