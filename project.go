@@ -156,11 +156,45 @@ func (p *Project) UpdateTable(env *Env, alter sql.AlterTable, access data.TableA
 
 	err = p.WithTransaction(func(conn sqlite.Conn) error {
 		if err := conn.ExecB(alterSQL); err != nil {
-			return fmt.Errorf("Project.AlterTable exec - %w", err)
+			return fmt.Errorf("Project.UpdateTable exec - %w", err)
 		}
 
 		if err := conn.Exec("update sqlkite_tables set name = $1, definition = $2 where name = $3", table.Name, definition, existing.Name); err != nil {
-			return fmt.Errorf("Project.AlterTable sqlkite_tables - %w", err)
+			return fmt.Errorf("Project.UpdateTable sqlkite_tables - %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// update our in-memory project
+	_, err = ReloadProject(p.Id)
+	return err
+}
+
+func (p *Project) DeleteTable(env *Env, tableName string) error {
+	if _, exists := p.tables[tableName]; !exists {
+		env.Validator.Add(unknownTable(tableName))
+		return nil
+	}
+
+	buffer := p.Buffer()
+	defer buffer.Release()
+
+	buffer.Write([]byte("drop table "))
+	buffer.WriteUnsafe(tableName)
+	dropSQL, err := buffer.SqliteBytes()
+
+	err = p.WithTransaction(func(conn sqlite.Conn) error {
+		if err := conn.ExecB(dropSQL); err != nil {
+			return fmt.Errorf("Project.DeleteTable exec - %w", err)
+		}
+
+		if err := conn.Exec("delete from sqlkite_tables where name = $1", tableName); err != nil {
+			return fmt.Errorf("Project.DeleteTable sqlkite_tables - %w", err)
 		}
 
 		return nil

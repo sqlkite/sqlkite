@@ -202,6 +202,33 @@ func Test_Project_UpdateTable_Success(t *testing.T) {
 	assert.Equal(t, table.Access.Select.Name, "sqlkite_cte_tab_update_b")
 }
 
+func Test_Project_DeleteTable_UnknownTable(t *testing.T) {
+	project := MustGetProject(tests.Factory.StandardId)
+	env := project.Env()
+	err := project.DeleteTable(env, "tab_nope")
+	assert.Nil(t, err)
+	assert.Validation(t, env.Validator).Field("", 302_033, map[string]any{"value": "tab_nope"})
+}
+
+func Test_Project_DeleteTable_Success(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project := MustGetProject(id)
+	err := project.CreateTable(project.Env(), data.Table{
+		Name: "tab_delete",
+		Columns: []data.Column{
+			data.BuildColumn().Name("c1").Type("text").Nullable().Column(),
+		},
+	})
+	assert.Nil(t, err)
+
+	project = MustGetProject(id)
+	assert.Nil(t, project.DeleteTable(project.Env(), "tab_delete"))
+
+	project = MustGetProject(id)
+	_, exists := project.Table("tab_delete")
+	assert.False(t, exists)
+}
+
 func dynamicProject() *Project {
 	return MustGetProject(tests.Factory.DynamicId())
 }

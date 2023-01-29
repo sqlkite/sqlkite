@@ -191,6 +191,7 @@ func superHandler(config config.HTTP, logger log.Logger) (func(ctx *fasthttp.Req
 func attachAdmin(r *router.Router, envLoader EnvLoader) {
 	r.POST("/v1/admin/tables", http.Handler("table_create", envLoader, tables.Create))
 	r.PUT("/v1/admin/tables/{name}", http.Handler("table_update", envLoader, tables.Update))
+	r.DELETE("/v1/admin/tables/{name}", http.Handler("table_delete", envLoader, tables.Delete))
 }
 
 // The "super" endpoints are powerful. They are executed outside of a typical
