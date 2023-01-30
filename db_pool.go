@@ -14,6 +14,13 @@ type DBPool struct {
 }
 
 func NewDBPool(count uint16, projectId string, setup func(conn sqlite.Conn) error) (*DBPool, error) {
+	if count == 0 {
+		// this is really bad, and though we guard against it in a number of
+		// places, let's guard against here too. There is never a reason to
+		// want this at 0
+		count = 1
+	}
+
 	list := make(chan sqlite.Conn, count)
 	p := &DBPool{list: list}
 	for i := uint16(0); i < count; i++ {

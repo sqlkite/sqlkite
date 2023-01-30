@@ -43,6 +43,24 @@ func Test_NewProject(t *testing.T) {
 	assert.Equal(t, project.MaxTableCount, 17)
 }
 
+func Test_NewProject_DBSize(t *testing.T) {
+	project, err := NewProject(&data.Project{
+		Id:              tests.Factory.StandardId,
+		MaxDatabaseSize: 40930,
+	}, true)
+
+	assert.Nil(t, err)
+	defer project.Shutdown()
+
+	var pageSize, pageCount int
+	project.WithDB(func(conn sqlite.Conn) {
+		conn.Row("pragma page_size").Scan(&pageSize)
+		conn.Row("pragma max_page_count").Scan(&pageCount)
+	})
+
+	assert.Equal(t, pageCount, 40930/pageSize)
+}
+
 func Test_Project_WithDBEnv(t *testing.T) {
 	project := MustGetProject(tests.Factory.StandardId)
 	env := project.Env()
@@ -58,7 +76,6 @@ func Test_Project_WithDBEnv(t *testing.T) {
 
 	assert.Equal(t, userId, "user-1")
 	assert.Equal(t, role, "role-a")
-
 }
 
 func Test_Project_NextRequestId(t *testing.T) {
