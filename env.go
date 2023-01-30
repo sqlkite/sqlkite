@@ -49,6 +49,9 @@ type Env struct {
 
 	// records validation errors
 	Validator *validation.Result
+
+	// can most certainly be nil
+	User *User
 }
 
 func NewEnv(p *Project, requestId string) *Env {
@@ -92,6 +95,9 @@ func (e *Env) Request(route string) log.Logger {
 		logger.Field(p.logField)
 	}
 	logger.String("rid", e.requestId).Request(route)
+	if user := e.User; user != nil {
+		logger.String("uid", user.Id)
+	}
 
 	e.requestLogger = logger
 	return logger

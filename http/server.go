@@ -32,6 +32,8 @@ var (
 	resMissingSubdomain     = http.StaticError(400, codes.RES_MISSING_SUBDOMAIN, "Project id could not be loaded from subdomain")
 	resProjectNotFound      = http.StaticError(400, codes.RES_PROJECT_NOT_FOUND, "unknown project id")
 
+	resUnauthorized = http.StaticError(401, codes.RES_INVALID_CREDENTIALS, "Invalid or missing credentials")
+	resAccessDenied = http.StaticError(403, codes.RES_ACCESS_DENIED, "Access denied")
 	globalRequestId = uint32(time.Now().Unix())
 )
 
@@ -44,77 +46,9 @@ func Listen() {
 		return
 	}
 
-	superLoaded := make(chan bool, 1)
-	go listenSuper(config, superLoaded)
-	if ok := <-superLoaded; !ok {
-		return
-	}
-
-	// blocks
-	listenMain(config)
-}
-
-func listenMain(config config.HTTP) {
-	listen := config.Listen
-	if listen == "" {
-		listen = "127.0.0.1:5100"
-	}
-
-	logger := log.Info("public_server").String("address", listen)
-
-	handler, err := mainHandler(config, logger)
-	if err != nil {
-		log.Fatal("server_public_handler").Err(err).Log()
-		return
-	}
-
-	fast := fasthttp.Server{
-		Handler:                      handler,
-		NoDefaultContentType:         true,
-		NoDefaultServerHeader:        true,
-		SecureErrorLogMessage:        true,
-		DisablePreParseMultipartForm: true,
-	}
-
-	logger.Log()
-	err = fast.ListenAndServe(listen)
-	log.Fatal("server_public_fail").Err(err).String("address", listen).Log()
-}
-
-func listenSuper(config config.HTTP, loaded chan bool) {
-	listen := config.Super
-	logger := log.Info("super_server").String("address", listen)
-
-	if listen == "" {
-		loaded <- true
-		logger.Log()
-		return
-	}
-
-	handler, err := superHandler(config, logger)
-	if err != nil {
-		log.Fatal("server_super_handler").Err(err).Log()
-		loaded <- false
-		return
-	}
-
-	fast := fasthttp.Server{
-		Handler:                      handler,
-		NoDefaultContentType:         true,
-		NoDefaultServerHeader:        true,
-		SecureErrorLogMessage:        true,
-		DisablePreParseMultipartForm: true,
-	}
-
-	logger.Log()
-	loaded <- true
-	err = fast.ListenAndServe(listen)
-	log.Fatal("server_super_fail").Err(err).String("address", listen).Log()
-}
-
-func mainHandler(config config.HTTP, logger log.Logger) (func(ctx *fasthttp.RequestCtx), error) {
 	var userLoader UserLoader
 	var projectIdLoader ProjectIdLoader
+	logger := log.Info("http_server")
 
 	switch strings.ToLower(config.Authentication.Type) {
 	case "":
@@ -124,7 +58,9 @@ func mainHandler(config config.HTTP, logger log.Logger) (func(ctx *fasthttp.Requ
 		logger.String("auth", "header")
 		userLoader = loadUserFromHeader
 	default:
-		return nil, log.Errf(codes.ERR_CONFIG_HTTP_AUTHENTICATION_TYPE, "http.authentication.type must be one of: 'header'")
+		err := log.Errf(codes.ERR_CONFIG_HTTP_AUTHENTICATION_TYPE, "http.authentication.type must be one of: 'header' or '' (empty)")
+		log.Fatal("server_auth_config").Err(err).Log()
+		return
 	}
 
 	switch strings.ToLower(config.Project.Type) {
@@ -135,18 +71,88 @@ func mainHandler(config config.HTTP, logger log.Logger) (func(ctx *fasthttp.Requ
 		logger.String("project", "header")
 		projectIdLoader = loadProjectIdFromHeader
 	default:
-		return nil, log.Errf(codes.ERR_CONFIG_HTTP_PROJECT_TYPE, "http.project.type must be one of: 'subdomain' or 'header'")
+		err := log.Errf(codes.ERR_CONFIG_HTTP_PROJECT_TYPE, "http.project.type must be one of: 'subdomain' or 'header'")
+		log.Fatal("server_auth_project").Err(err).Log()
+		return
 	}
-
 	envLoader := createEnvLoader(userLoader, projectIdLoader)
 
+	superLoaded := make(chan bool, 1)
+	go listenSuper(config, logger, envLoader, userLoader, superLoaded)
+	if ok := <-superLoaded; !ok {
+		return
+	}
+
+	// blocks
+	listenMain(config, logger, envLoader)
+}
+
+func listenMain(config config.HTTP, logger log.Logger, envLoader EnvLoader) {
+	listen := config.Listen
+	if listen == "" {
+		listen = "127.0.0.1:5100"
+	}
+
+	logger.String("public", listen)
+
+	handler, err := mainHandler(config, logger, envLoader)
+	if err != nil {
+		log.Fatal("server_public_handler").Err(err).Log()
+		return
+	}
+
+	fast := fasthttp.Server{
+		Handler:                       handler,
+		NoDefaultContentType:          true,
+		NoDefaultServerHeader:         true,
+		SecureErrorLogMessage:         true,
+		DisablePreParseMultipartForm:  true,
+		DisableHeaderNamesNormalizing: true,
+	}
+
+	logger.Log()
+	err = fast.ListenAndServe(listen)
+	log.Fatal("server_public_fail").Err(err).String("address", listen).Log()
+}
+
+func listenSuper(config config.HTTP, logger log.Logger, envLoader EnvLoader, userLoader UserLoader, loaded chan bool) {
+	listen := config.Super
+
+	if listen == "" {
+		loaded <- true
+		logger.Bool("supper", false)
+		return
+	}
+	logger.String("super", listen)
+
+	handler, err := superHandler(config, logger, envLoader, userLoader)
+	if err != nil {
+		log.Fatal("server_super_handler").Err(err).Log()
+		loaded <- false
+		return
+	}
+
+	fast := fasthttp.Server{
+		Handler:                       handler,
+		NoDefaultContentType:          true,
+		NoDefaultServerHeader:         true,
+		SecureErrorLogMessage:         true,
+		DisablePreParseMultipartForm:  true,
+		DisableHeaderNamesNormalizing: true,
+	}
+
+	loaded <- true
+	err = fast.ListenAndServe(listen)
+	log.Fatal("server_super_fail").Err(err).String("address", listen).Log()
+}
+
+func mainHandler(config config.HTTP, logger log.Logger, envLoader EnvLoader) (func(ctx *fasthttp.RequestCtx), error) {
 	r := router.New()
 
 	r.POST("/v1/sql/select", http.Handler("sql_select", envLoader, sql.Select))
 
-	adminIsPublic := config.Admin == "public"
-	logger.Bool("admin", adminIsPublic)
-	if adminIsPublic {
+	if config.Admin == "public" {
+		logger.String("admin", "public")
 		attachAdmin(r, envLoader)
 	}
 
@@ -158,20 +164,19 @@ func mainHandler(config config.HTTP, logger log.Logger) (func(ctx *fasthttp.Requ
 	return r.Handler, nil
 }
 
-func superHandler(config config.HTTP, logger log.Logger) (func(ctx *fasthttp.RequestCtx), error) {
+func superHandler(config config.HTTP, logger log.Logger, envLoader EnvLoader, userLoader UserLoader) (func(ctx *fasthttp.RequestCtx), error) {
 	r := router.New()
 
 	// diagnostics routes
 	r.GET("/v1/diagnostics/ping", http.NoEnvHandler("ping", diagnostics.Ping))
 	r.GET("/v1/diagnostics/info", http.NoEnvHandler("info", diagnostics.Info))
 
-	r.POST("/v1/super/projects", http.Handler("project_create", loadSuperEnv, projects.Create))
-	r.PUT("/v1/super/projects/{id}", http.Handler("project_update", loadSuperEnv, projects.Update))
+	r.POST("/v1/super/projects", http.Handler("project_create", loadSuperEnv(userLoader), projects.Create))
+	r.PUT("/v1/super/projects/{id}", http.Handler("project_update", loadSuperEnv(userLoader), projects.Update))
 
-	adminIsSuper := config.Admin == "" || config.Admin == "super"
-	logger.Bool("admin", adminIsSuper)
-	if adminIsSuper {
-		attachAdmin(r, loadSuperEnv)
+	if config.Admin == "" || config.Admin == "super" {
+		logger.String("admin", "super")
+		attachAdmin(r, envLoader)
 	}
 
 	// catch all
@@ -189,9 +194,9 @@ func superHandler(config config.HTTP, logger log.Logger) (func(ctx *fasthttp.Req
 // and a more dynamic deployment (likely multi-tenancy) where project owners
 // fully manage their own projects.
 func attachAdmin(r *router.Router, envLoader EnvLoader) {
-	r.POST("/v1/admin/tables", http.Handler("table_create", envLoader, tables.Create))
-	r.PUT("/v1/admin/tables/{name}", http.Handler("table_update", envLoader, tables.Update))
-	r.DELETE("/v1/admin/tables/{name}", http.Handler("table_delete", envLoader, tables.Delete))
+	r.POST("/v1/admin/tables", http.Handler("table_create", requireRole("admin", envLoader), tables.Create))
+	r.PUT("/v1/admin/tables/{name}", http.Handler("table_update", requireRole("admin", envLoader), tables.Update))
+	r.DELETE("/v1/admin/tables/{name}", http.Handler("table_delete", requireRole("admin", envLoader), tables.Delete))
 }
 
 // The "super" endpoints are powerful. They are executed outside of a typical
@@ -200,10 +205,26 @@ func attachAdmin(r *router.Router, envLoader EnvLoader) {
 // These endpoints are disabled by default, and by enabling them (via the config.json)
 // we expect the administrator to also enable some form of security (such as using
 // reverse proxy to only allow access to "/v1/super/*" from internal IPs).
-func loadSuperEnv(conn *fasthttp.RequestCtx) (*sqlkite.Env, http.Response, error) {
-	nextId := atomic.AddUint32(&globalRequestId, 1)
-	requestId := utils.EncodeRequestId(nextId, sqlkite.Config.InstanceId)
-	return sqlkite.NewEnv(nil, requestId), nil, nil
+func loadSuperEnv(userLoader UserLoader) func(conn *fasthttp.RequestCtx) (*sqlkite.Env, http.Response, error) {
+	return func(conn *fasthttp.RequestCtx) (*sqlkite.Env, http.Response, error) {
+		nextId := atomic.AddUint32(&globalRequestId, 1)
+		requestId := utils.EncodeRequestId(nextId, sqlkite.Config.InstanceId)
+		user, res := userLoader(conn)
+
+		if res != nil {
+			return nil, res, nil
+		}
+		if user == nil {
+			return nil, resUnauthorized, nil
+		}
+		if user.Role != "super" {
+			return nil, resAccessDenied, nil
+		}
+		env := sqlkite.NewEnv(nil, requestId)
+		env.User = user
+		return env, nil, nil
+	}
+
 }
 
 func createEnvLoader(userLoader UserLoader, projectIdLoader ProjectIdLoader) EnvLoader {
@@ -226,7 +247,13 @@ func createEnvLoader(userLoader UserLoader, projectIdLoader ProjectIdLoader) Env
 		if project == nil {
 			return nil, resProjectNotFound, nil
 		}
-		return project.Env(), nil, nil
+		user, res := userLoader(conn)
+		if res != nil {
+			return nil, res, nil
+		}
+		env := project.Env()
+		env.User = user
+		return env, nil, nil
 	}
 }
 
@@ -236,7 +263,8 @@ func loadProjectIdFromHeader(conn *fasthttp.RequestCtx) (string, http.Response) 
 		return "", resMissingProjectHeader
 	}
 
-	// we know this won't outlive conn
+	// fasthttp says headers are valid until the connection is discarded, and
+	// we know this won't outlive the connection
 	return utils.B2S(projectId), nil
 }
 
@@ -250,9 +278,44 @@ func loadProjectIdFromSubdomain(conn *fasthttp.RequestCtx) (string, http.Respons
 }
 
 func loadUserFromHeader(conn *fasthttp.RequestCtx) (*sqlkite.User, http.Response) {
-	return nil, nil
+	header := &conn.Request.Header
+	userId := header.PeekBytes([]byte("User"))
+	if userId == nil {
+		return nil, nil
+	}
+
+	var role string
+	if r := header.PeekBytes([]byte("Role")); r != nil {
+		role = utils.B2S(r)
+	}
+
+	// fasthttp says headers are valid until the connection is discarded, and
+	// we know this won't outlive the connection
+	return &sqlkite.User{
+		Id:   utils.B2S(userId),
+		Role: role,
+	}, nil
 }
 
 func loadUserDisabled(conn *fasthttp.RequestCtx) (*sqlkite.User, http.Response) {
 	return nil, nil
+}
+
+func requireRole(role string, envLoader EnvLoader) func(conn *fasthttp.RequestCtx) (*sqlkite.Env, http.Response, error) {
+	return func(conn *fasthttp.RequestCtx) (*sqlkite.Env, http.Response, error) {
+		env, res, err := envLoader(conn)
+		if env == nil {
+			return nil, res, err
+		}
+
+		user := env.User
+		if user == nil {
+			return nil, resUnauthorized, nil
+		}
+		if user.Role != role {
+			return nil, resAccessDenied, nil
+		}
+
+		return env, nil, nil
+	}
 }

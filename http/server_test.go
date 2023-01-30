@@ -30,7 +30,7 @@ func TestMain(m *testing.M) {
 
 func Test_Server_Env_Project_FromHeader(t *testing.T) {
 	conn := request.Req(t).Conn()
-	http.Handler("", createEnvLoader(nil, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
 	})(conn)
@@ -38,7 +38,7 @@ func Test_Server_Env_Project_FromHeader(t *testing.T) {
 
 	// invalid project id
 	conn = request.Req(t).ProjectId("nope").Conn()
-	http.Handler("", createEnvLoader(nil, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
 	})(conn)
@@ -46,7 +46,7 @@ func Test_Server_Env_Project_FromHeader(t *testing.T) {
 
 	// project id not found
 	conn = request.Req(t).ProjectId(uuid.String()).Conn()
-	http.Handler("", createEnvLoader(nil, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
 	})(conn)
@@ -55,21 +55,21 @@ func Test_Server_Env_Project_FromHeader(t *testing.T) {
 
 func Test_Server_Env_Project_FromSubdomain(t *testing.T) {
 	conn := request.Req(t).Host("single").Conn()
-	http.Handler("", createEnvLoader(nil, loadProjectIdFromSubdomain), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromSubdomain), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
 	})(conn)
 	request.Res(t, conn).ExpectInvalid(302_003)
 
 	conn = request.Req(t).Host("sqlkite.com").Conn()
-	http.Handler("", createEnvLoader(nil, loadProjectIdFromSubdomain), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromSubdomain), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
 	})(conn)
 	request.Res(t, conn).ExpectInvalid(302_004)
 
 	conn = request.Req(t).Host("n1.sqlkite.com").Conn()
-	http.Handler("", createEnvLoader(nil, loadProjectIdFromSubdomain), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromSubdomain), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
 	})(conn)
@@ -78,7 +78,7 @@ func Test_Server_Env_Project_FromSubdomain(t *testing.T) {
 
 func Test_Server_Env_Unknown_Project(t *testing.T) {
 	conn := request.Req(t).ProjectId("6429C13A-DBB2-4FF2-ADDA-571C601B91E6").Conn()
-	http.Handler("", createEnvLoader(nil, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Fail(t, "next should not be called")
 		return nil, nil
 	})(conn)
@@ -87,7 +87,7 @@ func Test_Server_Env_Unknown_Project(t *testing.T) {
 
 func Test_Server_Env_CallsHandlerWithProject(t *testing.T) {
 	conn := request.Req(t).ProjectId(projectId).Conn()
-	http.Handler("", createEnvLoader(nil, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Equal(t, env.Project.Id, projectId)
 		return http.Ok(map[string]int{"over": 9000}), nil
 	})(conn)
@@ -100,12 +100,12 @@ func Test_Server_Env_RequestId(t *testing.T) {
 	conn := request.Req(t).ProjectId(projectId).Conn()
 
 	var id1, id2 string
-	http.Handler("", createEnvLoader(nil, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		id1 = env.RequestId()
 		return http.Ok(nil), nil
 	})(conn)
 
-	http.Handler("", createEnvLoader(nil, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		id2 = env.RequestId()
 		return http.Ok(nil), nil
 	})(conn)
@@ -120,7 +120,7 @@ func Test_Server_Env_LogsResponse(t *testing.T) {
 	conn := request.Req(t).ProjectId(projectId).Conn()
 
 	logged := tests.CaptureLog(func() {
-		http.Handler("test-route", createEnvLoader(nil, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		http.Handler("test-route", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 			requestId = env.RequestId()
 			return http.StaticNotFound(9001), nil
 		})(conn)
@@ -140,7 +140,7 @@ func Test_Server_Env_LogsError(t *testing.T) {
 	var requestId string
 	conn := request.Req(t).ProjectId(projectId).Conn()
 	logged := tests.CaptureLog(func() {
-		http.Handler("test2", createEnvLoader(nil, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		http.Handler("test2", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 			requestId = env.RequestId()
 			return nil, errors.New("Not Over 9000!")
 		})(conn)
@@ -166,17 +166,42 @@ func Test_Server_Env_LogsError(t *testing.T) {
 	assert.Equal(t, reqLog["err"], `"Not Over 9000!"`)
 }
 
-func Test_Server_SuperEnv(t *testing.T) {
+func Test_Server_SuperEnv_NoUser(t *testing.T) {
 	conn := request.Req(t).Conn()
+	http.Handler("", loadSuperEnv(loadUserFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		assert.Fail(t, "next should not be called")
+		return nil, nil
+	})(conn)
+	request.Res(t, conn).ExpectNotAuthorized(302_006)
+}
+
+func Test_Server_SuperEnv_NonSuperRole(t *testing.T) {
+	conn := request.Req(t).User("id1").Conn()
+	http.Handler("", loadSuperEnv(loadUserFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		assert.Fail(t, "next should not be called")
+		return nil, nil
+	})(conn)
+	request.Res(t, conn).ExpectForbidden(302_007)
+
+	conn = request.Req(t).User("id1", "admin").Conn()
+	http.Handler("", loadSuperEnv(loadUserFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		assert.Fail(t, "next should not be called")
+		return nil, nil
+	})(conn)
+	request.Res(t, conn).ExpectForbidden(302_007)
+}
+
+func Test_Server_SuperEnv_Ok(t *testing.T) {
+	conn := request.Req(t).User("u1", "super").Conn()
 
 	var id1, id2 string
-	http.Handler("", loadSuperEnv, func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", loadSuperEnv(loadUserFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Nil(t, env.Project)
 		id1 = env.RequestId()
 		return http.Ok(nil), nil
 	})(conn)
 
-	http.Handler("", loadSuperEnv, func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", loadSuperEnv(loadUserFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Nil(t, env.Project)
 		id2 = env.RequestId()
 		return http.Ok(nil), nil
@@ -185,4 +210,74 @@ func Test_Server_SuperEnv(t *testing.T) {
 	assert.Equal(t, len(id1), 8)
 	assert.Equal(t, len(id2), 8)
 	assert.NotEqual(t, id1, id2)
+}
+
+func Test_Server_Nil_User_FromHeader(t *testing.T) {
+	called := false
+	conn := request.Req(t).ProjectId(projectId).Conn()
+	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		called = true
+		assert.Nil(t, env.User)
+		return http.Ok(nil), nil
+	})(conn)
+	assert.True(t, called)
+}
+
+func Test_Server_User_NoRole_FromHeader(t *testing.T) {
+	called := false
+	conn := request.Req(t).ProjectId(projectId).User("user1").Conn()
+	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		called = true
+		assert.Equal(t, env.User.Id, "user1")
+		assert.Equal(t, env.User.Role, "")
+		return http.Ok(nil), nil
+	})(conn)
+	assert.True(t, called)
+}
+
+func Test_Server_User_WithRole_FromHeader(t *testing.T) {
+	called := false
+	conn := request.Req(t).ProjectId(projectId).User("user1", "admin").Conn()
+	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		called = true
+		assert.Equal(t, env.User.Id, "user1")
+		assert.Equal(t, env.User.Role, "admin")
+		return http.Ok(nil), nil
+	})(conn)
+	assert.True(t, called)
+}
+
+func Test_Server_RequireRole_NoCredentials(t *testing.T) {
+	conn := request.Req(t).ProjectId(projectId).Conn()
+	http.Handler("", requireRole("super", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader)), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		assert.Fail(t, "next should not be called")
+		return nil, nil
+	})(conn)
+	request.Res(t, conn).ExpectNotAuthorized(302_006)
+}
+
+func Test_Server_RequireRole_InvalidRole(t *testing.T) {
+	conn := request.Req(t).ProjectId(projectId).User("id1").Conn()
+	http.Handler("", requireRole("super", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader)), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		assert.Fail(t, "next should not be called")
+		return nil, nil
+	})(conn)
+	request.Res(t, conn).ExpectForbidden(302_007)
+
+	conn = request.Req(t).ProjectId(projectId).User("id1", "guest").Conn()
+	http.Handler("", requireRole("super", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader)), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		assert.Fail(t, "next should not be called")
+		return nil, nil
+	})(conn)
+	request.Res(t, conn).ExpectForbidden(302_007)
+}
+
+func Test_Server_RequireRole_ValidRole(t *testing.T) {
+	called := false
+	conn := request.Req(t).ProjectId(projectId).User("id1", "super").Conn()
+	http.Handler("", requireRole("super", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader)), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		called = true
+		return http.Ok(nil), nil
+	})(conn)
+	assert.True(t, called)
 }
