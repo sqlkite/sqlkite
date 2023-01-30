@@ -4,11 +4,62 @@ import (
 	"testing"
 	"time"
 
+	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/sqlkite/data"
 	"src.goblgobl.com/sqlkite/sql"
 	"src.goblgobl.com/sqlkite/tests"
 	"src.goblgobl.com/tests/assert"
 )
+
+func Test_NewProject(t *testing.T) {
+	project, err := NewProject(&data.Project{
+		Id:                   tests.Factory.StandardId,
+		MaxSQLLength:         200,
+		MaxResultLength:      2000,
+		MaxDatabaseSize:      40930,
+		MaxConcurrency:       10,
+		MaxSQLParameterCount: 11,
+		MaxRowCount:          12,
+		MaxFromCount:         13,
+		MaxSelectColumnCount: 14,
+		MaxConditionCount:    15,
+		MaxOrderByCount:      16,
+		MaxTableCount:        17,
+	}, true)
+
+	assert.Nil(t, err)
+	defer project.Shutdown()
+	assert.Equal(t, project.Id, tests.Factory.StandardId)
+	assert.Equal(t, project.MaxConcurrency, 10)
+	assert.Equal(t, project.MaxDatabaseSize, 40930)
+	assert.Equal(t, project.MaxSQLLength, 200)
+	assert.Equal(t, project.MaxSQLParameterCount, 11)
+	assert.Equal(t, project.MaxRowCount, 12)
+	assert.Equal(t, project.MaxResultLength, 2000)
+	assert.Equal(t, project.MaxFromCount, 13)
+	assert.Equal(t, project.MaxSelectColumnCount, 14)
+	assert.Equal(t, project.MaxConditionCount, 15)
+	assert.Equal(t, project.MaxOrderByCount, 16)
+	assert.Equal(t, project.MaxTableCount, 17)
+}
+
+func Test_Project_WithDBEnv(t *testing.T) {
+	project := MustGetProject(tests.Factory.StandardId)
+	env := project.Env()
+	env.User = &User{Id: "user-1", Role: "role-a"}
+	defer env.Release()
+
+	var userId, role string
+	project.WithDBEnv(env, func(conn sqlite.Conn) error {
+		err := conn.Row("select sqlkite_user_id(), sqlkite_user_role()").Scan(&userId, &role)
+		assert.Nil(t, err)
+		return nil
+	})
+
+	assert.Equal(t, userId, "user-1")
+	assert.Equal(t, role, "role-a")
+
+}
 
 func Test_Project_NextRequestId(t *testing.T) {
 	seen := make(map[string]struct{}, 60)

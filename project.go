@@ -20,7 +20,10 @@ import (
 	"src.goblgobl.com/utils/validation"
 )
 
-var Projects concurrent.Map[*Project]
+var (
+	Projects            concurrent.Map[*Project]
+	CLEAR_SQLKITE_USERS = []byte(sqlite.Terminate("update sqlkite_user set id = '', role = ''"))
+)
 
 func init() {
 	Projects = concurrent.NewMap[*Project](loadProject)
@@ -56,6 +59,10 @@ type Project struct {
 	tables               map[string]data.Table
 }
 
+func (p *Project) Shutdown() {
+	p.dbPool.shutdown()
+}
+
 func (p *Project) Env() *Env {
 	return NewEnv(p, p.NextRequestId())
 }
@@ -72,9 +79,30 @@ func (p *Project) Table(name string) (data.Table, bool) {
 
 func (p *Project) WithDB(cb func(sqlite.Conn)) {
 	pool := p.dbPool
-	db := pool.Checkout()
-	defer pool.Release(db)
-	cb(db)
+	conn := pool.Checkout()
+	defer pool.Release(conn)
+	cb(conn)
+}
+
+func (p *Project) WithDBEnv(env *Env, cb func(sqlite.Conn) error) error {
+	pool := p.dbPool
+	conn := pool.Checkout()
+
+	if user := env.User; user != nil {
+		if err := conn.Exec("insert or replace into sqlkite_user (id, user_id, role) values (0, ?1, ?2)", user.Id, user.Role); err != nil {
+			env.Error("WithDBEnv.upsert").String("uid", user.Id).String("role", user.Role).Err(err).Log()
+			return err
+		}
+	}
+
+	defer func() {
+		if err := conn.ExecTerminated(CLEAR_SQLKITE_USERS); err != nil {
+			env.Error("WithDBEnv.clear").Err(err).Log()
+		}
+		pool.Release(conn)
+	}()
+
+	return cb(conn)
 }
 
 func (p *Project) WithTransaction(cb func(sqlite.Conn) error) (err error) {
@@ -259,46 +287,48 @@ func (p *Project) Select(env *Env, sel sql.Select) (*SelectResult, error) {
 		return nil, err
 	}
 
-	pool := p.dbPool
-	db := pool.Checkout()
-	defer pool.Release(db)
-
 	// We don't release this here, unless there's an error, as
 	// it needs to survive until the response is sent.
+	rowCount := 0
 	result := Buffer.CheckoutMax(p.MaxResultLength)
 
-	rows := db.RowsB(sql, sel.Parameters...)
-	defer rows.Close()
+	err = p.WithDBEnv(env, func(conn sqlite.Conn) error {
+		rows := conn.RowsB(sql, sel.Parameters...)
+		defer rows.Close()
 
-	rowCount := 0
-	for rows.Next() {
-		var b sqlite.RawBytes
-		rows.Scan(&b)
-		result.WritePad(b, 1)
-		result.WriteByteUnsafe(',')
-		rowCount += 1
-	}
-
-	if err := rows.Error(); err != nil {
-		result.Release()
-		return nil, err
-	}
-
-	if err := result.Error(); err != nil {
-		result.Release()
-		if errors.Is(err, buffer.ErrMaxSize) {
-			validator.Add(validation.Invalid{
-				Code:  codes.VAL_RESULT_TOO_LONG,
-				Error: "Result too large",
-				Data:  validation.Max(p.MaxResultLength),
-			})
+		for rows.Next() {
+			var b sqlite.RawBytes
+			rows.Scan(&b)
+			result.WritePad(b, 1)
+			result.WriteByteUnsafe(',')
+			rowCount += 1
 		}
-		return nil, err
-	}
 
-	if rowCount > 0 {
-		// trailing comma
-		result.Truncate(1)
+		if err := rows.Error(); err != nil {
+			return err
+		}
+
+		if err := result.Error(); err != nil {
+			if errors.Is(err, buffer.ErrMaxSize) {
+				validator.Add(validation.Invalid{
+					Code:  codes.VAL_RESULT_TOO_LONG,
+					Error: "Result too large",
+					Data:  validation.Max(p.MaxResultLength),
+				})
+			}
+			return err
+		}
+
+		if rowCount > 0 {
+			// trailing comma
+			result.Truncate(1)
+		}
+		return nil
+	})
+
+	if err != nil {
+		result.Release()
+		return nil, err
 	}
 
 	return &SelectResult{
@@ -343,11 +373,11 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 	maxConcurrency := projectData.MaxConcurrency
 	maxDatabaseSize := projectData.MaxDatabaseSize
 
-	dbPool, err := NewDBPool(maxConcurrency, id, func(db sqlite.Conn) error {
+	dbPool, err := NewDBPool(maxConcurrency, id, func(conn sqlite.Conn) error {
 		// On the first connection, we'll query sqlite for the configured page_size
 		// and get our max_age_count pragma ready
 		if pageSize == 0 {
-			if err := db.Row("pragma page_size").Scan(&pageSize); err != nil {
+			if err := conn.Row("pragma page_size").Scan(&pageSize); err != nil {
 				return fmt.Errorf("NewProject.get_page_size - %w", err)
 			}
 			// could pageSize still be 0 here???
@@ -355,9 +385,16 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 			maxPageCountSQL = fmt.Sprintf("pragma max_page_count=%d", maxPageCount)
 		}
 
-		db.BusyTimeout(5 * time.Second)
-		if err := db.Exec(maxPageCountSQL); err != nil {
+		conn.BusyTimeout(5 * time.Second)
+		if err := conn.Exec(maxPageCountSQL); err != nil {
 			return fmt.Errorf("NewProject.maxPageCount(%s, \"%s\")\n%w", id, maxPageCountSQL, err)
+		}
+
+		// We only ever expect 1 row in here. We give it an id (PK), which will always
+		// be 0, so that we can upsert. This will help protect against the chance
+		// that we don't properly teardown this data between connection re-use
+		if err := conn.Exec("create temp table sqlkite_user (id integer primary key not null, user_id text not null, role text not null)"); err != nil {
+			return fmt.Errorf("NewProject.sqlkite_user(%s)\n%w", id, err)
 		}
 		return nil
 	})

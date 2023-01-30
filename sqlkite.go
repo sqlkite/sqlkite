@@ -79,15 +79,6 @@ func OpenPath(dbPath string, create bool) (sqlite.Conn, error) {
 		return db, fmt.Errorf("OpenPath.open(%s) - %w", dbPath, err)
 	}
 
-	err = db.Exec(`
-		create temp table sqlkite_user (
-			key integer primary key, id text, admin int
-		)`)
-	if err != nil {
-		db.Close()
-		return db, fmt.Errorf("OpenDB.sqlkite_user(%s) - %w", dbPath, err)
-	}
-
 	return db, nil
 }
 
