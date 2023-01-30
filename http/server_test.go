@@ -22,9 +22,9 @@ func TestMain(m *testing.M) {
 	if err := sqlkite.CreateDB(projectId); err != nil {
 		panic(err)
 	}
-	defer tests.RemoveTempDBs()
 
 	code := m.Run()
+	tests.RemoveTempDBs()
 	os.Exit(code)
 }
 

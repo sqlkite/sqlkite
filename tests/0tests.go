@@ -92,19 +92,20 @@ func Rows(sql string, args ...any) []typed.Typed {
 // DB (say, to test creating DBs), and those we want to cleanup
 func RemoveTempDBs() {
 	root := TestDBRoot()
-
+	isSqliteSuper := tests.StorageType() == "sqlite"
 	entries, _ := ioutil.ReadDir(root)
 	for _, entry := range entries {
 		name := entry.Name()
 		if strings.HasPrefix(name, "00001111-") {
 			continue
 		}
-		if name == "sqlkite.super" {
-			continue
-		}
 		if err := os.RemoveAll(path.Join(root, name)); err != nil {
 			panic(err)
 		}
+	}
+
+	if isSqliteSuper {
+		super.DB.(sqlite.Conn).MustExec("delete from sqlkite_projects where id not like '00001111-%'")
 	}
 }
 
