@@ -26,7 +26,7 @@ var (
 )
 
 func init() {
-	Projects = concurrent.NewMap[*Project](loadProject)
+	Projects = concurrent.NewMap[*Project](loadProject, shutdownProject)
 }
 
 // A project instance isn't updated. If the project is changed,
@@ -356,6 +356,14 @@ func loadProject(id string) (*Project, error) {
 		return nil, err
 	}
 	return NewProject(projectData, true)
+}
+
+// Called whenever a project is removed from the Projects map. There can be other
+// references to p when this is called, including from other goroutines. The
+// only guarantee we have is that when this function is called, subsequent calls
+// to the Projects map will not return this reference.
+func shutdownProject(p *Project) {
+	go p.Shutdown()
 }
 
 func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) {

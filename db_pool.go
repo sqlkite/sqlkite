@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"src.goblgobl.com/sqlite"
+	"src.goblgobl.com/utils/log"
 )
 
 // Every project will have 1 DBPool with a configurable size
@@ -70,16 +71,22 @@ func (p *DBPool) Release(db sqlite.Conn) {
 	p.list <- db
 }
 
-// Closes all connections [which are currently in the pool]. Only meant
-// to be called in specific instances where we know the pool is no longer
-// being used
+// Closes all connections. Will wait up to 60 seconds to all connections to be
+// returned to the pool. Ideally this is called when there might still be some
+// connections checked out of the pool, but these should be promptly returned
+// and it should not be possible for new checkouts to happen.
 func (p *DBPool) shutdown() {
-	for {
+	list := p.list
+	l := cap(list)
+	defer close(list)
+
+	timeout := time.After(time.Second * 60)
+	for i := 0; i < l; i++ {
 		select {
-		case db := <-p.list:
+		case db := <-list:
 			db.Close()
-		default:
-			close(p.list)
+		case <-timeout:
+			log.Error("DBPool.shutdown").Int("i", i).Log()
 			return
 		}
 	}
