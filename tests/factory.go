@@ -74,6 +74,7 @@ func resetDatabase(id string) {
 		panic(err)
 	}
 	defer conn.Close()
+	conn.BusyTimeout(5 * time.Second)
 
 	tables := make([]string, 0, 5)
 	rows := conn.Rows("select name from sqlite_schema where type='table' and name not like 'sqlkite_%'")
