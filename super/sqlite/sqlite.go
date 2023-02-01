@@ -1,11 +1,12 @@
 package sqlite
 
 import (
-	"fmt"
 	"time"
 
+	"src.goblgobl.com/sqlkite/codes"
 	"src.goblgobl.com/sqlkite/data"
 	"src.goblgobl.com/sqlkite/super/sqlite/migrations"
+	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/sqlite"
 )
 
@@ -20,7 +21,7 @@ type Conn struct {
 func New(config Config) (Conn, error) {
 	conn, err := sqlite.New(config.Path, true)
 	if err != nil {
-		return Conn{}, fmt.Errorf("Sqlite.New - %w", err)
+		return Conn{}, log.Err(codes.ERR_SUPER_SQLITE_NEW, err)
 	}
 	return Conn{conn}, nil
 }
@@ -28,7 +29,7 @@ func New(config Config) (Conn, error) {
 func (c Conn) Ping() error {
 	err := c.Exec("select 1")
 	if err != nil {
-		return fmt.Errorf("Sqlite.Ping - %w", err)
+		return log.Err(codes.ERR_SUPER_SQLITE_PING, err)
 	}
 	return nil
 }
@@ -67,7 +68,7 @@ func (c Conn) GetProject(id string) (*data.Project, error) {
 		if err == sqlite.ErrNoRows {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("Sqlite.GetProject - %w", err)
+		return nil, log.Err(codes.ERR_SUPER_SQLITE_GET_PROJECT, err)
 	}
 	return project, nil
 }
@@ -79,7 +80,7 @@ func (c Conn) GetUpdatedProjects(timestamp time.Time) ([]*data.Project, error) {
 	// which returns 0, or to get an empty result set).
 	count, err := sqlite.Scalar[int](c.Conn, "select count(*) from sqlkite_projects where updated > ?1", timestamp)
 	if err != nil {
-		return nil, fmt.Errorf("Sqlite.GetUpdatedProjects (count) - %w", err)
+		return nil, log.Err(codes.ERR_SUPER_SQLITE_GET_UPDATED_PROJECT_COUNT, err)
 	}
 	if count == 0 {
 		return nil, nil
@@ -105,7 +106,7 @@ func (c Conn) GetUpdatedProjects(timestamp time.Time) ([]*data.Project, error) {
 	}
 
 	if err := rows.Error(); err != nil {
-		return nil, fmt.Errorf("Sqlite.GetUpdatedProjects (select) - %w", err)
+		return nil, log.Err(codes.ERR_SUPER_SQLITE_GET_UPDATED_PROJECT, err)
 	}
 
 	return projects, nil

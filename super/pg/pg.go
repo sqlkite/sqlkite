@@ -3,11 +3,12 @@ package pg
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
+	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/pg"
 
+	"src.goblgobl.com/sqlkite/codes"
 	"src.goblgobl.com/sqlkite/data"
 	"src.goblgobl.com/sqlkite/super/pg/migrations"
 )
@@ -24,7 +25,7 @@ type DB struct {
 func New(config Config, tpe string) (DB, error) {
 	db, err := pg.New(config.URL)
 	if err != nil {
-		return DB{}, fmt.Errorf("PG.New - %w", err)
+		return DB{}, log.Err(codes.ERR_SUPER_PG_NEW, err)
 	}
 	return DB{db, tpe}, nil
 }
@@ -32,7 +33,7 @@ func New(config Config, tpe string) (DB, error) {
 func (db DB) Ping() error {
 	_, err := db.Exec(context.Background(), "select 1")
 	if err != nil {
-		return fmt.Errorf("PG.Ping - %w", err)
+		return log.Err(codes.ERR_SUPER_PG_PING, err)
 	}
 	return nil
 }
@@ -71,7 +72,7 @@ func (db DB) GetProject(id string) (*data.Project, error) {
 		if errors.Is(err, pg.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("PG.GetProject - %w", err)
+		return nil, log.Err(codes.ERR_SUPER_PG_GET_PROJECT, err)
 	}
 	return project, nil
 }
@@ -86,7 +87,7 @@ func (db DB) GetUpdatedProjects(timestamp time.Time) ([]*data.Project, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("PG.GetUpdatedProjects (count) - %w", err)
+		return nil, log.Err(codes.ERR_SUPER_PG_GET_UPDATED_PROJECT_COUNT, err)
 	}
 
 	rows, err := db.Query(context.Background(), `
@@ -97,7 +98,7 @@ func (db DB) GetUpdatedProjects(timestamp time.Time) ([]*data.Project, error) {
 		from sqlkite_projects where updated > $1
 	`, timestamp)
 	if err != nil {
-		return nil, fmt.Errorf("PG.GetUpdatedProjects (select) - %w", err)
+		return nil, log.Err(codes.ERR_SUPER_PG_GET_UPDATED_PROJECT, err)
 	}
 	defer rows.Close()
 

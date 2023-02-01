@@ -2,7 +2,6 @@ package diagnostics
 
 import (
 	_ "embed"
-	"fmt"
 	"runtime"
 
 	"github.com/valyala/fasthttp"
@@ -17,7 +16,7 @@ var commit string
 func Info(conn *fasthttp.RequestCtx) (http.Response, error) {
 	superInfo, err := super.DB.Info()
 	if err != nil {
-		return nil, fmt.Errorf("super info - %w", err)
+		return nil, err
 	}
 
 	return http.Ok(struct {
