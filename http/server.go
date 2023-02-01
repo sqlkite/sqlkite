@@ -149,6 +149,9 @@ func listenSuper(config config.HTTP, logger log.Logger, envLoader EnvLoader, use
 func mainHandler(config config.HTTP, logger log.Logger, envLoader EnvLoader) (func(ctx *fasthttp.RequestCtx), error) {
 	r := router.New()
 
+	// diagnostics routes
+	r.GET("/v1/diagnostics/ping", http.NoEnvHandler("ping", diagnostics.Ping))
+
 	r.POST("/v1/sql/select", http.Handler("sql_select", envLoader, sql.Select))
 
 	if config.Admin == "public" {
