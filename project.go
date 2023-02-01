@@ -126,7 +126,7 @@ func (p *Project) CreateTable(env *Env, table data.Table) error {
 
 	definition, err := json.Marshal(table)
 	if err != nil {
-		return fmt.Errorf("Project.CreateTable json - %w", err)
+		return log.Err(codes.ERR_TABLE_SERIALIZE, err)
 	}
 
 	buffer := p.Buffer()
@@ -135,16 +135,16 @@ func (p *Project) CreateTable(env *Env, table data.Table) error {
 	sql.CreateTable(table, buffer)
 	createSQL, err := buffer.SqliteBytes()
 	if err != nil {
-		return fmt.Errorf("Project.CreateTable createSQL buffer - %w", err)
+		return log.Err(codes.ERR_PROJECT_BUFFER, err)
 	}
 
 	err = p.WithTransaction(func(conn sqlite.Conn) error {
 		if err := conn.ExecB(createSQL); err != nil {
-			return fmt.Errorf("Project.CreateTable exec - %w", err)
+			return log.Err(codes.ERR_CREATE_TABLE_EXEC, err)
 		}
 
 		if err := conn.Exec("insert into sqlkite_tables (name, definition) values ($1, $2)", table.Name, definition); err != nil {
-			return fmt.Errorf("Project.CreateTable sqlkite_tables - %w", err)
+			return log.Err(codes.ERR_INSERT_SQLKITE_TABLES, err)
 		}
 
 		return nil
@@ -170,7 +170,7 @@ func (p *Project) UpdateTable(env *Env, alter sql.AlterTable, access data.TableA
 
 	definition, err := json.Marshal(table)
 	if err != nil {
-		return fmt.Errorf("Project.UpdateTable json - %w", err)
+		return log.Err(codes.ERR_TABLE_SERIALIZE, err)
 	}
 
 	buffer := p.Buffer()
@@ -179,16 +179,17 @@ func (p *Project) UpdateTable(env *Env, alter sql.AlterTable, access data.TableA
 	alter.Write(buffer)
 	alterSQL, err := buffer.SqliteBytes()
 	if err != nil {
-		return fmt.Errorf("Project.UpdateTable alterSQL buffer - %w", err)
+		return log.Err(codes.ERR_PROJECT_BUFFER, err)
 	}
 
 	err = p.WithTransaction(func(conn sqlite.Conn) error {
 		if err := conn.ExecB(alterSQL); err != nil {
-			return fmt.Errorf("Project.UpdateTable exec - %w", err)
+			return log.Err(codes.ERR_UPDATE_TABLE_EXEC, err)
+
 		}
 
 		if err := conn.Exec("update sqlkite_tables set name = $1, definition = $2 where name = $3", table.Name, definition, existing.Name); err != nil {
-			return fmt.Errorf("Project.UpdateTable sqlkite_tables - %w", err)
+			return log.Err(codes.ERR_UPDATE_SQLKITE_TABLES, err)
 		}
 
 		return nil
@@ -214,15 +215,15 @@ func (p *Project) DeleteTable(env *Env, tableName string) error {
 
 	buffer.Write([]byte("drop table "))
 	buffer.WriteUnsafe(tableName)
-	dropSQL, err := buffer.SqliteBytes()
+	dropSQL, _ := buffer.SqliteBytes()
 
-	err = p.WithTransaction(func(conn sqlite.Conn) error {
+	err := p.WithTransaction(func(conn sqlite.Conn) error {
 		if err := conn.ExecB(dropSQL); err != nil {
-			return fmt.Errorf("Project.DeleteTable exec - %w", err)
+			return log.Err(codes.ERR_DELETE_TABLE_EXEC, err)
 		}
 
 		if err := conn.Exec("delete from sqlkite_tables where name = $1", tableName); err != nil {
-			return fmt.Errorf("Project.DeleteTable sqlkite_tables - %w", err)
+			return log.Err(codes.ERR_DELETE_SQLKITE_TABLES, err)
 		}
 
 		return nil
@@ -386,7 +387,7 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 		// and get our max_age_count pragma ready
 		if pageSize == 0 {
 			if err := conn.Row("pragma page_size").Scan(&pageSize); err != nil {
-				return fmt.Errorf("NewProject.get_page_size - %w", err)
+				return log.ErrData(codes.ERR_GET_PAGE_SIZE, err, map[string]any{"pid": id})
 			}
 			// could pageSize still be 0 here???
 			maxPageCount := maxDatabaseSize / uint64(pageSize)
@@ -395,14 +396,14 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 
 		conn.BusyTimeout(5 * time.Second)
 		if err := conn.Exec(maxPageCountSQL); err != nil {
-			return fmt.Errorf("NewProject.maxPageCount(%s, \"%s\")\n%w", id, maxPageCountSQL, err)
+			return log.ErrData(codes.ERR_MAX_PAGE_COUNT, err, map[string]any{"pid": id, "sql": maxPageCountSQL})
 		}
 
 		// We only ever expect 1 row in here. We give it an id (PK), which will always
 		// be 0, so that we can upsert. This will help protect against the chance
 		// that we don't properly teardown this data between connection re-use
 		if err := conn.Exec("create temp table sqlkite_user (id integer primary key not null, user_id text not null, role text not null)"); err != nil {
-			return fmt.Errorf("NewProject.sqlkite_user(%s)\n%w", id, err)
+			return log.ErrData(codes.ERR_CREATE_SQLKITE_USER, err, map[string]any{"pid": id})
 		}
 		return nil
 	})
@@ -458,12 +459,12 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 
 	if err != nil {
 		dbPool.shutdown()
-		return nil, fmt.Errorf("NewProject.sqlkite_tables json(%s)\n%w", id, err)
+		return nil, log.ErrData(codes.ERR_CREATE_READ_TABLE_DEFINITIONS, err, map[string]any{"pid": id})
 	}
 	// yes, rows.Error() is safe to call after Close
 	if err := rows.Error(); err != nil {
 		dbPool.shutdown()
-		return nil, fmt.Errorf("NewProject.sqlkite_tables rows(%s)\n%w", id, err)
+		return nil, log.ErrData(codes.ERR_CREATE_READ_TABLE_ROWS, err, map[string]any{"pid": id})
 	}
 
 	return &Project{

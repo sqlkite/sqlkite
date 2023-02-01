@@ -68,6 +68,7 @@ func Test_Update_NotFound(t *testing.T) {
 }
 
 func Test_Update_DefaultInput(t *testing.T) {
+	defer tests.RemoveTempDBs()
 	projectId := tests.Factory.Project.Insert().String("id")
 
 	request.ReqT(t, sqlkite.BuildEnv().NoProject().Env()).
@@ -85,6 +86,7 @@ func Test_Update_DefaultInput(t *testing.T) {
 }
 
 func Test_Update_ExplicitInput(t *testing.T) {
+	defer tests.RemoveTempDBs()
 	projectId := tests.Factory.Project.Insert().String("id")
 
 	request.ReqT(t, sqlkite.BuildEnv().NoProject().Env()).

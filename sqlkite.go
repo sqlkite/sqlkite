@@ -2,7 +2,6 @@ package sqlkite
 
 import (
 	"errors"
-	"fmt"
 	"io/fs"
 	"math/rand"
 	"os"
@@ -13,9 +12,11 @@ import (
 	"time"
 
 	"src.goblgobl.com/sqlite"
+	"src.goblgobl.com/sqlkite/codes"
 	"src.goblgobl.com/sqlkite/config"
 	"src.goblgobl.com/sqlkite/data"
 	"src.goblgobl.com/utils/buffer"
+	"src.goblgobl.com/utils/log"
 )
 
 var Config config.Config
@@ -70,13 +71,13 @@ func OpenPath(dbPath string, create bool) (sqlite.Conn, error) {
 		dir := path.Dir(dbPath)
 		err := os.MkdirAll(dir, 0700)
 		if err != nil && !errors.Is(err, fs.ErrExist) {
-			return sqlite.Conn{}, fmt.Errorf("OpenPath.create(%s) - %w", dir, err)
+			return sqlite.Conn{}, log.ErrData(codes.ERR_DB_CREATE_PATH, err, map[string]any{"dir": dir})
 		}
 	}
 
 	db, err := sqlite.Open(dbPath, create)
 	if err != nil {
-		return db, fmt.Errorf("OpenPath.open(%s) - %w", dbPath, err)
+		return db, log.ErrData(codes.ERR_DB_OPEN, err, map[string]any{"path": dbPath})
 	}
 
 	return db, nil
@@ -85,13 +86,13 @@ func OpenPath(dbPath string, create bool) (sqlite.Conn, error) {
 func CreateDB(projectId string) error {
 	db, err := OpenDB(projectId, true)
 	if err != nil {
-		return fmt.Errorf("CreateDB(%s) - %w", projectId, err)
+		return err.(*log.StructuredError).String("pid", projectId)
 	}
 	defer db.Close()
 
 	err = db.Exec("pragma journal_mode=wal")
 	if err != nil {
-		return fmt.Errorf("CreateDB(%s).journal_mode - %w", projectId, err)
+		return log.ErrData(codes.ERR_PRAGMA_JOURNAL, err, map[string]any{"pid": projectId})
 	}
 
 	err = db.Exec(`create table sqlkite_tables (
@@ -100,7 +101,7 @@ func CreateDB(projectId string) error {
 	)`)
 
 	if err != nil {
-		return fmt.Errorf("CreateDB(%s).sqlkite_tables - %w", projectId, err)
+		return log.ErrData(codes.ERR_CREATE_SQLITE_TABLES, err, map[string]any{"pid": projectId})
 	}
 
 	return nil
