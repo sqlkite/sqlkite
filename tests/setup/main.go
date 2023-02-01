@@ -24,6 +24,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	if err := sqlkite.Init(config); err != nil {
 		panic(err)
 	}
@@ -73,13 +74,8 @@ func setupStandardProject() {
 		MaxTableCount:        10,
 	})
 
-	project, err := sqlkite.Projects.Get(id)
-	if err != nil {
-		panic(err)
-	}
-
-	env := project.Env()
-	err = project.CreateTable(env, data.Table{
+	project := MustGetProject(id)
+	err := project.CreateTable(project.Env(), data.Table{
 		Name: "products",
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
@@ -91,6 +87,8 @@ func setupStandardProject() {
 	if err != nil {
 		panic(err)
 	}
+
+	project = MustGetProject(id)
 	project.WithDB(func(conn sqlite.Conn) {
 		conn.MustExec(`
 			insert into products (id, name, rating, image) values
@@ -104,7 +102,7 @@ func setupStandardProject() {
 		)
 	})
 
-	err = project.CreateTable(env, data.Table{
+	err = project.CreateTable(project.Env(), data.Table{
 		Name: "users",
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
@@ -121,6 +119,8 @@ func setupStandardProject() {
 	if err != nil {
 		panic(err)
 	}
+
+	project = MustGetProject(id)
 	project.WithDB(func(conn sqlite.Conn) {
 		conn.MustExec(`
 			insert into users (id, name, public) values
@@ -154,11 +154,7 @@ func setupDynamicProject() {
 		MaxTableCount:        10,
 	})
 
-	project, err := sqlkite.Projects.Get(id)
-	if err != nil {
-		panic(err)
-	}
-
+	project := MustGetProject(id)
 	// clear out all the tables in this "messy" database
 	project.WithDB(func(conn sqlite.Conn) {
 		conn.Transaction(func() error {
@@ -197,13 +193,8 @@ func setupLimitedProject() {
 		MaxTableCount:        2,
 	})
 
-	project, err := sqlkite.Projects.Get(id)
-	if err != nil {
-		panic(err)
-	}
-
-	env := project.Env()
-	err = project.CreateTable(env, data.Table{
+	project := MustGetProject(id)
+	err := project.CreateTable(project.Env(), data.Table{
 		Name: "t1",
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
@@ -213,7 +204,8 @@ func setupLimitedProject() {
 		panic(err)
 	}
 
-	err = project.CreateTable(env, data.Table{
+	project = MustGetProject(id)
+	err = project.CreateTable(project.Env(), data.Table{
 		Name: "t2",
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
@@ -238,4 +230,12 @@ func createProjectDatabase(d data.Project) {
 	if err := super.DB.CreateProject(d); err != nil {
 		panic(err)
 	}
+}
+
+func MustGetProject(id string) *sqlkite.Project {
+	project, err := sqlkite.Projects.Get(id)
+	if err != nil {
+		panic(err)
+	}
+	return project
 }
