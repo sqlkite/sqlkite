@@ -32,7 +32,7 @@ type HTTP struct {
 	Admin          string             `json:"admin"`
 	Listen         string             `json:"listen"`
 	Project        HTTPProject        `json:"project"`
-	Authentication HTTPAuthentication `json:"authentication"`
+	Authentication HTTPAuthentication `json:"auth"`
 }
 
 type HTTPProject struct {

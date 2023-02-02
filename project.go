@@ -135,21 +135,67 @@ func (p *Project) CreateTable(env *Env, table data.Table) error {
 		return log.Err(codes.ERR_TABLE_SERIALIZE, err)
 	}
 
-	buffer := p.Buffer()
-	defer buffer.Release()
+	createBuffer := p.Buffer()
+	defer createBuffer.Release()
 
-	sql.CreateTable(table, buffer)
-	createSQL, err := buffer.SqliteBytes()
+	sql.CreateTable(table, createBuffer)
+	createSQL, err := createBuffer.SqliteBytes()
 	if err != nil {
-		return log.Err(codes.ERR_PROJECT_BUFFER, err)
+		return p.bufferErrorToValidation(env, err)
 	}
 
+	// This is aweful. I really struggle between giving each trigger its own buffer
+	// or re-using the createBuffer. The issue with re-using createBuffer is
+	// that we'd need to generate the trigger SQL within the transaction, which
+	// I don't love for the performance implication and for handling buffer.ErrMaxSize
+	// as a validation error within the transaction.
+	// Doing this mess upfront at least makes the code that's executing within
+	// our transaction pretty straightforward.
+
+	access := table.Access
+	tableName := table.Name
+	insertAccessSQL, insertAccessBuffer, err := p.buildAccessTrigger(tableName, "insert", access.Insert)
+	if err != nil {
+		return p.bufferErrorToValidation(env, err)
+	}
+	insertAccessBuffer.Release()
+
+	updateAccessSQL, udpdateAccessBuffer, err := p.buildAccessTrigger(tableName, "update", access.Update)
+	if err != nil {
+		return p.bufferErrorToValidation(env, err)
+	}
+	udpdateAccessBuffer.Release()
+
+	deleteAccessSQL, deleteAccessBuffer, err := p.buildAccessTrigger(tableName, "delete", access.Delete)
+	if err != nil {
+		return p.bufferErrorToValidation(env, err)
+	}
+	deleteAccessBuffer.Release()
+
 	err = p.WithTransaction(func(conn sqlite.Conn) error {
-		if err := conn.ExecB(createSQL); err != nil {
+		if err := conn.ExecTerminated(createSQL); err != nil {
 			return log.Err(codes.ERR_CREATE_TABLE_EXEC, err)
 		}
 
-		if err := conn.Exec("insert into sqlkite_tables (name, definition) values ($1, $2)", table.Name, definition); err != nil {
+		if insertAccessSQL != nil {
+			if err := conn.ExecTerminated(insertAccessSQL); err != nil {
+				return log.Err(codes.ERR_CREATE_ACCESS_TRIGGER, err).String("action", "insert")
+			}
+		}
+
+		if updateAccessSQL != nil {
+			if err := conn.ExecTerminated(updateAccessSQL); err != nil {
+				return log.Err(codes.ERR_CREATE_ACCESS_TRIGGER, err).String("action", "update")
+			}
+		}
+
+		if deleteAccessSQL != nil {
+			if err := conn.ExecTerminated(deleteAccessSQL); err != nil {
+				return log.Err(codes.ERR_CREATE_ACCESS_TRIGGER, err).String("action", "delete")
+			}
+		}
+
+		if err := conn.Exec("insert into sqlkite_tables (name, definition) values ($1, $2)", tableName, definition); err != nil {
 			return log.Err(codes.ERR_INSERT_SQLKITE_TABLES, err)
 		}
 
@@ -189,7 +235,7 @@ func (p *Project) UpdateTable(env *Env, alter sql.AlterTable, access data.TableA
 	}
 
 	err = p.WithTransaction(func(conn sqlite.Conn) error {
-		if err := conn.ExecB(alterSQL); err != nil {
+		if err := conn.ExecTerminated(alterSQL); err != nil {
 			return log.Err(codes.ERR_UPDATE_TABLE_EXEC, err)
 
 		}
@@ -224,7 +270,7 @@ func (p *Project) DeleteTable(env *Env, tableName string) error {
 	dropSQL, _ := buffer.SqliteBytes()
 
 	err := p.WithTransaction(func(conn sqlite.Conn) error {
-		if err := conn.ExecB(dropSQL); err != nil {
+		if err := conn.ExecTerminated(dropSQL); err != nil {
 			return log.Err(codes.ERR_DELETE_TABLE_EXEC, err)
 		}
 
@@ -288,10 +334,7 @@ func (p *Project) Select(env *Env, sel sql.Select) (*SelectResult, error) {
 	sql, err := writer.Bytes()
 
 	if err != nil {
-		if p.bufferErrorToValidation(env, err) {
-			return nil, nil
-		}
-		return nil, err
+		return nil, p.bufferErrorToValidation(env, err)
 	}
 
 	// We don't release this here, unless there's an error, as
@@ -344,17 +387,37 @@ func (p *Project) Select(env *Env, sel sql.Select) (*SelectResult, error) {
 	}, nil
 }
 
-func (p *Project) bufferErrorToValidation(env *Env, err error) bool {
-	if errors.Is(err, buffer.ErrMaxSize) {
-		invalid := validation.Invalid{
-			Code:  codes.VAL_SQL_TOO_LONG,
-			Error: "Generated SQL query is too large",
-			Data:  validation.Max(p.MaxSQLLength),
-		}
-		env.Validator.Add(invalid)
-		return true
+func (p *Project) buildAccessTrigger(tableName string, action string, access *data.MutateTableAccess) ([]byte, utils.Releasable, error) {
+	if access == nil {
+		return nil, utils.NoopReleasable, nil
 	}
-	return false
+
+	buffer := p.Buffer()
+	sql.TableAccessTrigger(tableName, action, access, buffer)
+
+	bytes, err := buffer.SqliteBytes()
+	if err != nil {
+		buffer.Release()
+		return nil, utils.NoopReleasable, err
+	}
+
+	return bytes, buffer, nil
+}
+
+func (p *Project) bufferErrorToValidation(env *Env, err error) error {
+	if !errors.Is(err, buffer.ErrMaxSize) {
+		// this should not be possible, and we want to know about it if it does happen
+		log.Error("unknown buffer error").Err(err).Log()
+		return err
+	}
+
+	invalid := validation.Invalid{
+		Code:  codes.VAL_SQL_TOO_LONG,
+		Error: "Generated SQL query exceeds maximum allowed length",
+		Data:  validation.Max(p.MaxSQLLength),
+	}
+	env.Validator.Add(invalid)
+	return nil
 }
 
 func loadProject(id string) (*Project, error) {

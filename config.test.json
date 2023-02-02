@@ -1,7 +1,9 @@
 {
 	"root_path": "./tests/databases",
-	"log": {"level": "warn"},
+	"log": {"level": "info"},
 	"http": {
+		"auth": {"type": "header"},
+		"project": {"type": "header"},
 		"super": "127.0.0.1:5101"
 	},
 	"super": {

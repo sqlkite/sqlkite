@@ -72,5 +72,15 @@ func mapAccess(input typed.Typed) data.TableAccess {
 		access.Select = &data.SelectTableAccess{CTE: cte}
 	}
 
+	if input, ok := input.ObjectIf("insert"); ok {
+		access.Insert = &data.MutateTableAccess{When: input.String("when"), Trigger: input.String("trigger")}
+	}
+	if input, ok := input.ObjectIf("update"); ok {
+		access.Update = &data.MutateTableAccess{When: input.String("when"), Trigger: input.String("trigger")}
+	}
+	if input, ok := input.ObjectIf("delete"); ok {
+		access.Delete = &data.MutateTableAccess{When: input.String("when"), Trigger: input.String("trigger")}
+	}
+
 	return access
 }

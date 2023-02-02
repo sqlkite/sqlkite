@@ -144,11 +144,7 @@ func (e *Env) ServerError(err error, conn *fasthttp.RequestCtx) http.Response {
 	}
 	body, _ := json.Marshal(data)
 
-	return http.ErrorIdResponse{
-		Body:    body,
-		ErrorId: errorId,
-		LogData: sqliteErrorLogData,
-	}
+	return http.NewErrorIdResponse(err, errorId, body, sqliteErrorLogData)
 }
 
 func (e *Env) Debug() bool {

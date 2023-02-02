@@ -41,11 +41,25 @@ func (c ColumnType) String() string {
 
 type TableAccess struct {
 	Select *SelectTableAccess `json:"select",omitempty`
+	Insert *MutateTableAccess `json:"insert",omitempty`
+	Update *MutateTableAccess `json:"update",omitempty`
+	Delete *MutateTableAccess `json:"delete",omitempty`
 }
 
+// Table access for selects is implemented using a CTE
 type SelectTableAccess struct {
 	CTE string `json:"cte"`
 	// Not persisted, but set when the table is loaded.
 	// Makes it easier to deal with table renamed
 	Name string `json:"-"`
+}
+
+// Table access for insert/update/delete is implemented using a trigger
+// The following structure will translate into something like:
+// create trigger sqlkite_row_access before (insert|update|delete) on $table
+// for each row [when $when]
+// begin ${triger} end
+type MutateTableAccess struct {
+	When    string `json:"when",omitempty`
+	Trigger string `json:"trigger"`
 }

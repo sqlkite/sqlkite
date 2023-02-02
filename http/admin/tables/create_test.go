@@ -35,10 +35,12 @@ func Test_Create_InvalidData(t *testing.T) {
 		Body(map[string]any{
 			"name":    "h@t",
 			"columns": []any{map[string]any{}},
-			"access":  map[string]any{"select": 32},
+			"access":  map[string]any{"select": 32, "insert": "no", "update": true, "delete": []any{}},
 		}).
 		Post(Create).
-		ExpectValidation("name", 1004, "columns.0.name", 1001, "columns.0.type", 1001, "columns.0.nullable", 1001, "access.select", 1002).
+		ExpectValidation(
+			"name", 1004, "columns.0.name", 1001, "columns.0.type", 1001, "columns.0.nullable", 1001,
+			"access.select", 1002, "access.insert", 1022, "access.update", 1022, "access.delete", 1022).
 		ExpectNoValidation("columns.0.default")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
@@ -47,9 +49,14 @@ func Test_Create_InvalidData(t *testing.T) {
 			"columns": []any{
 				map[string]any{"name": "l@w", "type": "float64", "nullable": 1},
 			},
+			"access": map[string]any{
+				"insert": map[string]any{"when": 32, "trigger": true},
+			},
 		}).
 		Post(Create).
-		ExpectValidation("name", 1004, "columns.0.name", 1004, "columns.0.type", 1015, "columns.0.nullable", 1009)
+		ExpectValidation(
+			"name", 1004, "columns.0.name", 1004, "columns.0.type", 1015, "columns.0.nullable", 1009,
+			"access.insert.when", 1002, "access.insert.trigger", 1002)
 
 	// table name cannot start with sqlkite
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
@@ -105,6 +112,9 @@ func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 			},
 			"access": map[string]any{
 				"select": "select * from a_table where user_id = sqlkite_user_id()",
+				"insert": map[string]any{"when": "1=1", "trigger": "select 1;"},
+				"update": map[string]any{"when": "2=2", "trigger": "select 2;"},
+				"delete": map[string]any{"when": "3=3", "trigger": "select 3;"},
 			},
 		}).
 		Post(Create).
@@ -139,6 +149,13 @@ func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 
 	assert.Equal(t, table.Access.Select.Name, "sqlkite_cte_test_create_success_defaults")
 	assert.Equal(t, table.Access.Select.CTE, "select * from a_table where user_id = sqlkite_user_id()")
+
+	assert.Equal(t, table.Access.Insert.When, "1=1")
+	assert.Equal(t, table.Access.Insert.Trigger, "select 1;")
+	assert.Equal(t, table.Access.Update.When, "2=2")
+	assert.Equal(t, table.Access.Update.Trigger, "select 2;")
+	assert.Equal(t, table.Access.Delete.When, "3=3")
+	assert.Equal(t, table.Access.Delete.Trigger, "select 3;")
 }
 
 func Test_Create_Success_NoDefaults_NoAccessControl(t *testing.T) {
