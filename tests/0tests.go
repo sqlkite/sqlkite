@@ -6,13 +6,11 @@ package tests
 
 import (
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	sqliteDriver "src.goblgobl.com/sqlite"
 
@@ -28,8 +26,6 @@ import (
 var generator tests.Generator
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
-
 	err := log.Configure(log.Config{
 		Level: "WARN",
 	})

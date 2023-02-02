@@ -1,6 +1,6 @@
 module src.goblgobl.com/sqlkite
 
-go 1.18
+go 1.20
 
 replace (
 	github.com/goccy/go-json => github.com/aryehlev/go-json v0.0.0-20221129210459-f82fe12f9170
@@ -10,7 +10,7 @@ replace (
 )
 
 require (
-	github.com/fasthttp/router v1.4.14
+	github.com/fasthttp/router v1.4.16
 	github.com/jackc/pgx/v5 v5.2.0
 	github.com/valyala/fasthttp v1.44.0
 	src.goblgobl.com/sqlite v0.0.4

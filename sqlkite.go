@@ -3,13 +3,11 @@ package sqlkite
 import (
 	"errors"
 	"io/fs"
-	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/sqlkite/codes"
@@ -38,8 +36,6 @@ func init() {
 }
 
 func Init(config config.Config) error {
-	rand.Seed(time.Now().UnixNano())
-
 	Buffer = buffer.NewPoolFromConfig(*config.Buffer)
 
 	Config = config
