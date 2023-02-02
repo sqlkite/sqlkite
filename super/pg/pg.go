@@ -62,7 +62,7 @@ func (db DB) GetProject(id string) (*data.Project, error) {
 		select id, max_concurrency, max_sql_length, max_sql_parameter_count,
 		       max_database_size, max_row_count, max_result_length, max_from_count,
 		       max_select_column_count, max_condition_count, max_order_by_count,
-		       max_table_count
+		       max_table_count, debug
 		from sqlkite_projects
 		where id = $1
 	`, id)
@@ -94,7 +94,7 @@ func (db DB) GetUpdatedProjects(timestamp time.Time) ([]*data.Project, error) {
 		select id, max_concurrency, max_sql_length, max_sql_parameter_count,
 		       max_database_size, max_row_count, max_result_length, max_from_count,
 		       max_select_column_count, max_condition_count, max_order_by_count,
-		       max_table_count
+		       max_table_count, debug
 		from sqlkite_projects where updated > $1
 	`, timestamp)
 	if err != nil {
@@ -120,14 +120,14 @@ func (db DB) CreateProject(data data.Project) error {
 			id, max_concurrency, max_sql_length, max_sql_parameter_count,
 			max_database_size, max_row_count, max_result_length, max_from_count,
 			max_select_column_count, max_condition_count, max_order_by_count,
-			max_table_count
+			max_table_count, debug
 		)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`,
 		data.Id, data.MaxConcurrency, data.MaxSQLLength, data.MaxSQLParameterCount,
 		data.MaxDatabaseSize, data.MaxRowCount, data.MaxResultLength, data.MaxFromCount,
 		data.MaxSelectColumnCount, data.MaxConditionCount, data.MaxOrderByCount,
-		data.MaxTableCount)
+		data.MaxTableCount, data.Debug)
 
 	return err
 }
@@ -145,13 +145,14 @@ func (db DB) UpdateProject(data data.Project) (bool, error) {
 		  max_select_column_count = $9,
 		  max_condition_count = $10,
 		  max_order_by_count = $11,
-		  max_table_count = $12
+		  max_table_count = $12,
+		  debug = $13
 		where id = $1
 	`,
 		data.Id, data.MaxConcurrency, data.MaxSQLLength, data.MaxSQLParameterCount,
 		data.MaxDatabaseSize, data.MaxRowCount, data.MaxResultLength, data.MaxFromCount,
 		data.MaxSelectColumnCount, data.MaxConditionCount, data.MaxOrderByCount,
-		data.MaxTableCount)
+		data.MaxTableCount, data.Debug)
 
 	if err != nil {
 		return false, err
@@ -170,6 +171,6 @@ func scanProject(row pg.Row) (*data.Project, error) {
 		&project.MaxConcurrency, &project.MaxSQLLength, &project.MaxSQLParameterCount,
 		&project.MaxDatabaseSize, &project.MaxRowCount, &project.MaxResultLength, &project.MaxFromCount,
 		&project.MaxSelectColumnCount, &project.MaxConditionCount, &project.MaxOrderByCount,
-		&project.MaxTableCount)
+		&project.MaxTableCount, &project.Debug)
 	return &project, err
 }

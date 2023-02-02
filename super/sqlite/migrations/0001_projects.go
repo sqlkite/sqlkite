@@ -22,6 +22,7 @@ func Migrate_0001(conn sqlite.Conn) error {
 			max_condition_count int not null,
 			max_order_by_count int not null,
 			max_table_count int not null,
+			debug bool int null,
 			created int not null default(unixepoch()),
 			updated int not null default(unixepoch())
 	)`)

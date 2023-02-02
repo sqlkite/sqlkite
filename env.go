@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/valyala/fasthttp"
 	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/sqlkite/codes"
 	"src.goblgobl.com/utils/http"
@@ -118,14 +119,19 @@ func (e *Env) Release() {
 // this to be a project-level error, not a system-level error.
 // (Ideally, we should have 0 system-level errors, but project level errors are
 // outside of our control so we don't want to log the two the same way)
-func (e *Env) ServerError(err error) http.Response {
+func (e *Env) ServerError(err error, conn *fasthttp.RequestCtx) http.Response {
 	var sqliteErr sqlite.Error
 	if !errors.As(err, &sqliteErr) {
-		return http.ServerError(err)
+		return http.ServerError(err, e.Debug())
 	}
 
 	errorId := uuid.String()
 	e.Error("sqlite_error").Err(err).String("eid", errorId).Log()
+
+	errorMessage := "database error"
+	if e.Debug() {
+		errorMessage = err.Error()
+	}
 
 	data := struct {
 		Code    int    `json:"code"`
@@ -133,8 +139,8 @@ func (e *Env) ServerError(err error) http.Response {
 		ErrorId string `json:"error_id"`
 	}{
 		ErrorId: errorId,
+		Error:   errorMessage,
 		Code:    codes.RES_DATABASE_ERROR,
-		Error:   "database error",
 	}
 	body, _ := json.Marshal(data)
 
@@ -143,4 +149,12 @@ func (e *Env) ServerError(err error) http.Response {
 		ErrorId: errorId,
 		LogData: sqliteErrorLogData,
 	}
+}
+
+func (e *Env) Debug() bool {
+	if project := e.Project; project != nil {
+		return project.Debug
+	}
+
+	return false
 }

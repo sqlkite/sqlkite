@@ -72,6 +72,7 @@ func setupStandardProject() {
 		MaxConditionCount:    10,
 		MaxOrderByCount:      5,
 		MaxTableCount:        10,
+		Debug:                true,
 	})
 
 	project := MustGetProject(id)
@@ -152,6 +153,7 @@ func setupDynamicProject() {
 		MaxConditionCount:    10,
 		MaxOrderByCount:      5,
 		MaxTableCount:        10,
+		Debug:                false,
 	})
 
 	project := MustGetProject(id)
@@ -191,6 +193,7 @@ func setupLimitedProject() {
 		MaxConditionCount:    2,
 		MaxOrderByCount:      2,
 		MaxTableCount:        2,
+		Debug:                false,
 	})
 
 	project := MustGetProject(id)

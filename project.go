@@ -45,6 +45,12 @@ type Project struct {
 
 	Id string
 
+	// When enabled, error response bodies may include additional data. This data
+	// could leak internal implementation details (e.g. table schemas). But having
+	// more data available in the response, without having to check a console or
+	// central log system, is pretty valuable.
+	Debug bool
+
 	MaxConcurrency       uint16
 	MaxSQLLength         uint32
 	MaxSQLParameterCount uint16
@@ -472,7 +478,8 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 		tables:   tables,
 		logField: logField,
 
-		Id: id,
+		Id:    id,
+		Debug: projectData.Debug,
 
 		MaxConcurrency:       maxConcurrency,
 		MaxDatabaseSize:      maxDatabaseSize,

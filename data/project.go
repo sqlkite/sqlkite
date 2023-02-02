@@ -2,6 +2,7 @@ package data
 
 type Project struct {
 	Id                   string `json:"id"`
+	Debug                bool   `json:"debug"`
 	MaxConcurrency       uint16 `json:"max_concurrency"`
 	MaxSQLLength         uint32 `json:"max_sql_length"`
 	MaxSQLParameterCount uint16 `json:"max_sql_parameters_count"`

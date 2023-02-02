@@ -6,13 +6,13 @@ Yes, some of this would be unnecessary if we simply defined a default database v
 
 Remember that for parameter binding, PostgreSQL uses $N  (e.g. $1, $2, ...) and sqlite uses ?N (e.g. ?1, ?2, ...)
 
-To add new limits and unfortunately large number of changes must be made:
+To add new limits an unfortunate large number of changes must be made:
 
 1. Add the new field to the `Project` structure in `project.go`. E.g. `MaxTableCount uint16`
 
 2. Add this same field to the `Project` structure in `data/project.go`. These data structures are meant to be dependency-free and mainly bridge database data with the rest of the code.
 
-3. In `project.go`, within the `NewProject` function, populate the `Project` field from the `data.Project` object (look for where the `Project` is created, i.e. `&Project{...}`)
+3. In `project.go`, within the `NewProject` function, populate the `Project` field from the `data.Project` object (look near the end of the function where the `Project` is created, i.e. `&Project{...}`)
 
 4. Create a new migration in `super/pg/migrations`. This involves creating a new file. As a convention, name the function within this file liek the file. For example, if you create a new migration file named `0020_project_limit_xyz.go`, then your function could be called `Migrate_0020`. Look at other migrations for inspiration). Modify the `super/pg/migrations/migrations.go` to run your function.
 
