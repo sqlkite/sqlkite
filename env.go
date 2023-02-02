@@ -130,15 +130,23 @@ func (e *Env) ServerError(err error, conn *fasthttp.RequestCtx) http.Response {
 
 	errorMessage := "database error"
 	if e.Debug() {
-		errorMessage = err.Error()
+		errorMessage = sqliteErr.Error()
+	}
+
+	innerCode := 0
+	var se *log.StructuredError
+	if errors.As(err, &se) {
+		innerCode = se.Code
 	}
 
 	data := struct {
 		Code    int    `json:"code"`
+		Inner   int    `json:"icode"`
 		Error   string `json:"error"`
 		ErrorId string `json:"error_id"`
 	}{
 		ErrorId: errorId,
+		Inner:   innerCode,
 		Error:   errorMessage,
 		Code:    codes.RES_DATABASE_ERROR,
 	}
