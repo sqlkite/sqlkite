@@ -135,6 +135,7 @@ func Test_Project_CreateTable(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
+	project = MustGetProject(project.Id)
 	err = project.CreateTable(project.Env(), data.Table{
 		Name: "tab2",
 		Columns: []data.Column{
@@ -150,7 +151,6 @@ func Test_Project_CreateTable(t *testing.T) {
 	assert.Nil(t, err)
 
 	project = MustGetProject(project.Id)
-
 	table, ok := project.Table("tab1")
 	assert.True(t, ok)
 

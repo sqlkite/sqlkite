@@ -20,6 +20,13 @@ import (
 	"src.goblgobl.com/utils/validation"
 )
 
+type BufferType int
+
+const (
+	BUFFER_TYPE_GENERATE_SQL BufferType = iota
+	BUFFER_TYPE_RESULT
+)
+
 var (
 	Projects            concurrent.Map[*Project]
 	CLEAR_SQLKITE_USERS = []byte(sqlite.Terminate("update sqlkite_user set id = '', role = ''"))
@@ -135,13 +142,13 @@ func (p *Project) CreateTable(env *Env, table data.Table) error {
 		return log.Err(codes.ERR_TABLE_SERIALIZE, err)
 	}
 
-	createBuffer := p.Buffer()
+	createBuffer := p.SQLBuffer()
 	defer createBuffer.Release()
 
 	sql.CreateTable(table, createBuffer)
 	createSQL, err := createBuffer.SqliteBytes()
 	if err != nil {
-		return p.bufferErrorToValidation(env, err)
+		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
 
 	// This is aweful. I really struggle between giving each trigger its own buffer
@@ -156,19 +163,19 @@ func (p *Project) CreateTable(env *Env, table data.Table) error {
 	tableName := table.Name
 	insertAccessSQL, insertAccessBuffer, err := p.buildAccessTrigger(tableName, "insert", access.Insert)
 	if err != nil {
-		return p.bufferErrorToValidation(env, err)
+		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
 	defer insertAccessBuffer.Release()
 
 	updateAccessSQL, udpdateAccessBuffer, err := p.buildAccessTrigger(tableName, "update", access.Update)
 	if err != nil {
-		return p.bufferErrorToValidation(env, err)
+		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
 	defer udpdateAccessBuffer.Release()
 
 	deleteAccessSQL, deleteAccessBuffer, err := p.buildAccessTrigger(tableName, "delete", access.Delete)
 	if err != nil {
-		return p.bufferErrorToValidation(env, err)
+		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
 	defer deleteAccessBuffer.Release()
 
@@ -225,13 +232,13 @@ func (p *Project) UpdateTable(env *Env, alter sql.AlterTable, access data.TableA
 		return log.Err(codes.ERR_TABLE_SERIALIZE, err)
 	}
 
-	buffer := p.Buffer()
+	buffer := p.SQLBuffer()
 	defer buffer.Release()
 
 	alter.Write(buffer)
 	alterSQL, err := buffer.SqliteBytes()
 	if err != nil {
-		return log.Err(codes.ERR_PROJECT_BUFFER, err)
+		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
 
 	err = p.WithTransaction(func(conn sqlite.Conn) error {
@@ -262,14 +269,17 @@ func (p *Project) DeleteTable(env *Env, tableName string) error {
 		return nil
 	}
 
-	buffer := p.Buffer()
+	buffer := p.SQLBuffer()
 	defer buffer.Release()
 
 	buffer.Write([]byte("drop table "))
 	buffer.WriteUnsafe(tableName)
-	dropSQL, _ := buffer.SqliteBytes()
+	dropSQL, err := buffer.SqliteBytes()
+	if err != nil {
+		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
+	}
 
-	err := p.WithTransaction(func(conn sqlite.Conn) error {
+	err = p.WithTransaction(func(conn sqlite.Conn) error {
 		if err := conn.ExecTerminated(dropSQL); err != nil {
 			return log.Err(codes.ERR_DELETE_TABLE_EXEC, err)
 		}
@@ -288,15 +298,6 @@ func (p *Project) DeleteTable(env *Env, tableName string) error {
 	// update our in-memory project
 	_, err = ReloadProject(p.Id)
 	return err
-}
-
-func (p *Project) Buffer() *buffer.Buffer {
-	// We get a buffer from our pool, but set the max to this project's max sql length
-	// This allows us to share buffers across projects (which is going to be significantly
-	// more memory efficient), while letting us specifying a per-project max sql length
-
-	// caller must release this!
-	return Buffer.CheckoutMax(p.MaxSQLLength)
 }
 
 func (p *Project) Select(env *Env, sel sql.Select) (*SelectResult, error) {
@@ -327,20 +328,20 @@ func (p *Project) Select(env *Env, sel sql.Select) (*SelectResult, error) {
 		return nil, nil
 	}
 
-	writer := p.Buffer()
+	writer := p.SQLBuffer()
 	defer writer.Release()
 
 	sel.Write(writer)
 	sql, err := writer.Bytes()
 
 	if err != nil {
-		return nil, p.bufferErrorToValidation(env, err)
+		return nil, p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
 
+	rowCount := 0
 	// We don't release this here, unless there's an error, as
 	// it needs to survive until the response is sent.
-	rowCount := 0
-	result := Buffer.CheckoutMax(p.MaxResultLength)
+	result := p.ResultBuffer()
 
 	err = p.WithDBEnv(env, func(conn sqlite.Conn) error {
 		rows := conn.RowsB(sql, sel.Parameters...)
@@ -359,14 +360,7 @@ func (p *Project) Select(env *Env, sel sql.Select) (*SelectResult, error) {
 		}
 
 		if err := result.Error(); err != nil {
-			if errors.Is(err, buffer.ErrMaxSize) {
-				validator.Add(validation.Invalid{
-					Code:  codes.VAL_RESULT_TOO_LONG,
-					Error: "Result too large",
-					Data:  validation.Max(p.MaxResultLength),
-				})
-			}
-			return err
+			return p.bufferErrorToValidation(env, err, BUFFER_TYPE_RESULT)
 		}
 
 		if rowCount > 0 {
@@ -387,12 +381,26 @@ func (p *Project) Select(env *Env, sel sql.Select) (*SelectResult, error) {
 	}, nil
 }
 
+func (p *Project) SQLBuffer() *buffer.Buffer {
+	// We get a buffer from our pool, but set the max to this project's max sql length
+	// This allows us to share buffers across projects (which is going to be significantly
+	// more memory efficient), while letting us specifying a per-project max sql length
+
+	// caller must release this!
+	return Buffer.CheckoutMax(p.MaxSQLLength)
+}
+
+func (p *Project) ResultBuffer() *buffer.Buffer {
+	// see SQLBuffer
+	return Buffer.CheckoutMax(p.MaxResultLength)
+}
+
 func (p *Project) buildAccessTrigger(tableName string, action string, access *data.MutateTableAccess) ([]byte, utils.Releasable, error) {
 	if access == nil {
 		return nil, utils.NoopReleasable, nil
 	}
 
-	buffer := p.Buffer()
+	buffer := p.SQLBuffer()
 	sql.TableAccessTrigger(tableName, action, access, buffer)
 
 	bytes, err := buffer.SqliteBytes()
@@ -404,17 +412,26 @@ func (p *Project) buildAccessTrigger(tableName string, action string, access *da
 	return bytes, buffer, nil
 }
 
-func (p *Project) bufferErrorToValidation(env *Env, err error) error {
+func (p *Project) bufferErrorToValidation(env *Env, err error, bufferType BufferType) error {
 	if !errors.Is(err, buffer.ErrMaxSize) {
 		// this should not be possible, and we want to know about it if it does happen
 		log.Error("unknown buffer error").Err(err).Log()
 		return err
 	}
 
-	invalid := validation.Invalid{
-		Code:  codes.VAL_SQL_TOO_LONG,
-		Error: "Generated SQL query exceeds maximum allowed length",
-		Data:  validation.Max(p.MaxSQLLength),
+	var invalid validation.Invalid
+	if bufferType == BUFFER_TYPE_GENERATE_SQL {
+		invalid = validation.Invalid{
+			Code:  codes.VAL_SQL_TOO_LONG,
+			Error: "Generated SQL query exceeds maximum allowed length",
+			Data:  validation.Max(p.MaxSQLLength),
+		}
+	} else {
+		invalid = validation.Invalid{
+			Code:  codes.VAL_RESULT_TOO_LONG,
+			Error: "Result too large",
+			Data:  validation.Max(p.MaxResultLength),
+		}
 	}
 	env.Validator.Add(invalid)
 	return nil
