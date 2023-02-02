@@ -159,6 +159,5 @@ func (e *Env) Debug() bool {
 	if project := e.Project; project != nil {
 		return project.Debug
 	}
-
 	return false
 }

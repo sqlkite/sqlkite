@@ -37,11 +37,11 @@ var (
 	columnsValidation = validation.Array().Min(1).Max(100).Required().Validator(columnValidation)
 
 	mutateAccessValiation = validation.Object().
-				Field("when", validation.String().Length(0, 4096)).
-				Field("trigger", validation.String().Length(0, 4096))
+				Field("when", validation.String().TrimSpace().Length(0, 4096)).
+				Field("trigger", validation.String().TrimSpace().Length(0, 4096))
 
 	accessValidation = validation.Object().
-				Field("select", validation.String().Length(0, 4096)).
+				Field("select", validation.String().TrimSpace().Length(0, 4096)).
 				Field("insert", mutateAccessValiation).
 				Field("update", mutateAccessValiation).
 				Field("delete", mutateAccessValiation)

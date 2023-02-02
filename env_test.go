@@ -14,19 +14,19 @@ import (
 func Test_Env_Request(t *testing.T) {
 	// no project, no user
 	env := NewEnv(nil, "req1")
-	assertLogger(t, env.Request("test-route1"), "rid", "req1", "l", "req", "c", "test-route1")
+	assertLogger(t, env.Request("test-route1"), "rid", "req1", "_l", "req", "_c", "test-route1")
 	env.Release()
 
 	// project, no user
 	project := &Project{logField: log.NewField().Int("over", 9000).Finalize()}
 	env = NewEnv(project, "req2")
-	assertLogger(t, env.Request("test-route2"), "rid", "req2", "l", "req", "c", "test-route2", "over", "9000")
+	assertLogger(t, env.Request("test-route2"), "rid", "req2", "_l", "req", "_c", "test-route2", "over", "9000")
 	env.Release()
 
 	// project, user
 	env = NewEnv(project, "req3")
 	env.User = &User{Id: "xx1"}
-	assertLogger(t, env.Request("test-route3"), "rid", "req3", "l", "req", "c", "test-route3", "over", "9000", "uid", "xx1")
+	assertLogger(t, env.Request("test-route3"), "rid", "req3", "_l", "req", "_c", "test-route3", "over", "9000", "uid", "xx1")
 	env.Release()
 }
 

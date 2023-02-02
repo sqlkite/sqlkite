@@ -10,6 +10,8 @@ import (
 	"src.goblgobl.com/utils/sqlite"
 )
 
+var ErrNoRows = sqlite.ErrNoRows
+
 type Config struct {
 	Path string `json:"path"`
 }

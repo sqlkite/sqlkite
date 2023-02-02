@@ -158,19 +158,19 @@ func (p *Project) CreateTable(env *Env, table data.Table) error {
 	if err != nil {
 		return p.bufferErrorToValidation(env, err)
 	}
-	insertAccessBuffer.Release()
+	defer insertAccessBuffer.Release()
 
 	updateAccessSQL, udpdateAccessBuffer, err := p.buildAccessTrigger(tableName, "update", access.Update)
 	if err != nil {
 		return p.bufferErrorToValidation(env, err)
 	}
-	udpdateAccessBuffer.Release()
+	defer udpdateAccessBuffer.Release()
 
 	deleteAccessSQL, deleteAccessBuffer, err := p.buildAccessTrigger(tableName, "delete", access.Delete)
 	if err != nil {
 		return p.bufferErrorToValidation(env, err)
 	}
-	deleteAccessBuffer.Release()
+	defer deleteAccessBuffer.Release()
 
 	err = p.WithTransaction(func(conn sqlite.Conn) error {
 		if err := conn.ExecTerminated(createSQL); err != nil {

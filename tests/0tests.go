@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	sqliteDriver "src.goblgobl.com/sqlite"
+
 	"src.goblgobl.com/sqlkite/super"
 	"src.goblgobl.com/sqlkite/super/pg"
 	"src.goblgobl.com/sqlkite/super/sqlite"
@@ -112,4 +114,22 @@ func RemoveTempDBs() {
 func TestDBRoot() string {
 	_, b, _, _ := runtime.Caller(0)
 	return filepath.Dir(b) + "/databases/"
+}
+
+type ConnProvider interface {
+	WithDB(func(conn sqliteDriver.Conn))
+}
+
+// query sqlite_master
+func SqliteMaster(connProvider ConnProvider, name string, tableName string) string {
+	var sql string
+	connProvider.WithDB(func(conn sqliteDriver.Conn) {
+		query := "select sql from sqlite_master where name = ?1 and tbl_name = ?2"
+		if err := conn.Row(query, name, tableName).Scan(&sql); err != nil {
+			if err != sqliteDriver.ErrNoRows {
+				panic(err)
+			}
+		}
+	})
+	return sql
 }

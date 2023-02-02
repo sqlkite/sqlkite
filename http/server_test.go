@@ -127,13 +127,13 @@ func Test_Server_Env_LogsResponse(t *testing.T) {
 	})
 
 	reqLog := log.KvParse(logged)
+	assert.Equal(t, reqLog["_l"], "req")
+	assert.Equal(t, reqLog["_code"], "9001")
+	assert.Equal(t, reqLog["_c"], "test-route")
 	assert.Equal(t, reqLog["pid"], projectId)
 	assert.Equal(t, reqLog["rid"], requestId)
-	assert.Equal(t, reqLog["l"], "req")
 	assert.Equal(t, reqLog["status"], "404")
 	assert.Equal(t, reqLog["res"], "33")
-	assert.Equal(t, reqLog["code"], "9001")
-	assert.Equal(t, reqLog["c"], "test-route")
 }
 
 func Test_Server_Env_LogsError(t *testing.T) {
@@ -155,15 +155,15 @@ func Test_Server_Env_LogsError(t *testing.T) {
 	assert.Equal(t, res.Json.String("error_id"), errorId)
 
 	reqLog := log.KvParse(logged)
+	assert.Equal(t, reqLog["_code"], "2001")
+	assert.Equal(t, reqLog["_l"], "req")
+	assert.Equal(t, reqLog["_c"], "test2")
+	assert.Equal(t, reqLog["_err"], `"Not Over 9000!"`)
 	assert.Equal(t, reqLog["pid"], projectId)
 	assert.Equal(t, reqLog["rid"], requestId)
-	assert.Equal(t, reqLog["l"], "req")
 	assert.Equal(t, reqLog["status"], "500")
 	assert.Equal(t, reqLog["res"], "95")
-	assert.Equal(t, reqLog["code"], "2001")
-	assert.Equal(t, reqLog["c"], "test2")
 	assert.Equal(t, reqLog["eid"], errorId)
-	assert.Equal(t, reqLog["err"], `"Not Over 9000!"`)
 }
 
 func Test_Server_SuperEnv_NoUser(t *testing.T) {
