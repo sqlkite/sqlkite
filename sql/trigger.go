@@ -5,10 +5,9 @@ import (
 	"src.goblgobl.com/utils/buffer"
 )
 
-func TableAccessTrigger(table string, action string, access *data.MutateTableAccess, buffer *buffer.Buffer) {
+func TableAccessCreateTrigger(table string, action string, access *data.MutateTableAccess, buffer *buffer.Buffer) {
 	buffer.Write([]byte("create trigger sqlkite_row_access_"))
-	buffer.WriteUnsafe(action)
-
+	triggerNameSuffix(table, action, buffer)
 	buffer.Write([]byte("\nbefore "))
 	buffer.WriteUnsafe(action)
 
@@ -29,4 +28,15 @@ func TableAccessTrigger(table string, action string, access *data.MutateTableAcc
 		buffer.WriteByte(';')
 	}
 	buffer.Write([]byte("\nend"))
+}
+
+func TableAccessDropTrigger(table string, action string, buffer *buffer.Buffer) {
+	buffer.Write([]byte("drop trigger if exists sqlkite_row_access_"))
+	triggerNameSuffix(table, action, buffer)
+}
+
+func triggerNameSuffix(table string, action string, buffer *buffer.Buffer) {
+	buffer.WriteUnsafe(table)
+	buffer.WriteByte('_')
+	buffer.WriteUnsafe(action)
 }

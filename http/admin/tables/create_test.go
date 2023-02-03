@@ -157,24 +157,24 @@ func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 	assert.Equal(t, table.Access.Delete.When, "3=3")
 	assert.Equal(t, table.Access.Delete.Trigger, "select 3")
 
-	insertAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_insert", "test_create_success_defaults")
-	assert.Equal(t, insertAccessControl, `CREATE TRIGGER sqlkite_row_access_insert
+	insertAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_test_create_success_defaults_insert", "test_create_success_defaults")
+	assert.Equal(t, insertAccessControl, `CREATE TRIGGER sqlkite_row_access_test_create_success_defaults_insert
 before insert on test_create_success_defaults for each row
 when (1=1)
 begin
  select 1;
 end`)
 
-	updateAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_update", "test_create_success_defaults")
-	assert.Equal(t, updateAccessControl, `CREATE TRIGGER sqlkite_row_access_update
+	updateAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_test_create_success_defaults_update", "test_create_success_defaults")
+	assert.Equal(t, updateAccessControl, `CREATE TRIGGER sqlkite_row_access_test_create_success_defaults_update
 before update on test_create_success_defaults for each row
 when (2=2)
 begin
  select 2 ;
 end`)
 
-	deleteAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_delete", "test_create_success_defaults")
-	assert.Equal(t, deleteAccessControl, `CREATE TRIGGER sqlkite_row_access_delete
+	deleteAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_test_create_success_defaults_delete", "test_create_success_defaults")
+	assert.Equal(t, deleteAccessControl, `CREATE TRIGGER sqlkite_row_access_test_create_success_defaults_delete
 before delete on test_create_success_defaults for each row
 when (3=3)
 begin

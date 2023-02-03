@@ -232,22 +232,63 @@ func (p *Project) UpdateTable(env *Env, alter sql.AlterTable, access data.TableA
 		return log.Err(codes.ERR_TABLE_SERIALIZE, err)
 	}
 
-	buffer := p.SQLBuffer()
-	defer buffer.Release()
+	updateBuffer := p.SQLBuffer()
+	defer updateBuffer.Release()
 
-	alter.Write(buffer)
-	alterSQL, err := buffer.SqliteBytes()
+	alter.Write(updateBuffer)
+	alterSQL, err := updateBuffer.SqliteBytes()
 	if err != nil {
 		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
 
+	// See comments in CreateTable about my conflicting feelings about how this
+	// should be done.
+	tableName := table.Name
+	existingAccess := existing.Access
+	existingTableName := existing.Name
+
+	insertAccessSQL, insertAccessBuffer, err := p.buildAccessTriggerChange(tableName, "insert", access.Insert, existingTableName, existingAccess.Insert)
+	if err != nil {
+		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
+	}
+	defer insertAccessBuffer.Release()
+
+	updateAccessSQL, udpdateAccessBuffer, err := p.buildAccessTriggerChange(tableName, "update", access.Update, existingTableName, existingAccess.Update)
+	if err != nil {
+		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
+	}
+	defer udpdateAccessBuffer.Release()
+
+	deleteAccessSQL, deleteAccessBuffer, err := p.buildAccessTriggerChange(tableName, "delete", access.Delete, existingTableName, existingAccess.Delete)
+	if err != nil {
+		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
+	}
+	defer deleteAccessBuffer.Release()
+
 	err = p.WithTransaction(func(conn sqlite.Conn) error {
 		if err := conn.ExecTerminated(alterSQL); err != nil {
 			return log.Err(codes.ERR_UPDATE_TABLE_EXEC, err)
-
 		}
 
-		if err := conn.Exec("update sqlkite_tables set name = $1, definition = $2 where name = $3", table.Name, definition, existing.Name); err != nil {
+		if insertAccessSQL != nil {
+			if err := conn.ExecTerminated(insertAccessSQL); err != nil {
+				return log.Err(codes.ERR_UPDATE_ACCESS_TRIGGER, err).String("action", "insert")
+			}
+		}
+
+		if updateAccessSQL != nil {
+			if err := conn.ExecTerminated(updateAccessSQL); err != nil {
+				return log.Err(codes.ERR_UPDATE_ACCESS_TRIGGER, err).String("action", "update")
+			}
+		}
+
+		if deleteAccessSQL != nil {
+			if err := conn.ExecTerminated(deleteAccessSQL); err != nil {
+				return log.Err(codes.ERR_UPDATE_ACCESS_TRIGGER, err).String("action", "delete")
+			}
+		}
+
+		if err := conn.Exec("update sqlkite_tables set name = $1, definition = $2 where name = $3", tableName, definition, existing.Name); err != nil {
 			return log.Err(codes.ERR_UPDATE_SQLKITE_TABLES, err)
 		}
 
@@ -401,7 +442,49 @@ func (p *Project) buildAccessTrigger(tableName string, action string, access *da
 	}
 
 	buffer := p.SQLBuffer()
-	sql.TableAccessTrigger(tableName, action, access, buffer)
+	sql.TableAccessCreateTrigger(tableName, action, access, buffer)
+
+	bytes, err := buffer.SqliteBytes()
+	if err != nil {
+		buffer.Release()
+		return nil, utils.NoopReleasable, err
+	}
+
+	return bytes, buffer, nil
+}
+
+// The table is being updated and we need to figure out what to do about
+// any access control trigger we have and my want to change or remove.
+// Even if the new access control is nil, which means "keep whatever we have",
+// if the table name has changed, we'll want to re-create the trigger using
+// the new table name. This isn't strictly necessary, but it avoids a few potential
+// issues down the road - like avoid conflicts if a new table with the old name
+// is created and has its own triggers.
+func (p *Project) buildAccessTriggerChange(tableName string, action string, access *data.MutateTableAccess, existingTableName string, existingAccess *data.MutateTableAccess) ([]byte, utils.Releasable, error) {
+	if access == nil {
+		if tableName == existingTableName || existingAccess == nil {
+			// the new access is nil (which means "keep what we have")
+			// and our table name hasn't changed or there was also no existing
+			// access, there's nothing to do
+			return nil, utils.NoopReleasable, nil
+		}
+		// We're told to "keep what we have", but our table name has changed. For the
+		// purpose of generating our create trigger, we'll use the existing access
+		// control (and just give it the new name later)
+		access = existingAccess
+	}
+
+	buffer := p.SQLBuffer()
+
+	// there might not be an existing trigger, but we drop it with an "if exists"
+	// so it's simply to just always try to drop it
+	sql.TableAccessDropTrigger(existingTableName, action, buffer)
+	if access.Trigger != "" {
+		// if the trigger is empty, it means remove (which we always do)
+		// if it isn't empty, it means replace, which involved drop + create
+		buffer.Write([]byte(";\n"))
+		sql.TableAccessCreateTrigger(tableName, action, access, buffer)
+	}
 
 	bytes, err := buffer.SqliteBytes()
 	if err != nil {
@@ -634,12 +717,36 @@ func applyTableChanges(table data.Table, alter sql.AlterTable, access data.Table
 
 	// empty means erase
 	// nil means keep the existing one
-	// a bit reverse
+	// kind of feels like the opposite of what you'd expect
 	if s := access.Select; s != nil {
 		if s.CTE == "" {
 			table.Access.Select = nil
 		} else {
 			table.Access.Select = s
+		}
+	}
+
+	if access := access.Insert; access != nil {
+		if access.Trigger == "" {
+			table.Access.Insert = nil
+		} else {
+			table.Access.Insert = access
+		}
+	}
+
+	if access := access.Update; access != nil {
+		if access.Trigger == "" {
+			table.Access.Update = nil
+		} else {
+			table.Access.Update = access
+		}
+	}
+
+	if access := access.Delete; access != nil {
+		if access.Trigger == "" {
+			table.Access.Delete = nil
+		} else {
+			table.Access.Delete = access
 		}
 	}
 
