@@ -26,6 +26,10 @@ type Condition struct {
 	Logicals []LogicalOperator `json:"logicals"`
 }
 
+func (c Condition) Empty() bool {
+	return len(c.Parts) == 0
+}
+
 func (c Condition) Write(b *buffer.Buffer) {
 	parts := c.Parts
 	logicals := c.Logicals

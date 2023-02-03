@@ -18,6 +18,15 @@ type Table struct {
 	Access  TableAccess `json:"access"`
 }
 
+func (t Table) Column(name string) (Column, bool) {
+	for _, c := range t.Columns {
+		if c.Name == name {
+			return c, true
+		}
+	}
+	return Column{}, false
+}
+
 type Column struct {
 	Name     string     `json:"name"`
 	Type     ColumnType `json:"type"`
