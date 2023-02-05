@@ -197,9 +197,9 @@ func superHandler(config config.HTTP, logger log.Logger, envLoader EnvLoader, us
 // and a more dynamic deployment (likely multi-tenancy) where project owners
 // fully manage their own projects.
 func attachAdmin(r *router.Router, envLoader EnvLoader) {
-	r.POST("/v1/admin/tables", http.Handler("table_create", requireRole("admin", envLoader), tables.Create))
-	r.PUT("/v1/admin/tables/{name}", http.Handler("table_update", requireRole("admin", envLoader), tables.Update))
-	r.DELETE("/v1/admin/tables/{name}", http.Handler("table_delete", requireRole("admin", envLoader), tables.Delete))
+	r.POST("/v1/admin/tables", http.Handler("table_create", requireRole("sqlite_admin", envLoader), tables.Create))
+	r.PUT("/v1/admin/tables/{name}", http.Handler("table_update", requireRole("sqlite_admin", envLoader), tables.Update))
+	r.DELETE("/v1/admin/tables/{name}", http.Handler("table_delete", requireRole("sqlite_admin", envLoader), tables.Delete))
 }
 
 // The "super" endpoints are powerful. They are executed outside of a typical
