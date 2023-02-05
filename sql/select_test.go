@@ -51,7 +51,7 @@ func Test_Select_Write_NoWhere_NoOrderBy(t *testing.T) {
 			SelectFrom{From: From{"table1", nil}},
 		},
 		Limit: 100,
-	}, "select json_object('id', id) from table1 where true limit 100")
+	}, "select json_object('id', id) from table1 limit 100")
 }
 
 func Test_Select_Write_SingleColumn_SingleFrom(t *testing.T) {
@@ -117,7 +117,7 @@ func Test_Select_Single_CTE(t *testing.T) {
 	}
 
 	sel.CTE(0, "table1_cte", "select * from table1 where public")
-	assertSQL(t, sel, "with table1_cte as (select * from table1 where public) select json_object('id', id) from table1_cte as t1 where true limit 0")
+	assertSQL(t, sel, "with table1_cte as (select * from table1 where public) select json_object('id', id) from table1_cte as t1 limit 0")
 }
 
 func Test_Select_Multiple_CTE(t *testing.T) {
@@ -132,5 +132,5 @@ func Test_Select_Multiple_CTE(t *testing.T) {
 
 	sel.CTE(0, "table1_cte", "select * from table1 where public")
 	sel.CTE(2, "table3_cte", "select * from table3")
-	assertSQL(t, sel, "with table1_cte as (select * from table1 where public), table3_cte as (select * from table3) select json_object('id', id) from table1_cte as t1 left join table2 left join table3_cte where true limit 0")
+	assertSQL(t, sel, "with table1_cte as (select * from table1 where public), table3_cte as (select * from table3) select json_object('id', id) from table1_cte as t1 left join table2 left join table3_cte limit 0")
 }

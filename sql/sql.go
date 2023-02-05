@@ -1,17 +1,31 @@
 package sql
 
-import "src.goblgobl.com/utils/buffer"
+import (
+	"strconv"
+
+	"src.goblgobl.com/utils/buffer"
+)
 
 type DataFieldType int
 type LogicalOperator int
 
 const (
+	MAX_PARAMETERS = 999
+
 	DATA_FIELD_PLACEHOLDER DataFieldType = iota
 	DATA_FIELD_COLUMN
 
 	LOGICAL_AND LogicalOperator = iota
 	LOGICAL_OR
 )
+
+var placeholders = make([][]byte, MAX_PARAMETERS)
+
+func init() {
+	for i := 0; i < MAX_PARAMETERS; i++ {
+		placeholders[i] = []byte("?" + strconv.Itoa(i))
+	}
+}
 
 type Part interface {
 	Write(*buffer.Buffer)

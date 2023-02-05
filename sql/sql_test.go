@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"regexp"
 	"testing"
 
 	"src.goblgobl.com/tests/assert"
@@ -51,11 +52,14 @@ func Test_DataField_WriteAsJsonObject(t *testing.T) {
 	}, "'name', t1.full_name")
 }
 
+var sqlNormalizePattern = regexp.MustCompile("\\s+")
+
 func assertSQL(t *testing.T, part Part, expectedSQL string) {
 	t.Helper()
-	buf := buffer.New(256, 256)
+	buf := buffer.New(512, 512)
 	part.Write(buf)
-	assert.Equal(t, buf.MustString(), expectedSQL)
+	actual := sqlNormalizePattern.ReplaceAllString(buf.MustString(), " ")
+	assert.Equal(t, actual, expectedSQL)
 }
 
 func assertColumnJson(t *testing.T, df DataField, expectedSQL string) {

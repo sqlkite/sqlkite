@@ -53,20 +53,22 @@ func (s Select) Write(b *buffer.Buffer) {
 		column.WriteAsJsonObject(b)
 	}
 
-	b.Write([]byte(") from "))
 	froms := s.Froms
-	froms[0].Write(b)
-	for _, from := range froms[1:] {
-		b.WriteByte(' ')
+	b.Write([]byte(")\nfrom "))
+	for _, from := range froms {
 		from.Write(b)
+		b.Write([]byte("\n "))
 	}
+	b.Truncate(2)
 
-	b.Write([]byte(" where "))
-	s.Where.Write(b)
+	if where := s.Where; !where.Empty() {
+		b.Write([]byte("\nwhere "))
+		s.Where.Write(b)
+	}
 
 	orderBy := s.OrderBy
 	if len(orderBy) > 0 {
-		b.Write([]byte(" order by "))
+		b.Write([]byte("\norder by "))
 		orderBy[0].Write(b)
 		for _, orderBy := range orderBy[1:] {
 			b.WriteByte(',')
@@ -74,7 +76,7 @@ func (s Select) Write(b *buffer.Buffer) {
 		}
 	}
 
-	b.Write([]byte(" limit "))
+	b.Write([]byte("\nlimit "))
 	b.WriteString(strconv.Itoa(s.Limit))
 	if offset := s.Offset; offset.Exists {
 		b.Write([]byte(" offset "))
