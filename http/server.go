@@ -19,6 +19,7 @@ import (
 
 	"github.com/fasthttp/router"
 	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/pprofhandler"
 	"src.goblgobl.com/utils/log"
 )
 
@@ -171,6 +172,7 @@ func superHandler(config config.HTTP, logger log.Logger, envLoader EnvLoader, us
 	r := router.New()
 
 	// diagnostics routes
+	r.ANY("/debug/pprof/{func:*}", pprofhandler.PprofHandler)
 	r.GET("/v1/diagnostics/ping", http.NoEnvHandler("ping", diagnostics.Ping))
 	r.GET("/v1/diagnostics/info", http.NoEnvHandler("info", diagnostics.Info))
 
