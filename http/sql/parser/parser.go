@@ -27,15 +27,43 @@ any code that's trying to group multiple tokens must advance beyond any
 space before trying to parse an individual token.
 */
 
+var EmptyParser = &parser{0, ""}
+
 type parser struct {
 	pos   int
 	input string
 }
 
-// Parses 1 column in a select statement. A column is a "DataField"
-// (which is currently a column or a placeholder, but we could imagine
-// a dataField also supporting function calls) with an optional alias.
-func SelectColumn(raw any) (sql.DataField, *validation.Invalid) {
+// A column name with no table prefix or alias. The column list of an insert
+// statement uses this.
+func Column(raw any) (string, *validation.Invalid) {
+	input, ok := raw.(string)
+	if !ok {
+		return "", invalidColumn(EmptyParser)
+	}
+	p := &parser{0, input}
+	p.skipSpaces()
+
+	name, err := p.requiredObjectName(invalidColumn)
+	if err != nil {
+		return "", err
+	}
+
+	// should have nothing else
+	p.skipSpaces()
+	if p.peek() != 0 {
+		return "", invalidColumn(p)
+	}
+
+	return name, nil
+}
+
+// A DataField is a column or placeholder, possibly with an alias. This could
+// eventually become fancier, like functions. DataFields are used throughout,
+// most notably they're the elements that come between the "select" and "from"
+// or the list of values in a "returning" statement. (Most of the time, these
+// are just column names)
+func DataField(raw any) (sql.DataField, *validation.Invalid) {
 	// for now, we only support simple values
 	input, ok := raw.(string)
 	if !ok {
@@ -133,60 +161,68 @@ func Condition(input []any, depth int) (sql.Condition, *validation.Invalid) {
 }
 
 // Parses a single table name with an optional alias. This is
-// different and simpler than a SelectFrom as it doesn't allow join
+// different and simpler than a JoinableFrom as it doesn't allow join
 // types and conditions (it's used for update/delele/insert).
-func From(input string) (sql.From, *validation.Invalid) {
+func QualifiedTableName(raw any) (sql.Table, *validation.Invalid) {
+	tableName, ok := raw.(string)
+	if !ok {
+		return sql.Table{}, invalidTable(EmptyParser)
+	}
+	return QualifiedTableNameString(tableName)
+}
+
+func QualifiedTableNameString(input string) (sql.Table, *validation.Invalid) {
 	p := &parser{0, input}
 	p.skipSpaces()
 
-	table, err := p.requiredObjectName(invalidTable)
+	name, err := p.requiredObjectName(invalidTable)
 	if err != nil {
-		return sql.From{}, err
+		return sql.Table{}, err
 	}
 
-	if table == "" {
-		return sql.From{}, invalidTable(p)
+	if name == "" {
+		return sql.Table{}, invalidTable(p)
 	}
 
-	from := sql.From{Table: table}
+	table := sql.Table{Name: name}
 
 	if next := p.skip1(); next == ' ' {
 		p.skipSpaces()
-		from.Alias, err = p.alias()
+		table.Alias, err = p.alias()
 		if err != nil {
-			return sql.From{}, err
+			return sql.Table{}, err
 		}
 	} else if next != 0 {
-		return sql.From{}, invalidTable(p)
+		return sql.Table{}, invalidTable(p)
 	}
 
-	return from, nil
+	return table, nil
 }
 
 // Parses a single from for a select statement, which might include
 // a join type and join condition (i.e. "on ...").
-func SelectFrom(input any) (sql.SelectFrom, *validation.Invalid) {
+func JoinableFrom(input any) (sql.JoinableFrom, *validation.Invalid) {
 	// no join, no condition, just a table name (+ optionally an alias)
-	if table, ok := input.(string); ok {
-		from, err := From(table)
+	if tableName, ok := input.(string); ok {
+		table, err := QualifiedTableNameString(tableName)
 		if err != nil {
-			return sql.SelectFrom{}, err
+			return sql.JoinableFrom{}, err
 		}
-		return sql.SelectFrom{From: from}, nil
+		return sql.JoinableFrom{Table: table}, nil
 	}
 
 	parts, ok := input.([]any)
 	if !ok {
-		return sql.SelectFrom{}, invalidSelectFrom()
+		return sql.JoinableFrom{}, invalidJoinableFrom()
 	}
 
 	if len(parts) != 3 {
-		return sql.SelectFrom{}, invalidSelectFromCount()
+		return sql.JoinableFrom{}, invalidJoinableFromCount()
 	}
 
 	part0, ok := parts[0].(string)
 	if !ok {
-		return sql.SelectFrom{}, invalidSelectFrom()
+		return sql.JoinableFrom{}, invalidJoinableFrom()
 	}
 	var join sql.JoinType
 	switch trimSpace(part0) {
@@ -199,32 +235,32 @@ func SelectFrom(input any) (sql.SelectFrom, *validation.Invalid) {
 	case "full":
 		join = sql.JOIN_TYPE_FULL
 	default:
-		return sql.SelectFrom{}, invalidSelectFromJoin(part0)
+		return sql.JoinableFrom{}, invalidJoinableFromJoin(part0)
 	}
 
 	part1, ok := parts[1].(string)
 	if !ok {
-		return sql.SelectFrom{}, invalidSelectFromTable()
+		return sql.JoinableFrom{}, invalidJoinableFromTable()
 	}
-	from, err := From(part1)
+	table, err := QualifiedTableNameString(part1)
 	if err != nil {
-		return sql.SelectFrom{}, err
+		return sql.JoinableFrom{}, err
 	}
 
 	part2, ok := parts[2].([]any)
 	if !ok {
-		return sql.SelectFrom{}, invalidSelectFromOn()
+		return sql.JoinableFrom{}, invalidJoinableFromOn()
 	}
 
 	on, err := Condition(part2, 0)
 	if err != nil {
-		return sql.SelectFrom{}, err
+		return sql.JoinableFrom{}, err
 	}
 
-	return sql.SelectFrom{
-		Join: join,
-		From: from,
-		On:   &on,
+	return sql.JoinableFrom{
+		Join:  join,
+		Table: table,
+		On:    &on,
 	}, nil
 }
 
@@ -255,89 +291,10 @@ func OrderBy(raw any) (sql.OrderBy, *validation.Invalid) {
 	return sql.OrderBy{Field: field, Desc: desc}, nil
 }
 
-// ["column || ?#", "operator", "column || ?#"]
-func predicate(input any, depth int) (sql.Part, *validation.Invalid) {
-	parts, ok := input.([]any)
-	if !ok {
-		return sql.Predicate{}, invalidPredicate()
-	}
-
-	// if it isn't 3 parts, it cant be a predicate, maybe it's a nested condition
-	if len(parts) != 3 {
-		return Condition(parts, depth+1)
-	}
-
-	// if all 3 parts aren't strings, it can't e a predicate, maybe it's a nested condition
-	leftInput, ok := parts[0].(string)
-	if !ok {
-		return Condition(parts, depth+1)
-	}
-	rightInput, ok := parts[2].(string)
-	if !ok {
-		return Condition(parts, depth+1)
-	}
-	opInput, ok := parts[1].(string)
-	if !ok {
-		return Condition(parts, depth+1)
-	}
-
-	// at this point, we're treating this like a predicate
-
-	p := &parser{0, leftInput}
-	p.skipSpaces()
-	left, err := p.dataField(invalidPredicateLeft)
-	if err != nil {
-		return sql.Predicate{}, err
-	}
-	p.skipSpaces()
-	if p.peek() != 0 {
-		return sql.Predicate{}, invalidPredicateLeft(p)
-	}
-
-	p = &parser{0, rightInput}
-	p.skipSpaces()
-	right, err := p.dataField(invalidPredicateRight)
-	if err != nil {
-		return sql.Predicate{}, err
-	}
-	p.skipSpaces()
-	if p.peek() != 0 {
-		return sql.Predicate{}, invalidPredicateRight(p)
-	}
-
-	var op []byte
-	switch trimSpace(opInput) {
-	case "=":
-		op = []byte(" = ")
-	case "!=":
-		op = []byte(" != ")
-	case ">":
-		op = []byte(" > ")
-	case "<":
-		op = []byte(" < ")
-	case ">=":
-		op = []byte(" >= ")
-	case "<=":
-		op = []byte(" <= ")
-	case "is":
-		op = []byte(" is ")
-	case "is not":
-		op = []byte(" is not ")
-	default:
-		return sql.Predicate{}, invalidPredicateOp(opInput)
-	}
-
-	return sql.Predicate{
-		Left:  left,
-		Op:    op,
-		Right: right,
-	}, nil
-}
-
 // ?# or column
 func (p *parser) dataField(invalidFactory InvalidFactory) (sql.DataField, *validation.Invalid) {
 	if p.peek() != '?' {
-		return p.column(invalidFactory)
+		return p.qualifiedColumn(invalidFactory)
 	}
 
 	start := p.pos
@@ -362,7 +319,7 @@ func (p *parser) dataField(invalidFactory InvalidFactory) (sql.DataField, *valid
 }
 
 // [table.]column_name
-func (p *parser) column(invalidFactory InvalidFactory) (sql.DataField, *validation.Invalid) {
+func (p *parser) qualifiedColumn(invalidFactory InvalidFactory) (sql.DataField, *validation.Invalid) {
 	name, err := p.requiredObjectName(invalidFactory)
 	if err != nil {
 		return sql.DataField{}, err
@@ -385,6 +342,9 @@ func (p *parser) column(invalidFactory InvalidFactory) (sql.DataField, *validati
 	}, nil
 }
 
+// a column or table name, without an alias or table prefix.
+// Essentially: [_a-zA-Z][_a-zA-Z0-9]*
+// start with underscore or letter, followed by zero or more undescore, letters and numbers
 func (p *parser) objectName(invalidFactory InvalidFactory) (string, *validation.Invalid) {
 	start := p.pos
 	input := p.input
@@ -492,6 +452,85 @@ func (p *parser) skipSpaces() bool {
 
 	p.pos = i
 	return true
+}
+
+// ["column || ?#", "operator", "column || ?#"]
+func predicate(input any, depth int) (sql.Part, *validation.Invalid) {
+	parts, ok := input.([]any)
+	if !ok {
+		return sql.Predicate{}, invalidPredicate()
+	}
+
+	// if it isn't 3 parts, it cant be a predicate, maybe it's a nested condition
+	if len(parts) != 3 {
+		return Condition(parts, depth+1)
+	}
+
+	// if all 3 parts aren't strings, it can't e a predicate, maybe it's a nested condition
+	leftInput, ok := parts[0].(string)
+	if !ok {
+		return Condition(parts, depth+1)
+	}
+	rightInput, ok := parts[2].(string)
+	if !ok {
+		return Condition(parts, depth+1)
+	}
+	opInput, ok := parts[1].(string)
+	if !ok {
+		return Condition(parts, depth+1)
+	}
+
+	// at this point, we're treating this like a predicate
+
+	p := &parser{0, leftInput}
+	p.skipSpaces()
+	left, err := p.dataField(invalidPredicateLeft)
+	if err != nil {
+		return sql.Predicate{}, err
+	}
+	p.skipSpaces()
+	if p.peek() != 0 {
+		return sql.Predicate{}, invalidPredicateLeft(p)
+	}
+
+	p = &parser{0, rightInput}
+	p.skipSpaces()
+	right, err := p.dataField(invalidPredicateRight)
+	if err != nil {
+		return sql.Predicate{}, err
+	}
+	p.skipSpaces()
+	if p.peek() != 0 {
+		return sql.Predicate{}, invalidPredicateRight(p)
+	}
+
+	var op []byte
+	switch trimSpace(opInput) {
+	case "=":
+		op = []byte(" = ")
+	case "!=":
+		op = []byte(" != ")
+	case ">":
+		op = []byte(" > ")
+	case "<":
+		op = []byte(" < ")
+	case ">=":
+		op = []byte(" >= ")
+	case "<=":
+		op = []byte(" <= ")
+	case "is":
+		op = []byte(" is ")
+	case "is not":
+		op = []byte(" is not ")
+	default:
+		return sql.Predicate{}, invalidPredicateOp(opInput)
+	}
+
+	return sql.Predicate{
+		Left:  left,
+		Op:    op,
+		Right: right,
+	}, nil
 }
 
 func isAlphanumeric(c byte) bool {

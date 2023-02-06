@@ -7,20 +7,10 @@ import (
 	"src.goblgobl.com/utils/optional"
 )
 
-type JoinType int
-
-const (
-	JOIN_TYPE_NONE JoinType = iota
-	JOIN_TYPE_INNER
-	JOIN_TYPE_LEFT
-	JOIN_TYPE_RIGHT
-	JOIN_TYPE_FULL
-)
-
 type Select struct {
 	CTEs       []CTE
 	Columns    []DataField
-	Froms      []SelectFrom
+	Froms      []JoinableFrom
 	Where      Condition
 	Parameters []any
 	Limit      int
@@ -28,9 +18,13 @@ type Select struct {
 	OrderBy    []OrderBy
 }
 
+func (s Select) Values() []any {
+	return s.Parameters
+}
+
 // we trust that our caller knows that index < len(s.Froms)
 func (s *Select) CTE(index int, name string, cte string) {
-	s.Froms[index].From.Table = name
+	s.Froms[index].Table.Name = name
 	s.CTEs = append(s.CTEs, CTE{Name: name, CTE: cte})
 }
 
@@ -46,12 +40,11 @@ func (s Select) Write(b *buffer.Buffer) {
 	}
 
 	b.Write([]byte("select json_object("))
-	columns := s.Columns
-	columns[0].WriteAsJsonObject(b)
-	for _, column := range columns[1:] {
-		b.Write([]byte(", "))
+	for _, column := range s.Columns {
 		column.WriteAsJsonObject(b)
+		b.Write([]byte(", "))
 	}
+	b.Truncate(2)
 
 	froms := s.Froms
 	b.Write([]byte(")\nfrom "))
@@ -81,36 +74,6 @@ func (s Select) Write(b *buffer.Buffer) {
 	if offset := s.Offset; offset.Exists {
 		b.Write([]byte(" offset "))
 		b.WriteString(strconv.Itoa(offset.Value))
-	}
-}
-
-type SelectFrom struct {
-	Join JoinType   `json:"join",omitempty`
-	From From       `json:"table"`
-	On   *Condition `json:"on",omitempty`
-}
-
-func (f SelectFrom) TableName() string {
-	return f.From.Table
-}
-
-func (f SelectFrom) Write(b *buffer.Buffer) {
-	switch f.Join {
-	case JOIN_TYPE_INNER:
-		b.Write([]byte("inner join "))
-	case JOIN_TYPE_LEFT:
-		b.Write([]byte("left join "))
-	case JOIN_TYPE_RIGHT:
-		b.Write([]byte("right join "))
-	case JOIN_TYPE_FULL:
-		b.Write([]byte("full join "))
-	}
-
-	f.From.Write(b)
-
-	if condition := f.On; condition != nil {
-		b.Write([]byte(" on "))
-		condition.Write(b)
 	}
 }
 

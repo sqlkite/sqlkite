@@ -8,15 +8,19 @@ import (
 )
 
 type Delete struct {
-	From       string
+	From       Table
 	Where      Condition
 	Parameters []any
 	Limit      optional.Value[int]
 }
 
+func (d Delete) Values() []any {
+	return d.Parameters
+}
+
 func (d Delete) Write(b *buffer.Buffer) {
 	b.Write([]byte("delete from "))
-	b.WriteUnsafe(d.From)
+	d.From.Write(b)
 
 	if where := d.Where; !where.Empty() {
 		b.Write([]byte("\nwhere "))

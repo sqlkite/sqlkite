@@ -8,17 +8,21 @@ import (
 )
 
 type Update struct {
-	Target     string
+	Target     Table
 	Set        []UpdateSet
-	Froms      []SelectFrom
+	Froms      []JoinableFrom
 	Where      Condition
 	Limit      optional.Value[int]
 	Parameters []any
 }
 
+func (u Update) Values() []any {
+	return u.Parameters
+}
+
 func (u Update) Write(b *buffer.Buffer) {
 	b.Write([]byte("update "))
-	b.WriteUnsafe(u.Target)
+	u.Target.Write(b)
 	b.Write([]byte(" set\n "))
 	for _, set := range u.Set {
 		set.Write(b)

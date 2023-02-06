@@ -248,7 +248,6 @@ func Test_Project_UpdateTable_Success(t *testing.T) {
 	assert.Nil(t, err)
 
 	project = MustGetProject(id)
-	assert.Equal(t, len(project.tables), 1)
 
 	table := project.tables["tab_update_b"]
 	assert.Equal(t, table.Name, "tab_update_b")

@@ -8,24 +8,24 @@ import (
 
 func Test_Update_Simple(t *testing.T) {
 	assertSQL(t, Update{
-		Target: "tab1",
+		Target: Table{"tab1", nil},
 		Set: []UpdateSet{
 			UpdateSet{Column: "c1", Value: DataField{Name: "?1"}},
 		},
 	}, "update tab1 set c1 = ?1")
 
 	assertSQL(t, Update{
-		Target: "tab1",
+		Target: Table{"tab1", &Alias{"t1"}},
 		Set: []UpdateSet{
 			UpdateSet{Column: "c1", Value: DataField{Name: "?1"}},
 			UpdateSet{Column: "c2", Value: DataField{Name: "?2"}},
 		},
-	}, "update tab1 set c1 = ?1, c2 = ?2")
+	}, "update tab1 as t1 set c1 = ?1, c2 = ?2")
 }
 
 func Test_Update_WhereAndLimit(t *testing.T) {
 	assertSQL(t, Update{
-		Target: "tab1",
+		Target: Table{"tab1", nil},
 		Set: []UpdateSet{
 			UpdateSet{Column: "c1", Value: DataField{Name: "?1"}},
 			UpdateSet{Column: "c2", Value: DataField{Name: "?2"}},
@@ -43,16 +43,16 @@ func Test_Update_WhereAndLimit(t *testing.T) {
 
 func Test_Update_From(t *testing.T) {
 	assertSQL(t, Update{
-		Target: "tab1",
+		Target: Table{"tab1", nil},
 		Set: []UpdateSet{
 			UpdateSet{Column: "id", Value: DataField{Name: "id", Table: "tab2"}},
 			UpdateSet{Column: "id2", Value: DataField{Name: "id2", Table: "t3"}},
 		},
-		Froms: []SelectFrom{
-			SelectFrom{From: From{"tab2", nil}},
-			SelectFrom{
-				From: From{"tab3", &Alias{"t3"}},
-				Join: JOIN_TYPE_INNER,
+		Froms: []JoinableFrom{
+			JoinableFrom{Table: Table{"tab2", nil}},
+			JoinableFrom{
+				Table: Table{"tab3", &Alias{"t3"}},
+				Join:  JOIN_TYPE_INNER,
 				On: &Condition{
 					Parts: []Part{Predicate{
 						Left:  DataField{Name: "id", Table: "tab1"},

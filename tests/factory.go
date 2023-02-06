@@ -78,7 +78,7 @@ func resetDatabase(id string) {
 	conn.BusyTimeout(5 * time.Second)
 
 	tables := make([]string, 0, 5)
-	rows := conn.Rows("select name from sqlite_schema where type='table' and name not like 'sqlkite_%'")
+	rows := conn.Rows("select name from sqlite_schema where type='table' and name not like 'sqlkite_%' and name != 'products'")
 	defer rows.Close()
 
 	for rows.Next() {
@@ -96,7 +96,11 @@ func resetDatabase(id string) {
 		}
 	}
 
-	if err := conn.Exec("delete from sqlkite_tables"); err != nil {
+	if err := conn.Exec("delete from sqlkite_tables where name != 'products'"); err != nil {
+		panic(err)
+	}
+
+	if err := conn.Exec("delete from products"); err != nil {
 		panic(err)
 	}
 }

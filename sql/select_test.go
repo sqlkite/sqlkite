@@ -7,38 +7,38 @@ import (
 	"src.goblgobl.com/utils/optional"
 )
 
-func Test_SelectFrom_TableName(t *testing.T) {
-	sf := SelectFrom{From: From{"table1", nil}}
+func Test_JoinableFrom_TableName(t *testing.T) {
+	sf := JoinableFrom{Table: Table{"table1", nil}}
 	assert.Equal(t, sf.TableName(), "table1")
 }
 
-func Test_SelectFrom_Write(t *testing.T) {
-	assertSQL(t, SelectFrom{
-		From: From{"table1", nil},
+func Test_JoinableFrom_Write(t *testing.T) {
+	assertSQL(t, JoinableFrom{
+		Table: Table{"table1", nil},
 	}, "table1")
 
-	assertSQL(t, SelectFrom{
-		From: From{"table1", &Alias{Alias: "t1"}},
+	assertSQL(t, JoinableFrom{
+		Table: Table{"table1", &Alias{Alias: "t1"}},
 	}, "table1 as t1")
 
-	assertSQL(t, SelectFrom{
-		Join: JOIN_TYPE_INNER,
-		From: From{"table1", nil},
+	assertSQL(t, JoinableFrom{
+		Join:  JOIN_TYPE_INNER,
+		Table: Table{"table1", nil},
 	}, "inner join table1")
 
-	assertSQL(t, SelectFrom{
-		Join: JOIN_TYPE_LEFT,
-		From: From{"table1", nil},
+	assertSQL(t, JoinableFrom{
+		Join:  JOIN_TYPE_LEFT,
+		Table: Table{"table1", nil},
 	}, "left join table1")
 
-	assertSQL(t, SelectFrom{
-		Join: JOIN_TYPE_RIGHT,
-		From: From{"table1", nil},
+	assertSQL(t, JoinableFrom{
+		Join:  JOIN_TYPE_RIGHT,
+		Table: Table{"table1", nil},
 	}, "right join table1")
 
-	assertSQL(t, SelectFrom{
-		Join: JOIN_TYPE_FULL,
-		From: From{"table1", &Alias{Alias: "tt"}},
+	assertSQL(t, JoinableFrom{
+		Join:  JOIN_TYPE_FULL,
+		Table: Table{"table1", &Alias{Alias: "tt"}},
 	}, "full join table1 as tt")
 
 	// join conditions (e.g. "on ...") are tested in http/sql/parser
@@ -47,8 +47,8 @@ func Test_SelectFrom_Write(t *testing.T) {
 func Test_Select_Write_NoWhere_NoOrderBy(t *testing.T) {
 	assertSQL(t, Select{
 		Columns: []DataField{DataField{Name: "id"}},
-		Froms: []SelectFrom{
-			SelectFrom{From: From{"table1", nil}},
+		Froms: []JoinableFrom{
+			JoinableFrom{Table: Table{"table1", nil}},
 		},
 		Limit: 100,
 	}, "select json_object('id', id) from table1 limit 100")
@@ -57,8 +57,8 @@ func Test_Select_Write_NoWhere_NoOrderBy(t *testing.T) {
 func Test_Select_Write_SingleColumn_SingleFrom(t *testing.T) {
 	assertSQL(t, Select{
 		Columns: []DataField{DataField{Name: "id"}},
-		Froms: []SelectFrom{
-			SelectFrom{From: From{"table1", nil}},
+		Froms: []JoinableFrom{
+			JoinableFrom{Table: Table{"table1", nil}},
 		},
 		Where: Condition{
 			Parts: []Part{Predicate{
@@ -78,11 +78,11 @@ func Test_Select_Write_MultipleColumn_MultipleFrom(t *testing.T) {
 			DataField{Name: "id", Table: "t1"},
 			DataField{Name: "full_name", Table: "t2", Alias: &Alias{"name"}},
 		},
-		Froms: []SelectFrom{
-			SelectFrom{From: From{"table1", &Alias{"t1"}}},
-			SelectFrom{
-				From: From{"table2", &Alias{"t2"}},
-				Join: JOIN_TYPE_INNER,
+		Froms: []JoinableFrom{
+			JoinableFrom{Table: Table{"table1", &Alias{"t1"}}},
+			JoinableFrom{
+				Table: Table{"table2", &Alias{"t2"}},
+				Join:  JOIN_TYPE_INNER,
 				On: &Condition{
 					Parts: []Part{Predicate{
 						Left:  DataField{Name: "id", Table: "t1"},
@@ -111,8 +111,8 @@ func Test_Select_Write_MultipleColumn_MultipleFrom(t *testing.T) {
 func Test_Select_Single_CTE(t *testing.T) {
 	sel := Select{
 		Columns: []DataField{DataField{Name: "id"}},
-		Froms: []SelectFrom{
-			SelectFrom{From: From{"table1", &Alias{"t1"}}},
+		Froms: []JoinableFrom{
+			JoinableFrom{Table: Table{"table1", &Alias{"t1"}}},
 		},
 	}
 
@@ -123,10 +123,10 @@ func Test_Select_Single_CTE(t *testing.T) {
 func Test_Select_Multiple_CTE(t *testing.T) {
 	sel := Select{
 		Columns: []DataField{DataField{Name: "id"}},
-		Froms: []SelectFrom{
-			SelectFrom{From: From{"table1", &Alias{"t1"}}},
-			SelectFrom{Join: JOIN_TYPE_LEFT, From: From{"table2", nil}},
-			SelectFrom{Join: JOIN_TYPE_LEFT, From: From{"table3", nil}},
+		Froms: []JoinableFrom{
+			JoinableFrom{Table: Table{"table1", &Alias{"t1"}}},
+			JoinableFrom{Join: JOIN_TYPE_LEFT, Table: Table{"table2", nil}},
+			JoinableFrom{Join: JOIN_TYPE_LEFT, Table: Table{"table3", nil}},
 		},
 	}
 

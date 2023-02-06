@@ -1,7 +1,6 @@
 package tables
 
 import (
-	"fmt"
 	"testing"
 
 	"src.goblgobl.com/sqlite"
@@ -193,7 +192,6 @@ func Test_Update_Success(t *testing.T) {
 	deleteAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_test_update_success_b_delete", "test_update_success_b")
 	assert.StringContains(t, deleteAccessControl, `select 12`)
 
-	fmt.Println("NOW")
 	// alter access control
 	request.ReqT(t, project.Env()).
 		Body(map[string]any{

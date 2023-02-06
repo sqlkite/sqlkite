@@ -10,36 +10,51 @@ import (
 	"src.goblgobl.com/utils/buffer"
 )
 
-func Test_SelectColumn_Valid(t *testing.T) {
-	assertSelectColumn := func(input string, expectedSQL string) {
+func Test_Column_Invalid(t *testing.T) {
+	assertInvalid := func(input any, expectedcode uint32) {
 		t.Helper()
-		dataField, err := SelectColumn(input)
+		_, err := Column(input)
+		assert.Equal(t, err.Code, expectedcode)
+	}
+
+	assertInvalid(nil, codes.VAL_INVALID_COLUMN_NAME)
+	assertInvalid(1, codes.VAL_INVALID_COLUMN_NAME)
+	assertInvalid("", codes.VAL_INVALID_COLUMN_NAME)
+	assertInvalid("$as", codes.VAL_INVALID_COLUMN_NAME)
+	assertInvalid("hello!world", codes.VAL_INVALID_COLUMN_NAME)
+	assertInvalid("hello world", codes.VAL_INVALID_COLUMN_NAME)
+}
+
+func Test_DataField_Valid(t *testing.T) {
+	assertDataField := func(input string, expectedSQL string) {
+		t.Helper()
+		dataField, err := DataField(input)
 		assert.Nil(t, err)
 		assertSQL(t, dataField, expectedSQL)
 	}
 
-	assertSelectColumn("?1", "?1")
-	assertSelectColumn("?999 ", "?999")
-	assertSelectColumn(" id  ", "id")
-	assertSelectColumn("  full_name ", "full_name")
+	assertDataField("?1", "?1")
+	assertDataField("?999 ", "?999")
+	assertDataField(" id  ", "id")
+	assertDataField("  full_name ", "full_name")
 
-	assertSelectColumn("t.id", "t.id")
-	assertSelectColumn("table1.full_name", "table1.full_name")
+	assertDataField("t.id", "t.id")
+	assertDataField("table1.full_name", "table1.full_name")
 
-	assertSelectColumn("?3 as name", "?3 as name")
-	assertSelectColumn("  ?5  as    other  ", "?5 as other")
+	assertDataField("?3 as name", "?3 as name")
+	assertDataField("  ?5  as    other  ", "?5 as other")
 
-	assertSelectColumn("full_name as name", "full_name as name")
-	assertSelectColumn("full_name  as    name", "full_name as name")
+	assertDataField("full_name as name", "full_name as name")
+	assertDataField("full_name  as    name", "full_name as name")
 
-	assertSelectColumn("t2.full_name as name", "t2.full_name as name")
-	assertSelectColumn("t2.full_name  as    name", "t2.full_name as name")
+	assertDataField("t2.full_name as name", "t2.full_name as name")
+	assertDataField("t2.full_name  as    name", "t2.full_name as name")
 }
 
-func Test_SelectColumn_Invalid(t *testing.T) {
+func Test_DataField_Invalid(t *testing.T) {
 	assertInvalid := func(input string, expectedcode uint32) {
 		t.Helper()
-		_, err := SelectColumn(input)
+		_, err := DataField(input)
 		assert.Equal(t, err.Code, expectedcode)
 	}
 
@@ -68,10 +83,10 @@ func Test_SelectColumn_Invalid(t *testing.T) {
 	assertInvalid("t.full_name   name", codes.VAL_INVALID_ALIAS_NAME)
 }
 
-func Test_From_Valid(t *testing.T) {
-	assertFrom := func(input string, expectedSQL string) {
+func Test_QualifiedTableName_Valid(t *testing.T) {
+	assertFrom := func(input any, expectedSQL string) {
 		t.Helper()
-		from, err := From(input)
+		from, err := QualifiedTableName(input)
 		assert.Nil(t, err)
 		assertSQL(t, from, expectedSQL)
 	}
@@ -82,13 +97,15 @@ func Test_From_Valid(t *testing.T) {
 	assertFrom("  table3   as    tablethree", "table3 as tablethree")
 }
 
-func Test_From_Invalid(t *testing.T) {
-	assertInvalid := func(input string, expectedCode uint32) {
+func Test_QualifiedTableName_Invalid(t *testing.T) {
+	assertInvalid := func(input any, expectedCode uint32) {
 		t.Helper()
-		_, err := From(input)
+		_, err := QualifiedTableName(input)
 		assert.Equal(t, err.Code, expectedCode)
 	}
 
+	assertInvalid(nil, codes.VAL_INVALID_TABLE_NAME)
+	assertInvalid(32, codes.VAL_INVALID_TABLE_NAME)
 	assertInvalid("1abc", codes.VAL_INVALID_TABLE_NAME)
 	assertInvalid("table1&", codes.VAL_INVALID_TABLE_NAME)
 	assertInvalid("abc abc", codes.VAL_INVALID_ALIAS_NAME)
@@ -96,10 +113,10 @@ func Test_From_Invalid(t *testing.T) {
 	assertInvalid("table1 as t1&", codes.VAL_INVALID_ALIAS_NAME)
 }
 
-func Test_SelectFrom_Valid(t *testing.T) {
+func Test_JoinableFrom_Valid(t *testing.T) {
 	assertFrom := func(input any, expectedSQL string) {
 		t.Helper()
-		from, err := SelectFrom(input)
+		from, err := JoinableFrom(input)
 		assert.Nil(t, err)
 		assertSQL(t, from, expectedSQL)
 	}
@@ -116,13 +133,12 @@ func Test_SelectFrom_Valid(t *testing.T) {
 
 	// slightly more complicated condition
 	assertFrom([]any{"left", "table1", []any{[]any{"t1.id", "=", "t2.parent_id"}, "or", []any{"x", "!=", "?1"}}}, "left join table1 on (t1.id = t2.parent_id or x != ?1)")
-
 }
 
-func Test_SelectFrom_Invalid(t *testing.T) {
+func Test_JoinableFrom_Invalid(t *testing.T) {
 	assertInvalid := func(input any, expectedCode uint32) {
 		t.Helper()
-		_, err := SelectFrom(input)
+		_, err := JoinableFrom(input)
 		assert.Equal(t, err.Code, expectedCode)
 	}
 
@@ -133,14 +149,14 @@ func Test_SelectFrom_Invalid(t *testing.T) {
 	assertInvalid("table1 as 1", codes.VAL_INVALID_ALIAS_NAME)
 	assertInvalid("table1 as t1&", codes.VAL_INVALID_ALIAS_NAME)
 
-	assertInvalid(1, codes.VAL_INVALID_SELECT_FROM)
-	assertInvalid([]any{}, codes.VAL_INVALID_SELECT_FROM_COUNT)
-	assertInvalid([]any{"a", "b"}, codes.VAL_INVALID_SELECT_FROM_COUNT)
-	assertInvalid([]any{"a", "b", "c", "d"}, codes.VAL_INVALID_SELECT_FROM_COUNT)
+	assertInvalid(1, codes.VAL_INVALID_JOINABLE_FROM)
+	assertInvalid([]any{}, codes.VAL_INVALID_JOINABLE_FROM_COUNT)
+	assertInvalid([]any{"a", "b"}, codes.VAL_INVALID_JOINABLE_FROM_COUNT)
+	assertInvalid([]any{"a", "b", "c", "d"}, codes.VAL_INVALID_JOINABLE_FROM_COUNT)
 
-	assertInvalid([]any{"", "table", nil}, codes.VAL_INVALID_SELECT_FROM_JOIN)
-	assertInvalid([]any{"INNER", "table", nil}, codes.VAL_INVALID_SELECT_FROM_JOIN)
-	assertInvalid([]any{"other", "table", nil}, codes.VAL_INVALID_SELECT_FROM_JOIN)
+	assertInvalid([]any{"", "table", nil}, codes.VAL_INVALID_JOINABLE_FROM_JOIN)
+	assertInvalid([]any{"INNER", "table", nil}, codes.VAL_INVALID_JOINABLE_FROM_JOIN)
+	assertInvalid([]any{"other", "table", nil}, codes.VAL_INVALID_JOINABLE_FROM_JOIN)
 
 	assertInvalid([]any{"inner", "1abc", []any{[]any{"a", "=", "true"}}}, codes.VAL_INVALID_TABLE_NAME)
 	assertInvalid([]any{"inner", "table1&", []any{[]any{"a", "=", "true"}}}, codes.VAL_INVALID_TABLE_NAME)

@@ -8,20 +8,20 @@ import (
 
 func Test_Delete_NoWhere_NoLimit(t *testing.T) {
 	assertSQL(t, Delete{
-		From: "table1",
+		From: Table{"table1", nil},
 	}, "delete from table1")
 }
 
 func Test_Delete_NoWhere(t *testing.T) {
 	assertSQL(t, Delete{
-		From:  "table1",
+		From:  Table{"table1", nil},
 		Limit: optional.Int(32),
 	}, "delete from table1 limit 32")
 }
 
 func Test_Delete_NoLimit(t *testing.T) {
 	assertSQL(t, Delete{
-		From: "table1",
+		From: Table{"table1", &Alias{"t1"}},
 		Where: Condition{
 			Parts: []Part{Predicate{
 				Left:  DataField{Name: "enabled"},
@@ -29,12 +29,12 @@ func Test_Delete_NoLimit(t *testing.T) {
 				Right: DataField{Name: "?1"},
 			}},
 		},
-	}, "delete from table1 where (enabled = ?1)")
+	}, "delete from table1 as t1 where (enabled = ?1)")
 }
 
 func Test_Delete_With_Where_And_Limit(t *testing.T) {
 	assertSQL(t, Delete{
-		From:  "table1",
+		From:  Table{"table1", nil},
 		Limit: optional.Int(1),
 		Where: Condition{
 			Parts: []Part{Predicate{

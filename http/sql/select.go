@@ -1,18 +1,14 @@
 package sql
 
 import (
-	"errors"
 	"fmt"
-	"io"
 
 	"github.com/valyala/fasthttp"
 	"src.goblgobl.com/sqlkite"
 	"src.goblgobl.com/sqlkite/codes"
 	"src.goblgobl.com/sqlkite/http/sql/parser"
 	"src.goblgobl.com/sqlkite/sql"
-	"src.goblgobl.com/utils/buffer"
 	"src.goblgobl.com/utils/http"
-	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/optional"
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
@@ -66,7 +62,7 @@ func Select(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.Validation(validator), nil
 	}
 
-	return NewSelectResponse(result), nil
+	return NewResultResponse(result), nil
 }
 
 func selectParseColumns(input any, validator *validation.Result, p *sqlkite.Project) []sql.DataField {
@@ -75,39 +71,10 @@ func selectParseColumns(input any, validator *validation.Result, p *sqlkite.Proj
 		return nil
 	}
 
-	rawColumns, ok := input.([]any)
-	if !ok {
-		validator.AddInvalidField(selectField, valArrayType)
-		return nil
-	}
-
-	max := int(p.MaxSelectColumnCount)
-	if len(rawColumns) > max {
-		validator.AddInvalidField(selectField, validation.Invalid{
-			Code:  codes.VAL_SQL_TOO_MANY_SELECT,
-			Error: fmt.Sprintf("must return no more than %d columns", max),
-			Data:  validation.Max(max),
-		})
-		return nil
-	}
-
-	validator.BeginArray()
-	columns := make([]sql.DataField, len(rawColumns))
-	for i, rawColumn := range rawColumns {
-		column, err := parser.SelectColumn(rawColumn)
-		if err != nil {
-			validator.ArrayIndex(i)
-			validator.AddInvalidField(selectField, *err)
-		} else {
-			columns[i] = column
-		}
-	}
-	validator.EndArray()
-
-	return columns
+	return parseColumnResultList(input, selectField, validator, p)
 }
 
-func selectParseFrom(input any, validator *validation.Result, p *sqlkite.Project) []sql.SelectFrom {
+func selectParseFrom(input any, validator *validation.Result, p *sqlkite.Project) []sql.JoinableFrom {
 	if input == nil {
 		validator.AddInvalidField(fromField, valRequired)
 		return nil
@@ -130,9 +97,9 @@ func selectParseFrom(input any, validator *validation.Result, p *sqlkite.Project
 	}
 
 	validator.BeginArray()
-	froms := make([]sql.SelectFrom, len(rawFroms))
+	froms := make([]sql.JoinableFrom, len(rawFroms))
 	for i, rawFrom := range rawFroms {
-		from, err := parser.SelectFrom(rawFrom)
+		from, err := parser.JoinableFrom(rawFrom)
 		if err != nil {
 			validator.ArrayIndex(i)
 			validator.AddInvalidField(fromField, *err)
@@ -235,74 +202,4 @@ func selectParseOffset(input any, validator *validation.Result) optional.Value[i
 	}
 
 	return optional.Int(int(offset))
-}
-
-func NewSelectResponse(result *sqlkite.SelectResult) *SelectResponse {
-	buffer := result.Result
-	// ignore error, whatever called us should have handled any buffer errors already
-	data, _ := buffer.Bytes()
-	return &SelectResponse{
-		data:   data,
-		buffer: buffer,
-		len:    buffer.Len() + SELECT_ENVELOPE_FIXED_LENGTH,
-	}
-}
-
-type SelectResponse struct {
-	// how much of the buffer we've read
-	read int
-
-	// total length of the response we plan on sending out
-	// this is len(data) + json envelope
-	len int
-
-	// buffer.Bytes()
-	data []byte
-
-	// the buffer containing the result data, we need to hold on to this
-	// since we now own it and are responsible for releasing it.
-	buffer *buffer.Buffer
-}
-
-// io.Closer
-func (r *SelectResponse) Close() error {
-	r.buffer.Release()
-	return nil
-}
-
-// io.Reader
-func (r *SelectResponse) Read(p []byte) (int, error) {
-	// we expect WriteTo to always be used
-	// we only implement this to satisfy SetBodyStream which requires
-	// and io.Reader, even though it won't use it.
-	panic(errors.New("select_resonse.read"))
-}
-
-// io.WriterTo
-func (r *SelectResponse) WriteTo(w io.Writer) (int64, error) {
-	n1, err := w.Write(SELECT_ENVELOPE_START)
-	written := int64(n1)
-	if err != nil {
-		return written, err
-	}
-
-	n2, err := w.Write(r.data)
-	written += int64(n2)
-	if err != nil {
-		return written, err
-	}
-
-	n3, err := w.Write(SELECT_ENVELOPE_END)
-	written += int64(n3)
-	if err != nil {
-		return written, err
-	}
-
-	return written, err
-}
-
-func (r *SelectResponse) Write(conn *fasthttp.RequestCtx, logger log.Logger) log.Logger {
-	conn.SetStatusCode(200)
-	conn.SetBodyStream(r, r.len)
-	return logger.Field(http.OkLogData).Int("res", r.len)
 }

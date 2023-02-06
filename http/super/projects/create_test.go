@@ -5,6 +5,7 @@ import (
 
 	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/sqlkite"
+	"src.goblgobl.com/sqlkite/sql"
 	"src.goblgobl.com/sqlkite/tests"
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
@@ -49,7 +50,7 @@ func Test_Create_InvalidData(t *testing.T) {
 		Body(map[string]any{
 			"max_concurrency":         101,
 			"max_sql_length":          16385,
-			"max_sql_parameter_count": 501,
+			"max_sql_parameter_count": sql.MAX_PARAMETERS + 1,
 			"max_database_size":       10485760001,
 			"max_row_count":           10001,
 			"max_result_length":       5242881,

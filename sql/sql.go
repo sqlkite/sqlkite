@@ -6,11 +6,18 @@ import (
 	"src.goblgobl.com/utils/buffer"
 )
 
+type JoinType int
 type DataFieldType int
 type LogicalOperator int
 
 const (
 	MAX_PARAMETERS = 999
+
+	JOIN_TYPE_NONE JoinType = iota
+	JOIN_TYPE_INNER
+	JOIN_TYPE_LEFT
+	JOIN_TYPE_RIGHT
+	JOIN_TYPE_FULL
 
 	DATA_FIELD_PLACEHOLDER DataFieldType = iota
 	DATA_FIELD_COLUMN
@@ -27,6 +34,11 @@ func init() {
 	}
 }
 
+type Query interface {
+	Part
+	Values() []any
+}
+
 type Part interface {
 	Write(*buffer.Buffer)
 }
@@ -40,14 +52,14 @@ func (a *Alias) Write(b *buffer.Buffer) {
 	b.WriteUnsafe(a.Alias)
 }
 
-type From struct {
-	Table string `json:"table"`
+type Table struct {
+	Name  string `json:"name"`
 	Alias *Alias `json:"alias",omitempty`
 }
 
-func (f From) Write(b *buffer.Buffer) {
-	b.WriteUnsafe(f.Table)
-	if alias := f.Alias; alias != nil {
+func (t Table) Write(b *buffer.Buffer) {
+	b.WriteUnsafe(t.Name)
+	if alias := t.Alias; alias != nil {
 		alias.Write(b)
 	}
 }
@@ -113,4 +125,34 @@ func (cte CTE) Write(b *buffer.Buffer) {
 	b.Write([]byte(" as ("))
 	b.WriteUnsafe(cte.CTE)
 	b.WriteByte(')')
+}
+
+type JoinableFrom struct {
+	Join  JoinType   `json:"join",omitempty`
+	Table Table      `json:"table"`
+	On    *Condition `json:"on",omitempty`
+}
+
+func (f JoinableFrom) TableName() string {
+	return f.Table.Name
+}
+
+func (f JoinableFrom) Write(b *buffer.Buffer) {
+	switch f.Join {
+	case JOIN_TYPE_INNER:
+		b.Write([]byte("inner join "))
+	case JOIN_TYPE_LEFT:
+		b.Write([]byte("left join "))
+	case JOIN_TYPE_RIGHT:
+		b.Write([]byte("right join "))
+	case JOIN_TYPE_FULL:
+		b.Write([]byte("full join "))
+	}
+
+	f.Table.Write(b)
+
+	if condition := f.On; condition != nil {
+		b.Write([]byte(" on "))
+		condition.Write(b)
+	}
 }

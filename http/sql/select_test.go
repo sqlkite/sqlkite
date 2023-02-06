@@ -116,11 +116,12 @@ func Test_Select_OverLimits(t *testing.T) {
 func Test_Select_AtLimits(t *testing.T) {
 	res := request.ReqT(t, limitedProject.Env()).
 		Body(map[string]any{
-			"select":     []string{"?2", "?1"},
+			"select":     []string{"?1"},
 			"from":       []string{"t1", "t2"},
 			"limit":      2,
 			"order":      []any{"id", "-id"},
-			"parameters": []any{1, 2},
+			"parameters": []any{1, 0},
+			"where":      []any{[]string{"id", "=", "?2"}},
 		}).
 		Post(Select).
 		OK()

@@ -151,9 +151,14 @@ func mainHandler(config config.HTTP, logger log.Logger, envLoader EnvLoader) (fu
 	r := router.New()
 
 	// diagnostics routes
+	// only the ping route is available on the main handler. Other diagnostic routes
+	// are exposed only onthe super handler
 	r.GET("/v1/diagnostics/ping", http.NoEnvHandler("ping", diagnostics.Ping))
 
 	r.POST("/v1/sql/select", http.Handler("sql_select", envLoader, sql.Select))
+	r.POST("/v1/sql/insert", http.Handler("sql_insert", envLoader, sql.Insert))
+	// r.POST("/v1/sql/update", http.Handler("sql_update", envLoader, sql.Update))
+	// r.POST("/v1/sql/delete", http.Handler("sql_delete", envLoader, sql.Delete))
 
 	if config.Admin == "public" {
 		logger.String("admin", "public")

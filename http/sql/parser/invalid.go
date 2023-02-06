@@ -124,38 +124,38 @@ func invalidConditionDepth() *validation.Invalid {
 	}
 }
 
-func invalidSelectFrom() *validation.Invalid {
+func invalidJoinableFrom() *validation.Invalid {
 	return &validation.Invalid{
-		Code:  codes.VAL_INVALID_SELECT_FROM,
+		Code:  codes.VAL_INVALID_JOINABLE_FROM,
 		Error: "invalid from",
 	}
 }
 
-func invalidSelectFromCount() *validation.Invalid {
+func invalidJoinableFromCount() *validation.Invalid {
 	return &validation.Invalid{
-		Code:  codes.VAL_INVALID_SELECT_FROM_COUNT,
+		Code:  codes.VAL_INVALID_JOINABLE_FROM_COUNT,
 		Error: "invalid from",
 	}
 }
 
-func invalidSelectFromTable() *validation.Invalid {
+func invalidJoinableFromTable() *validation.Invalid {
 	return &validation.Invalid{
-		Code:  codes.VAL_INVALID_SELECT_FROM_TABLE,
+		Code:  codes.VAL_INVALID_JOINABLE_FROM_TABLE,
 		Error: "invalid from table",
 	}
 }
 
-func invalidSelectFromJoin(input string) *validation.Invalid {
+func invalidJoinableFromJoin(input string) *validation.Invalid {
 	return &validation.Invalid{
-		Code:  codes.VAL_INVALID_SELECT_FROM_JOIN,
+		Code:  codes.VAL_INVALID_JOINABLE_FROM_JOIN,
 		Error: "invalid from join",
 		Data:  InvalidContext{Context: input},
 	}
 }
 
-func invalidSelectFromOn() *validation.Invalid {
+func invalidJoinableFromOn() *validation.Invalid {
 	return &validation.Invalid{
-		Code:  codes.VAL_INVALID_SELECT_FROM_ON,
+		Code:  codes.VAL_INVALID_JOINABLE_FROM_ON,
 		Error: "invalid from join condition",
 	}
 }

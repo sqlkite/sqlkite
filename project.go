@@ -341,7 +341,7 @@ func (p *Project) DeleteTable(env *Env, tableName string) error {
 	return err
 }
 
-func (p *Project) Select(env *Env, sel sql.Select) (*SelectResult, error) {
+func (p *Project) Select(env *Env, sel sql.Select) (*QueryResult, error) {
 	validator := env.Validator
 
 	// This is important. We're going to inject our access control into our select
@@ -369,57 +369,24 @@ func (p *Project) Select(env *Env, sel sql.Select) (*SelectResult, error) {
 		return nil, nil
 	}
 
-	writer := p.SQLBuffer()
-	defer writer.Release()
+	return p.executeQueryWithResults(env, sel)
+}
 
-	sel.Write(writer)
-	sql, err := writer.Bytes()
+func (p *Project) Insert(env *Env, ins sql.Insert) (*QueryResult, error) {
+	validator := env.Validator
 
-	if err != nil {
-		return nil, p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
+	tableName := ins.Into.Name
+	_, exists := p.tables[tableName]
+	if !exists {
+		validator.Add(unknownTable(tableName))
+		return nil, nil
 	}
 
-	rowCount := 0
-	// We don't release this here, unless there's an error, as
-	// it needs to survive until the response is sent.
-	result := p.ResultBuffer()
-
-	err = p.WithDBEnv(env, func(conn sqlite.Conn) error {
-		rows := conn.RowsB(sql, sel.Parameters...)
-		defer rows.Close()
-
-		for rows.Next() {
-			var b sqlite.RawBytes
-			rows.Scan(&b)
-			result.WritePad(b, 1)
-			result.WriteByteUnsafe(',')
-			rowCount += 1
-		}
-
-		if err := rows.Error(); err != nil {
-			return err
-		}
-
-		if err := result.Error(); err != nil {
-			return p.bufferErrorToValidation(env, err, BUFFER_TYPE_RESULT)
-		}
-
-		if rowCount > 0 {
-			// trailing comma
-			result.Truncate(1)
-		}
-		return nil
-	})
-
-	if err != nil {
-		result.Release()
-		return nil, err
+	if len(ins.Returning) == 0 {
+		return p.executeQueryWithoutResult(env, ins)
+	} else {
+		return p.executeQueryWithResults(env, ins)
 	}
-
-	return &SelectResult{
-		Result:   result,
-		RowCount: rowCount,
-	}, nil
 }
 
 func (p *Project) SQLBuffer() *buffer.Buffer {
@@ -518,6 +485,83 @@ func (p *Project) bufferErrorToValidation(env *Env, err error, bufferType Buffer
 	}
 	env.Validator.Add(invalid)
 	return nil
+}
+
+func (p *Project) executeQueryWithoutResult(env *Env, q sql.Query) (*QueryResult, error) {
+	writer := p.SQLBuffer()
+	defer writer.Release()
+
+	q.Write(writer)
+	sql, err := writer.Bytes()
+
+	if err != nil {
+		return nil, p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
+	}
+
+	affected := 0
+	err = p.WithDBEnv(env, func(conn sqlite.Conn) error {
+		err := conn.ExecBArr(sql, q.Values())
+		if err != nil {
+			return err
+		}
+		affected = conn.Changes()
+		return nil
+	})
+	return &QueryResult{RowCount: affected}, err
+}
+
+func (p *Project) executeQueryWithResults(env *Env, q sql.Query) (*QueryResult, error) {
+	rowCount := 0
+
+	writer := p.SQLBuffer()
+	defer writer.Release()
+
+	q.Write(writer)
+	sql, err := writer.Bytes()
+	if err != nil {
+		return nil, p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
+	}
+
+	// We don't release this here, unless there's an error, as
+	// it needs to survive until the response is sent.
+	result := p.ResultBuffer()
+
+	err = p.WithDBEnv(env, func(conn sqlite.Conn) error {
+		rows := conn.RowsBArr(sql, q.Values())
+		defer rows.Close()
+
+		for rows.Next() {
+			var b sqlite.RawBytes
+			rows.Scan(&b)
+			result.WritePad(b, 1)
+			result.WriteByteUnsafe(',')
+			rowCount += 1
+		}
+
+		if err := rows.Error(); err != nil {
+			return err
+		}
+
+		if err := result.Error(); err != nil {
+			return p.bufferErrorToValidation(env, err, BUFFER_TYPE_RESULT)
+		}
+
+		if rowCount > 0 {
+			// trailing comma
+			result.Truncate(1)
+		}
+		return nil
+	})
+
+	if err != nil {
+		result.Release()
+		return nil, err
+	}
+
+	return &QueryResult{
+		Result:   result,
+		RowCount: rowCount,
+	}, nil
 }
 
 func loadProject(id string) (*Project, error) {

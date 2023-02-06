@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -176,6 +177,21 @@ func setupDynamicProject() {
 			return nil
 		})
 	})
+
+	project = MustGetProject(id)
+	err := project.CreateTable(project.Env(), data.Table{
+		Name: "products",
+		Columns: []data.Column{
+			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
+			data.Column{Name: "name", Type: data.COLUMN_TYPE_TEXT},
+			data.Column{Name: "rating", Type: data.COLUMN_TYPE_REAL, Nullable: true},
+			data.Column{Name: "image", Type: data.COLUMN_TYPE_BLOB, Nullable: true},
+		},
+	})
+	fmt.Println(err)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func setupLimitedProject() {
@@ -201,6 +217,7 @@ func setupLimitedProject() {
 		Name: "t1",
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
+			data.Column{Name: "name", Type: data.COLUMN_TYPE_TEXT},
 		},
 	})
 	if err != nil {

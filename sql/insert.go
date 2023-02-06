@@ -27,16 +27,21 @@ func init() {
 }
 
 type Insert struct {
-	Into       string
+	Into       Table
 	Columns    []string
 	Parameters []any
+	Returning  []DataField
+}
+
+func (i Insert) Values() []any {
+	return i.Parameters
 }
 
 func (i Insert) Write(b *buffer.Buffer) {
 	columns := i.Columns
 
 	b.Write([]byte("insert into "))
-	b.WriteUnsafe(i.Into)
+	i.Into.Write(b)
 
 	b.Write([]byte(" ("))
 	for _, c := range columns {
@@ -55,7 +60,17 @@ func (i Insert) Write(b *buffer.Buffer) {
 
 	writeInsertPlaceholders(0, numberOfCols, b)
 	for i := 1; i < numberOfRows; i++ {
+		b.Write([]byte(",\n"))
 		writeInsertPlaceholders(i, numberOfCols, b)
+	}
+	if returning := i.Returning; len(returning) > 0 {
+		b.Write([]byte("\nreturning json_object("))
+		for _, column := range returning {
+			column.WriteAsJsonObject(b)
+			b.Write([]byte(", "))
+		}
+		b.Truncate(2)
+		b.WriteByte(')')
 	}
 }
 
