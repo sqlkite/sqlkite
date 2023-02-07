@@ -1,10 +1,10 @@
 package projects
 
 import (
-	"src.goblgobl.com/sqlkite/codes"
-	"src.goblgobl.com/sqlkite/sql"
 	"src.goblgobl.com/utils/http"
 	"src.goblgobl.com/utils/validation"
+	"src.sqlkite.com/sqlkite/codes"
+	"src.sqlkite.com/sqlkite/sql"
 )
 
 var (

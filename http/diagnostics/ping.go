@@ -2,8 +2,8 @@ package diagnostics
 
 import (
 	"github.com/valyala/fasthttp"
-	"src.goblgobl.com/sqlkite/super"
 	"src.goblgobl.com/utils/http"
+	"src.sqlkite.com/sqlkite/super"
 )
 
 func Ping(conn *fasthttp.RequestCtx) (http.Response, error) {

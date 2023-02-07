@@ -3,9 +3,9 @@ package sql
 import (
 	"testing"
 
-	"src.goblgobl.com/sqlkite/data"
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/utils/buffer"
+	"src.sqlkite.com/sqlkite/data"
 )
 
 func Test_CreateTable_Without_Defauls(t *testing.T) {

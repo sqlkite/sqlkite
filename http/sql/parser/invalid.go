@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"src.goblgobl.com/sqlkite/codes"
 	"src.goblgobl.com/utils/validation"
+	"src.sqlkite.com/sqlkite/codes"
 )
 
 type InvalidFactory func(p *parser) *validation.Invalid

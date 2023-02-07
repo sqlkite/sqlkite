@@ -14,13 +14,13 @@ import (
 
 	sqliteDriver "src.goblgobl.com/sqlite"
 
-	"src.goblgobl.com/sqlkite/super"
-	"src.goblgobl.com/sqlkite/super/pg"
-	"src.goblgobl.com/sqlkite/super/sqlite"
 	"src.goblgobl.com/tests"
 	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
+	"src.sqlkite.com/sqlkite/super"
+	"src.sqlkite.com/sqlkite/super/pg"
+	"src.sqlkite.com/sqlkite/super/sqlite"
 )
 
 var generator tests.Generator

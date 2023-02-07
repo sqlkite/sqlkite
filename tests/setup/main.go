@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"src.goblgobl.com/sqlite"
-	"src.goblgobl.com/sqlkite"
-	"src.goblgobl.com/sqlkite/config"
-	"src.goblgobl.com/sqlkite/data"
-	"src.goblgobl.com/sqlkite/super"
-	"src.goblgobl.com/sqlkite/super/pg"
-	superSqlite "src.goblgobl.com/sqlkite/super/sqlite"
 	"src.goblgobl.com/tests"
+	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/config"
+	"src.sqlkite.com/sqlkite/data"
+	"src.sqlkite.com/sqlkite/super"
+	"src.sqlkite.com/sqlkite/super/pg"
+	superSqlite "src.sqlkite.com/sqlkite/super/sqlite"
 )
 
 func main() {

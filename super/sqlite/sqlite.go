@@ -3,11 +3,11 @@ package sqlite
 import (
 	"time"
 
-	"src.goblgobl.com/sqlkite/codes"
-	"src.goblgobl.com/sqlkite/data"
-	"src.goblgobl.com/sqlkite/super/sqlite/migrations"
 	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/sqlite"
+	"src.sqlkite.com/sqlkite/codes"
+	"src.sqlkite.com/sqlkite/data"
+	"src.sqlkite.com/sqlkite/super/sqlite/migrations"
 )
 
 var ErrNoRows = sqlite.ErrNoRows

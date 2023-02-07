@@ -3,10 +3,10 @@ package super
 import (
 	"testing"
 
-	"src.goblgobl.com/sqlkite/super/pg"
-	"src.goblgobl.com/sqlkite/super/sqlite"
 	"src.goblgobl.com/tests"
 	"src.goblgobl.com/tests/assert"
+	"src.sqlkite.com/sqlkite/super/pg"
+	"src.sqlkite.com/sqlkite/super/sqlite"
 )
 
 func Test_Configure_InvalidType(t *testing.T) {

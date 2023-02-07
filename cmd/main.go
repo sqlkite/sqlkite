@@ -3,11 +3,11 @@ package main
 import (
 	"flag"
 
-	"src.goblgobl.com/sqlkite"
-	"src.goblgobl.com/sqlkite/config"
-	"src.goblgobl.com/sqlkite/http"
-	"src.goblgobl.com/sqlkite/super"
 	"src.goblgobl.com/utils/log"
+	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/config"
+	"src.sqlkite.com/sqlkite/http"
+	"src.sqlkite.com/sqlkite/super"
 )
 
 func main() {

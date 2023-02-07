@@ -2,12 +2,12 @@ package tables
 
 import (
 	"github.com/valyala/fasthttp"
-	"src.goblgobl.com/sqlkite"
-	"src.goblgobl.com/sqlkite/sql"
 	"src.goblgobl.com/utils/ascii"
 	"src.goblgobl.com/utils/http"
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
+	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/sql"
 )
 
 var (

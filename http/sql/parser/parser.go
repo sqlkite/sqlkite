@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"src.goblgobl.com/sqlkite/sql"
 	"src.goblgobl.com/utils/validation"
+	"src.sqlkite.com/sqlkite/sql"
 )
 
 /*

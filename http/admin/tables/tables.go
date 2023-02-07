@@ -4,11 +4,11 @@ import (
 	"encoding/base64"
 	"strings"
 
-	"src.goblgobl.com/sqlkite/codes"
-	"src.goblgobl.com/sqlkite/data"
 	"src.goblgobl.com/utils/ascii"
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
+	"src.sqlkite.com/sqlkite/codes"
+	"src.sqlkite.com/sqlkite/data"
 )
 
 var (

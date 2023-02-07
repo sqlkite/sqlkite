@@ -3,11 +3,11 @@ package super
 import (
 	"time"
 
-	"src.goblgobl.com/sqlkite/codes"
-	"src.goblgobl.com/sqlkite/data"
-	"src.goblgobl.com/sqlkite/super/pg"
-	"src.goblgobl.com/sqlkite/super/sqlite"
 	"src.goblgobl.com/utils/log"
+	"src.sqlkite.com/sqlkite/codes"
+	"src.sqlkite.com/sqlkite/data"
+	"src.sqlkite.com/sqlkite/super/pg"
+	"src.sqlkite.com/sqlkite/super/sqlite"
 )
 
 // singleton

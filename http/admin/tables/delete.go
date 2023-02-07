@@ -2,9 +2,9 @@ package tables
 
 import (
 	"github.com/valyala/fasthttp"
-	"src.goblgobl.com/sqlkite"
 	"src.goblgobl.com/utils/ascii"
 	"src.goblgobl.com/utils/http"
+	"src.sqlkite.com/sqlkite"
 )
 
 func Delete(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {

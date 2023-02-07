@@ -8,9 +8,9 @@ import (
 	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/pg"
 
-	"src.goblgobl.com/sqlkite/codes"
-	"src.goblgobl.com/sqlkite/data"
-	"src.goblgobl.com/sqlkite/super/pg/migrations"
+	"src.sqlkite.com/sqlkite/codes"
+	"src.sqlkite.com/sqlkite/data"
+	"src.sqlkite.com/sqlkite/super/pg/migrations"
 )
 
 type Config struct {

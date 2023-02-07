@@ -5,8 +5,8 @@ import (
 	"path"
 	"testing"
 
-	"src.goblgobl.com/sqlkite/tests"
 	"src.goblgobl.com/tests/assert"
+	"src.sqlkite.com/sqlkite/tests"
 )
 
 func Test_CreateDB(t *testing.T) {

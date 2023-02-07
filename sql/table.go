@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"src.goblgobl.com/sqlite"
-	"src.goblgobl.com/sqlkite/data"
 	"src.goblgobl.com/utils/buffer"
+	"src.sqlkite.com/sqlkite/data"
 )
 
 func CreateTable(table data.Table, buffer *buffer.Buffer) {

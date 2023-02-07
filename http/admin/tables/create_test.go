@@ -3,11 +3,11 @@ package tables
 import (
 	"testing"
 
-	"src.goblgobl.com/sqlkite"
-	"src.goblgobl.com/sqlkite/data"
-	"src.goblgobl.com/sqlkite/tests"
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
+	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/data"
+	"src.sqlkite.com/sqlkite/tests"
 )
 
 func Test_Create_InvalidBody(t *testing.T) {

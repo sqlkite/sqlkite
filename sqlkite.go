@@ -10,11 +10,11 @@ import (
 	"strings"
 
 	"src.goblgobl.com/sqlite"
-	"src.goblgobl.com/sqlkite/codes"
-	"src.goblgobl.com/sqlkite/config"
-	"src.goblgobl.com/sqlkite/data"
 	"src.goblgobl.com/utils/buffer"
 	"src.goblgobl.com/utils/log"
+	"src.sqlkite.com/sqlkite/codes"
+	"src.sqlkite.com/sqlkite/config"
+	"src.sqlkite.com/sqlkite/data"
 )
 
 var Config config.Config

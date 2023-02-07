@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"src.goblgobl.com/sqlite"
-	"src.goblgobl.com/sqlkite/tests"
 	"src.goblgobl.com/tests/assert"
+	"src.sqlkite.com/sqlkite/tests"
 )
 
 func Test_DBPool_New(t *testing.T) {

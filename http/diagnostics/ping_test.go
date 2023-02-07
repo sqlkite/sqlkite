@@ -3,10 +3,10 @@ package diagnostics
 import (
 	"testing"
 
-	_ "src.goblgobl.com/sqlkite/tests"
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
 	"src.goblgobl.com/utils/log"
+	_ "src.sqlkite.com/sqlkite/tests"
 )
 
 func Test_Ping_Ok(t *testing.T) {

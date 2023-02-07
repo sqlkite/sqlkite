@@ -8,9 +8,9 @@ import (
 	"src.goblgobl.com/utils/log"
 
 	"github.com/valyala/fasthttp"
-	"src.goblgobl.com/sqlkite"
 	"src.goblgobl.com/utils/buffer"
 	"src.goblgobl.com/utils/http"
+	"src.sqlkite.com/sqlkite"
 )
 
 func NewResultResponse(result *sqlkite.QueryResult) http.Response {

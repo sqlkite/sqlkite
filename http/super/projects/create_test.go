@@ -4,12 +4,12 @@ import (
 	"testing"
 
 	"src.goblgobl.com/sqlite"
-	"src.goblgobl.com/sqlkite"
-	"src.goblgobl.com/sqlkite/sql"
-	"src.goblgobl.com/sqlkite/tests"
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
 	"src.goblgobl.com/utils/uuid"
+	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/sql"
+	"src.sqlkite.com/sqlkite/tests"
 )
 
 func Test_Create_InvalidBody(t *testing.T) {

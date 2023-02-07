@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"src.goblgobl.com/sqlite"
-	"src.goblgobl.com/sqlkite/data"
-	"src.goblgobl.com/sqlkite/sql"
-	"src.goblgobl.com/sqlkite/tests"
 	"src.goblgobl.com/tests/assert"
+	"src.sqlkite.com/sqlkite/data"
+	"src.sqlkite.com/sqlkite/sql"
+	"src.sqlkite.com/sqlkite/tests"
 )
 
 func Test_NewProject(t *testing.T) {

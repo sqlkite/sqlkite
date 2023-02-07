@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	"src.goblgobl.com/sqlkite/codes"
-	"src.goblgobl.com/sqlkite/sql"
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/utils/buffer"
+	"src.sqlkite.com/sqlkite/codes"
+	"src.sqlkite.com/sqlkite/sql"
 )
 
 func Test_Column_Invalid(t *testing.T) {

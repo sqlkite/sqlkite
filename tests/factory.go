@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"src.goblgobl.com/sqlite"
-	"src.goblgobl.com/sqlkite/super"
 	f "src.goblgobl.com/tests/factory"
 	"src.goblgobl.com/utils/uuid"
+	"src.sqlkite.com/sqlkite/super"
 )
 
 var (

@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"github.com/valyala/fasthttp"
-	"src.goblgobl.com/sqlkite"
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/utils/buffer"
 	"src.goblgobl.com/utils/log"
+	"src.sqlkite.com/sqlkite"
 )
 
 func Test_ResultResponse_WithData(t *testing.T) {

@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/valyala/fasthttp"
-	"src.goblgobl.com/sqlkite"
-	"src.goblgobl.com/sqlkite/tests"
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
 	"src.goblgobl.com/utils/http"
 	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/uuid"
+	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/tests"
 )
 
 var projectId string

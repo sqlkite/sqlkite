@@ -2,12 +2,12 @@ package sql
 
 import (
 	"github.com/valyala/fasthttp"
-	"src.goblgobl.com/sqlkite"
-	"src.goblgobl.com/sqlkite/http/sql/parser"
-	"src.goblgobl.com/sqlkite/sql"
 	"src.goblgobl.com/utils/http"
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
+	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/http/sql/parser"
+	"src.sqlkite.com/sqlkite/sql"
 )
 
 func Insert(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {

@@ -1,12 +1,12 @@
-module src.goblgobl.com/sqlkite
+module src.sqlkite.com/sqlkite
 
 go 1.20
 
 replace (
 	github.com/goccy/go-json => github.com/aryehlev/go-json v0.0.0-20221129210459-f82fe12f9170
-	src.goblgobl.com/sqlite => ../sqlite
-	src.goblgobl.com/tests => ../tests
-	src.goblgobl.com/utils => ../utils
+	src.goblgobl.com/sqlite => ../../gobl/sqlite
+	src.goblgobl.com/tests => ../../gobl/tests
+	src.goblgobl.com/utils => ../../gobl/utils
 )
 
 require (

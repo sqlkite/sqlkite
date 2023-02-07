@@ -5,8 +5,8 @@ import (
 	"runtime"
 
 	"github.com/valyala/fasthttp"
-	"src.goblgobl.com/sqlkite/super"
 	"src.goblgobl.com/utils/http"
+	"src.sqlkite.com/sqlkite/super"
 )
 
 //go:generate make commit.txt

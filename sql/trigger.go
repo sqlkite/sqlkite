@@ -1,8 +1,8 @@
 package sql
 
 import (
-	"src.goblgobl.com/sqlkite/data"
 	"src.goblgobl.com/utils/buffer"
+	"src.sqlkite.com/sqlkite/data"
 )
 
 func TableAccessCreateTrigger(table string, action string, access *data.MutateTableAccess, buffer *buffer.Buffer) {

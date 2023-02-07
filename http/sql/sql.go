@@ -3,11 +3,11 @@ package sql
 import (
 	"fmt"
 
-	"src.goblgobl.com/sqlkite"
-	"src.goblgobl.com/sqlkite/codes"
-	"src.goblgobl.com/sqlkite/http/sql/parser"
-	"src.goblgobl.com/sqlkite/sql"
 	"src.goblgobl.com/utils/validation"
+	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/codes"
+	"src.sqlkite.com/sqlkite/http/sql/parser"
+	"src.sqlkite.com/sqlkite/sql"
 )
 
 const (

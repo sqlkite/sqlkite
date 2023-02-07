@@ -3,10 +3,10 @@ package sql
 import (
 	"testing"
 
-	"src.goblgobl.com/sqlkite"
-	"src.goblgobl.com/sqlkite/tests"
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
+	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/tests"
 )
 
 var (

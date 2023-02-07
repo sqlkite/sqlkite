@@ -1,8 +1,8 @@
 package super
 
 import (
-	"src.goblgobl.com/sqlkite/super/pg"
-	"src.goblgobl.com/sqlkite/super/sqlite"
+	"src.sqlkite.com/sqlkite/super/pg"
+	"src.sqlkite.com/sqlkite/super/sqlite"
 )
 
 type Config struct {
