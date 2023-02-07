@@ -171,6 +171,9 @@ func getRow(project *sqlkite.Project, sql string, args ...any) typed.Typed {
 	project.WithDB(func(conn sqlite.Conn) {
 		m, err := conn.RowArr(sql, args).Map()
 		if err != nil {
+			if err == sqlite.ErrNoRows {
+				return
+			}
 			panic(err)
 		}
 		t = typed.Typed(m)

@@ -18,6 +18,7 @@ var (
 
 type factory struct {
 	Project f.Table
+	Product f.Sqlite
 
 	// See tests/setup/main.go which is run before our tests and gets us into a
 	// known state. This does create a dependency between tests and the setup, and
@@ -63,6 +64,15 @@ func init() {
 			"updated":                 args.Time("updated", time.Now()),
 		}
 	}, "id")
+
+	// the products table exists in our test databases (tests/databases and tests/setup)
+	Factory.Product = f.NewSqlite("products", func(args f.KV) f.KV {
+		return f.KV{
+			"id":     args.Int("id", 0),
+			"name":   args.String("name", "a-product"),
+			"rating": args.Float("rating", 5.0),
+		}
+	}) // TODO: add ", id" once we support PKs
 
 	Factory.StandardId = "00001111-0000-0000-0000-000000000001"
 	Factory.LimitedId = "00001111-0000-0000-0000-000000000003"

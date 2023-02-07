@@ -12,6 +12,9 @@ type Delete struct {
 	Where      Condition
 	Parameters []any
 	Limit      optional.Value[int]
+	Offset     optional.Value[int]
+	OrderBy    []OrderBy
+	Returning  []DataField
 }
 
 func (d Delete) Values() []any {
@@ -27,8 +30,31 @@ func (d Delete) Write(b *buffer.Buffer) {
 		where.Write(b)
 	}
 
+	if returning := d.Returning; len(returning) > 0 {
+		b.Write([]byte("\nreturning json_object("))
+		for _, column := range returning {
+			column.WriteAsJsonObject(b)
+			b.Write([]byte(", "))
+		}
+		b.Truncate(2)
+		b.WriteByte(')')
+	}
+
+	if orderBy := d.OrderBy; len(orderBy) > 0 {
+		b.Write([]byte("\norder by "))
+		for _, orderBy := range orderBy {
+			orderBy.Write(b)
+			b.WriteByte(',')
+		}
+		b.Truncate(1)
+	}
+
 	if limit := d.Limit; limit.Exists {
 		b.Write([]byte("\nlimit "))
 		b.WriteString(strconv.Itoa(limit.Value))
+	}
+	if offset := d.Offset; offset.Exists {
+		b.Write([]byte("\noffset "))
+		b.WriteString(strconv.Itoa(offset.Value))
 	}
 }

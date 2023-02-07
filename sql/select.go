@@ -59,20 +59,19 @@ func (s Select) Write(b *buffer.Buffer) {
 		s.Where.Write(b)
 	}
 
-	orderBy := s.OrderBy
-	if len(orderBy) > 0 {
+	if orderBy := s.OrderBy; len(orderBy) > 0 {
 		b.Write([]byte("\norder by "))
-		orderBy[0].Write(b)
-		for _, orderBy := range orderBy[1:] {
-			b.WriteByte(',')
+		for _, orderBy := range orderBy {
 			orderBy.Write(b)
+			b.WriteByte(',')
 		}
+		b.Truncate(1)
 	}
 
 	b.Write([]byte("\nlimit "))
 	b.WriteString(strconv.Itoa(s.Limit))
 	if offset := s.Offset; offset.Exists {
-		b.Write([]byte(" offset "))
+		b.Write([]byte("\noffset "))
 		b.WriteString(strconv.Itoa(offset.Value))
 	}
 }

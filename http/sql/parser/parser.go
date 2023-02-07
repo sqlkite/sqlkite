@@ -41,6 +41,10 @@ func Column(raw any) (string, *validation.Invalid) {
 	if !ok {
 		return "", invalidColumn(EmptyParser)
 	}
+	return ColumnString(input)
+}
+
+func ColumnString(input string) (string, *validation.Invalid) {
 	p := &parser{0, input}
 	p.skipSpaces()
 

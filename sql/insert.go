@@ -57,12 +57,12 @@ func (i Insert) Write(b *buffer.Buffer) {
 	// TODO: We can figure out how much space we'll need in our buffer to write
 	// all our placeholders. We can use b.Pad(SIZE) to make sure we don't have
 	// to keep allocating more space
-
 	writeInsertPlaceholders(0, numberOfCols, b)
 	for i := 1; i < numberOfRows; i++ {
 		b.Write([]byte(",\n"))
 		writeInsertPlaceholders(i, numberOfCols, b)
 	}
+
 	if returning := i.Returning; len(returning) > 0 {
 		b.Write([]byte("\nreturning json_object("))
 		for _, column := range returning {

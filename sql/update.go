@@ -13,7 +13,10 @@ type Update struct {
 	Froms      []JoinableFrom
 	Where      Condition
 	Limit      optional.Value[int]
+	Offset     optional.Value[int]
+	OrderBy    []OrderBy
 	Parameters []any
+	Returning  []DataField
 }
 
 func (u Update) Values() []any {
@@ -44,9 +47,32 @@ func (u Update) Write(b *buffer.Buffer) {
 		where.Write(b)
 	}
 
+	if returning := u.Returning; len(returning) > 0 {
+		b.Write([]byte("\nreturning json_object("))
+		for _, column := range returning {
+			column.WriteAsJsonObject(b)
+			b.Write([]byte(", "))
+		}
+		b.Truncate(2)
+		b.WriteByte(')')
+	}
+
+	if orderBy := u.OrderBy; len(orderBy) > 0 {
+		b.Write([]byte("\norder by "))
+		for _, orderBy := range orderBy {
+			orderBy.Write(b)
+			b.WriteByte(',')
+		}
+		b.Truncate(1)
+	}
+
 	if limit := u.Limit; limit.Exists {
 		b.Write([]byte("\nlimit "))
 		b.WriteString(strconv.Itoa(limit.Value))
+	}
+	if offset := u.Offset; offset.Exists {
+		b.Write([]byte("\noffset "))
+		b.WriteString(strconv.Itoa(offset.Value))
 	}
 }
 

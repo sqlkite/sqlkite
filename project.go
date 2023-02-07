@@ -389,6 +389,23 @@ func (p *Project) Insert(env *Env, ins sql.Insert) (*QueryResult, error) {
 	}
 }
 
+func (p *Project) Update(env *Env, upd sql.Update) (*QueryResult, error) {
+	validator := env.Validator
+
+	tableName := upd.Target.Name
+	_, exists := p.tables[tableName]
+	if !exists {
+		validator.Add(unknownTable(tableName))
+		return nil, nil
+	}
+
+	if len(upd.Returning) == 0 {
+		return p.executeQueryWithoutResult(env, upd)
+	} else {
+		return p.executeQueryWithResults(env, upd)
+	}
+}
+
 func (p *Project) SQLBuffer() *buffer.Buffer {
 	// We get a buffer from our pool, but set the max to this project's max sql length
 	// This allows us to share buffers across projects (which is going to be significantly

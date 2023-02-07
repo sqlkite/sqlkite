@@ -19,7 +19,7 @@ func Insert(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	project := env.Project
 	validator := env.Validator
 
-	into := insertParseInto(input[INTO_INPUT_NAME], validator)
+	into := parseRequiredQualifiedTable(input[INTO_INPUT_NAME], intoField, validator)
 	columns := insertParseColumns(input[COLUMNS_INPUT_NAME], validator)
 	parameters := extractParameters(input[PARAMETERS_INPUT_NAME], validator, project)
 	returning := parseOptionalColumnResultList(input[RETURNING_INPUT_NAME], returningField, validator, project)
@@ -49,20 +49,6 @@ func Insert(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	return NewResultResponse(result), nil
 }
 
-func insertParseInto(input any, validator *validation.Result) sql.Table {
-	if input == nil {
-		validator.AddInvalidField(intoField, valRequired)
-		return sql.Table{}
-	}
-
-	table, err := parser.QualifiedTableName(input)
-	if err != nil {
-		validator.AddInvalidField(intoField, *err)
-		return sql.Table{}
-	}
-	return table
-}
-
 func insertParseColumns(input any, validator *validation.Result) []string {
 	if input == nil {
 		validator.AddInvalidField(columnsField, valRequired)
@@ -74,6 +60,8 @@ func insertParseColumns(input any, validator *validation.Result) []string {
 		validator.AddInvalidField(columnsField, valArrayType)
 		return nil
 	}
+
+	// TODO: validate that len(rawColumns) <= len(table.Columns)
 
 	validator.BeginArray()
 	columns := make([]string, len(rawColumns))
