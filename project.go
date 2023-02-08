@@ -406,6 +406,23 @@ func (p *Project) Update(env *Env, upd sql.Update) (*QueryResult, error) {
 	}
 }
 
+func (p *Project) Delete(env *Env, del sql.Delete) (*QueryResult, error) {
+	validator := env.Validator
+
+	tableName := del.From.Name
+	_, exists := p.tables[tableName]
+	if !exists {
+		validator.Add(unknownTable(tableName))
+		return nil, nil
+	}
+
+	if len(del.Returning) == 0 {
+		return p.executeQueryWithoutResult(env, del)
+	} else {
+		return p.executeQueryWithResults(env, del)
+	}
+}
+
 func (p *Project) SQLBuffer() *buffer.Buffer {
 	// We get a buffer from our pool, but set the max to this project's max sql length
 	// This allows us to share buffers across projects (which is going to be significantly

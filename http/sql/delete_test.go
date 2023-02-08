@@ -9,126 +9,123 @@ import (
 	"src.sqlkite.com/sqlkite/tests"
 )
 
-func Test_Update_InvalidBody(t *testing.T) {
+func Test_Delete_InvalidBody(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("nope").
-		Post(Update).
+		Post(Delete).
 		ExpectInvalid(2003)
 }
 
-func Test_Update_InvalidData(t *testing.T) {
+func Test_Delete_InvalidData(t *testing.T) {
 	// required fields
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("{}").
-		Post(Update).
-		ExpectValidation("target", 1001, "set", 1001).ExpectNoValidation("returning", "from", "limit", "offset", "order", "where")
+		Post(Delete).
+		ExpectValidation("from", 1001).ExpectNoValidation("returning", "limit", "offset", "order", "where")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
-			"target":     1,
-			"set":        true,
+			"from":       1,
 			"returning":  3.18,
 			"where":      3,
-			"from":       2,
 			"parameters": 4,
 			"limit":      "a",
 			"offset":     []int{},
 		}).
-		Post(Update).
-		ExpectValidation("target", 301_003, "set", 1022, "returning", 1011, "from", 1011, "where", 1011, "parameters", 1011, "limit", 1005, "offset", 1005)
+		Post(Delete).
+		ExpectValidation("from", 301_003, "returning", 1011, "where", 1011, "parameters", 1011, "limit", 1005, "offset", 1005)
 
 	request.ReqT(t, standardProject.Env()).
 		Body(map[string]any{
-			"target":    "",
-			"set":       map[string]any{"$hi": "$", "valid": 32},
+			"from":      "",
 			"returning": []any{"ok", "$"},
 		}).
-		Post(Update).
-		ExpectValidation("target", 301_003, "set.$hi", 301_001, "set.valid", 301_018)
+		Post(Delete).
+		ExpectValidation("from", 301_003, "returning.1", 301_001)
 
 	// We don't fully test the parser. The parser has tests for that. We just
 	// want to test that we handle parser errors correctly.
 	request.ReqT(t, standardProject.Env()).
 		Body(map[string]any{
-			"target": "$nope",
+			"from": "$nope",
 		}).
-		Post(Update).
-		ExpectValidation("target", 301_003)
+		Post(Delete).
+		ExpectValidation("from", 301_003)
 }
 
-func Test_Update_InvalidTable(t *testing.T) {
+func Test_Delete_InvalidTable(t *testing.T) {
 	request.ReqT(t, standardProject.Env()).
 		Body(map[string]any{
-			"set":    map[string]any{"id": "?1"},
-			"target": "not_a_real_table",
+			"from": "not_a_real_table",
 		}).
-		Post(Update).
+		Post(Delete).
 		ExpectValidation("", 302033)
 }
 
-func Test_Update_OverLimits(t *testing.T) {
+func Test_Delete_OverLimits(t *testing.T) {
 	request.ReqT(t, limitedProject.Env()).
 		Body(map[string]any{
-			"target":     "tab1",
-			"set":        map[string]any{"id": "?1"},
+			"from": "tab1",
+			"where": []any{
+				[]string{"?1", "=", "?2"},
+				[]string{"?1", "=", "?3"},
+			},
 			"parameters": []any{1, 2, 3},
 		}).
-		Post(Update).
+		Post(Delete).
 		ExpectValidation("parameters", 301_024)
 }
 
-func Test_Update_Nothing(t *testing.T) {
+func Test_Delete_Nothing(t *testing.T) {
 	res := request.ReqT(t, standardProject.Env()).
 		Body(map[string]any{
-			"target":     "products",
-			"set":        map[string]any{"name": "?1", "rating": "?2"},
-			"where":      []any{[]string{"?2", "=", "?3"}},
-			"parameters": []any{"leto", 1, 0},
+			"from":       "products",
+			"where":      []any{[]string{"?1", "=", "?2"}},
+			"parameters": []any{1, 0},
 		}).
-		Post(Update).
+		Post(Delete).
 		OK()
 
 	assert.Equal(t, res.Body, `{"affected":0}`)
 }
 
-func Test_Update_AtLimits(t *testing.T) {
+func Test_Delete_AtLimits(t *testing.T) {
 	res := request.ReqT(t, limitedProject.Env()).
 		Body(map[string]any{
-			"target":     "t1",
-			"set":        map[string]any{"name": "?1"},
-			"where":      []any{[]string{"id", "=", "?2"}},
-			"parameters": []any{"leto", -999999},
+			"from":       "t1",
+			"where":      []any{[]string{"?1", "=", "?2"}},
+			"parameters": []any{1, 0},
 		}).
-		Post(Update).
+		Post(Delete).
 		OK()
 
 	assert.Equal(t, res.Body, `{"affected":0}`)
 }
 
-func Test_Update_SingleRow(t *testing.T) {
+func Test_Delete_SingleRow(t *testing.T) {
 	id := tests.Factory.DynamicId()
 	project, _ := sqlkite.Projects.Get(id)
 
-	tests.Factory.Product.Insert(project, "id", 9999, "name", "tea", "rating", 9.9)
+	tests.Factory.Product.Insert(project, "id", 9998, "name", "p1", "rating", 8)
+	tests.Factory.Product.Insert(project, "id", 9999, "name", "p2", "rating", 9)
 
 	res := request.ReqT(t, project.Env()).
 		Body(map[string]any{
-			"target":     "products",
-			"set":        map[string]any{"name": "?1", "rating": "?2"},
-			"where":      []any{[]string{"id", "=", "?3"}},
-			"parameters": []any{"tea2", 8.9, 9999},
+			"from":       "products",
+			"where":      []any{[]string{"id", "=", "?1"}},
+			"parameters": []any{9999},
 		}).
-		Post(Update).
+		Post(Delete).
 		OK()
 
 	assert.Equal(t, res.Body, `{"affected":1}`)
 
-	row := getRow(project, "select * from products where id = ?1", 9999)
-	assert.Equal(t, row.String("name"), "tea2")
-	assert.Equal(t, row.Float("rating"), 8.9)
+	rows := getRows(project, "select * from products")
+	assert.Equal(t, len(rows), 1)
+	assert.Equal(t, rows[0].Int("id"), 9998)
 }
 
-func Test_Update_LimitOffsetReturningOrder(t *testing.T) {
+func Test_Delete_LimitOffsetReturningOrder(t *testing.T) {
 	id := tests.Factory.DynamicId()
 	project, _ := sqlkite.Projects.Get(id)
 
@@ -141,8 +138,7 @@ func Test_Update_LimitOffsetReturningOrder(t *testing.T) {
 
 	res := request.ReqT(t, project.Env()).
 		Body(map[string]any{
-			"target":     "products",
-			"set":        map[string]any{"name": "?1", "rating": "?2"},
+			"from":       "products",
 			"where":      []any{[]string{"id", ">", "?3"}},
 			"order":      []any{"id"},
 			"limit":      2,
@@ -150,10 +146,10 @@ func Test_Update_LimitOffsetReturningOrder(t *testing.T) {
 			"parameters": []any{"px", 9.9, 1},
 			"returning":  []any{"id", "name", "rating"},
 		}).
-		Post(Update).
+		Post(Delete).
 		OK()
 
-	assert.Equal(t, res.Body, `{"r":[{"id":4,"name":"px","rating":9.9},{"id":5,"name":"px","rating":9.9}]}`)
+	assert.Equal(t, res.Body, `{"r":[{"id":4,"name":"p4","rating":4.4},{"id":5,"name":"p5","rating":5.5}]}`)
 
 	rows := getRows(project, "select id, name, rating from products order by id")
 	assert.Equal(t, rows[0].Int("id"), 1)
@@ -168,15 +164,7 @@ func Test_Update_LimitOffsetReturningOrder(t *testing.T) {
 	assert.Equal(t, rows[2].String("name"), "p3")
 	assert.Equal(t, rows[2].Float("rating"), 3.3)
 
-	assert.Equal(t, rows[3].Int("id"), 4)
-	assert.Equal(t, rows[3].String("name"), "px")
-	assert.Equal(t, rows[3].Float("rating"), 9.9)
-
-	assert.Equal(t, rows[4].Int("id"), 5)
-	assert.Equal(t, rows[4].String("name"), "px")
-	assert.Equal(t, rows[4].Float("rating"), 9.9)
-
-	assert.Equal(t, rows[5].Int("id"), 6)
-	assert.Equal(t, rows[5].String("name"), "p6")
-	assert.Equal(t, rows[5].Float("rating"), 6.6)
+	assert.Equal(t, rows[3].Int("id"), 6)
+	assert.Equal(t, rows[3].String("name"), "p6")
+	assert.Equal(t, rows[3].Float("rating"), 6.6)
 }
