@@ -69,7 +69,7 @@ type Project struct {
 	MaxConditionCount    uint16
 	MaxOrderByCount      uint16
 	MaxTableCount        uint16
-	tables               map[string]data.Table
+	tables               map[string]*data.Table
 }
 
 func (p *Project) Shutdown() {
@@ -85,9 +85,8 @@ func (p *Project) NextRequestId() string {
 	return utils.EncodeRequestId(nextId, Config.InstanceId)
 }
 
-func (p *Project) Table(name string) (data.Table, bool) {
-	table, ok := p.tables[name]
-	return table, ok
+func (p *Project) Table(name string) *data.Table {
+	return p.tables[name]
 }
 
 func (p *Project) WithDB(cb func(sqlite.Conn)) {
@@ -219,13 +218,13 @@ func (p *Project) CreateTable(env *Env, table data.Table) error {
 }
 
 func (p *Project) UpdateTable(env *Env, alter sql.AlterTable, access data.TableAccess) error {
-	existing, exists := p.tables[alter.Name]
-	if !exists {
+	existing := p.tables[alter.Name]
+	if existing == nil {
 		env.Validator.Add(unknownTable(alter.Name))
 		return nil
 	}
 
-	table := applyTableChanges(existing, alter, access)
+	table := applyTableChanges(*existing, alter, access)
 
 	definition, err := json.Marshal(table)
 	if err != nil {
@@ -354,13 +353,12 @@ func (p *Project) Select(env *Env, sel sql.Select) (*QueryResult, error) {
 	tables := p.tables
 	for i, from := range sel.Froms {
 		tableName := from.TableName()
-		table, exists := tables[tableName]
-		if !exists {
+		table := tables[tableName]
+		if table == nil {
 			// while we're looping through these tables, we might as well exit early
 			// (and with a good errorr message) on an unknown table.
 			validator.Add(unknownTable(tableName))
-		}
-		if selectAccess := table.Access.Select; selectAccess != nil {
+		} else if selectAccess := table.Access.Select; selectAccess != nil {
 			selRef.CTE(i, selectAccess.Name, selectAccess.CTE)
 		}
 	}
@@ -662,7 +660,7 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 		return nil, err
 	}
 
-	tables := make(map[string]data.Table)
+	tables := make(map[string]*data.Table)
 
 	conn := dbPool.Checkout()
 	rows := conn.Rows("select name, definition from sqlkite_tables")
@@ -672,7 +670,7 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 
 		rows.Scan(&name, &definition)
 
-		var table data.Table
+		var table *data.Table
 		err = json.Unmarshal(definition, &table)
 		if err != nil {
 			break
@@ -760,30 +758,36 @@ func unknownTable(tableName string) validation.Invalid {
 
 // Take an existin data.Table and return a new data.Table which merges the changes
 // from the sql.AlterTable applied and the new data.TableAccess
-func applyTableChanges(table data.Table, alter sql.AlterTable, access data.TableAccess) data.Table {
+func applyTableChanges(table data.Table, alter sql.AlterTable, access data.TableAccess) *data.Table {
+	// tables / columns are immutable, we need to clone the columns to make sure
+	// changes we make here aren't reflected in any existing references
+	columns := make([]data.Column, len(table.Columns))
+	for i, c := range table.Columns {
+		columns[i] = c
+	}
+
 	for _, change := range alter.Changes {
 		switch c := change.(type) {
 		case sql.RenameTable:
 			table.Name = c.To
 		case sql.AddColumn:
-			table.Columns = append(table.Columns, c.Column)
+			columns = append(columns, c.Column)
 		case sql.DropColumn:
 			target := c.Name
-			columns := table.Columns
 			for i, column := range columns {
 				if column.Name == target {
 					for j := i + 1; j < len(columns); j++ {
 						columns[j-1] = columns[j]
 					}
-					table.Columns = columns[:len(columns)-1]
+					columns = columns[:len(columns)-1]
 					break
 				}
 			}
 		case sql.RenameColumn:
 			target := c.Name
-			for i, column := range table.Columns {
+			for i, column := range columns {
 				if column.Name == target {
-					table.Columns[i].Name = c.To
+					columns[i].Name = c.To
 					break
 				}
 			}
@@ -792,6 +796,7 @@ func applyTableChanges(table data.Table, alter sql.AlterTable, access data.Table
 			panic("Unknown AlterTableChange")
 		}
 	}
+	table.Columns = columns
 
 	// empty means erase
 	// nil means keep the existing one
@@ -828,5 +833,5 @@ func applyTableChanges(table data.Table, alter sql.AlterTable, access data.Table
 		}
 	}
 
-	return table
+	return &table
 }

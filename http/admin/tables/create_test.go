@@ -122,8 +122,7 @@ func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 
 	// reload the project, because in-memory projects are immutable
 	project, _ = sqlkite.Projects.Get(id)
-	table, exists := project.Table("test_create_success_defaults")
-	assert.True(t, exists)
+	table := project.Table("test_create_success_defaults")
 	assert.Equal(t, table.Name, "test_create_success_defaults")
 	assert.Equal(t, len(table.Columns), 4)
 
@@ -200,8 +199,7 @@ func Test_Create_Success_NoDefaults_NoAccessControl(t *testing.T) {
 
 	// reload the project, because in-memory projects are immutable
 	project, _ = sqlkite.Projects.Get(id)
-	table, exists := project.Table("test_create_success_defaults")
-	assert.True(t, exists)
+	table := project.Table("test_create_success_defaults")
 	assert.Equal(t, table.Name, "test_create_success_defaults")
 	assert.Equal(t, len(table.Columns), 4)
 

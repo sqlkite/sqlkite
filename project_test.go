@@ -151,8 +151,8 @@ func Test_Project_CreateTable(t *testing.T) {
 	assert.Nil(t, err)
 
 	project = MustGetProject(project.Id)
-	table, ok := project.Table("tab1")
-	assert.True(t, ok)
+	table := project.Table("tab1")
+	assert.NotNil(t, table)
 
 	// tab1 (nullable, no default)
 	assert.Equal(t, table.Name, "tab1")
@@ -180,8 +180,8 @@ func Test_Project_CreateTable(t *testing.T) {
 
 	assert.Nil(t, table.Access.Select)
 
-	table, ok = project.Table("tab2")
-	assert.True(t, ok)
+	table = project.Table("tab2")
+	assert.NotNil(t, table)
 
 	// tab2 (not null, with defaults)
 	assert.Equal(t, table.Name, "tab2")
@@ -243,13 +243,26 @@ func Test_Project_UpdateTable_Success(t *testing.T) {
 			sql.DropColumn{Name: "c4"},
 			sql.RenameTable{To: "tab_update_b"},
 		}},
-		data.TableAccess{Select: &data.SelectTableAccess{CTE: "select 1"}},
-	)
+		data.TableAccess{Select: &data.SelectTableAccess{CTE: "select 1"}})
 	assert.Nil(t, err)
 
+	// Projects & tables are meant to be immutable. Changes to a project are only reflected
+	// by refetching the project. Let's make sure that our update didn't change
+	// the instance of the project that UpdateTable was called on
+	_, exists := project.tables["tab_update_b"]
+	assert.False(t, exists)
+	table := project.tables["tab_update"]
+	assert.Equal(t, table.Name, "tab_update")
+	assert.Equal(t, len(table.Columns), 4)
+	assert.Equal(t, table.Columns[0].Name, "c1")
+	assert.Equal(t, table.Columns[1].Name, "c2")
+	assert.Equal(t, table.Columns[2].Name, "c3")
+	assert.Equal(t, table.Columns[3].Name, "c4")
+
+	// ok, now let's refetch the project, this should see the update
 	project = MustGetProject(id)
 
-	table := project.tables["tab_update_b"]
+	table = project.tables["tab_update_b"]
 	assert.Equal(t, table.Name, "tab_update_b")
 
 	assert.Equal(t, len(table.Columns), 3)
@@ -292,8 +305,8 @@ func Test_Project_DeleteTable_Success(t *testing.T) {
 	assert.Nil(t, project.DeleteTable(project.Env(), "tab_delete"))
 
 	project = MustGetProject(id)
-	_, exists := project.Table("tab_delete")
-	assert.False(t, exists)
+	table := project.Table("tab_delete")
+	assert.Nil(t, table)
 }
 
 func dynamicProject() *Project {
@@ -301,7 +314,7 @@ func dynamicProject() *Project {
 }
 
 func Test_ApplyTableChanges(t *testing.T) {
-	t1 := data.Table{
+	t1 := &data.Table{
 		Name: "test1",
 		Columns: []data.Column{
 			data.BuildColumn().Name("c1").Column(),
@@ -311,7 +324,7 @@ func Test_ApplyTableChanges(t *testing.T) {
 		},
 	}
 
-	t2 := applyTableChanges(t1, sql.AlterTable{
+	t2 := applyTableChanges(*t1, sql.AlterTable{
 		Changes: []sql.AlterTableChange{
 			sql.RenameTable{To: "test2"},
 			sql.DropColumn{Name: "c2"},
@@ -336,7 +349,7 @@ func Test_ApplyTableChanges(t *testing.T) {
 	assert.Equal(t, t2.Columns[3].Type, data.COLUMN_TYPE_BLOB)
 
 	// make sure our drop column correct modified our column array
-	t3 := applyTableChanges(t2, sql.AlterTable{
+	t3 := applyTableChanges(*t2, sql.AlterTable{
 		Changes: []sql.AlterTableChange{
 			sql.DropColumn{Name: "c1"},
 			sql.DropColumn{Name: "c5"},
@@ -349,7 +362,7 @@ func Test_ApplyTableChanges(t *testing.T) {
 
 	// Make sure our drop column correct modified our column array.
 	// Delete our select CTE
-	t4 := applyTableChanges(t3, sql.AlterTable{
+	t4 := applyTableChanges(*t3, sql.AlterTable{
 		Changes: []sql.AlterTableChange{
 			sql.DropColumn{Name: "c4-b"},
 		}},

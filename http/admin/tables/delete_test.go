@@ -28,16 +28,20 @@ func Test_Delete_Success(t *testing.T) {
 		}).
 		Post(Create).
 		OK()
+
 	project, _ = sqlkite.Projects.Get(id)
-	_, exists := project.Table("test_delete_success")
-	assert.True(t, exists)
+	assert.NotNil(t, project.Table("test_delete_success"))
 
 	request.ReqT(t, project.Env()).
 		UserValue("name", "Test_DELETE_Success").
 		Delete(Delete).
 		OK()
+
+	// make sure the project isn't mutated
+	assert.NotNil(t, project.Table("test_delete_success"))
+
+	// but if we reload the project, it now reflets the latest state
 	project, _ = sqlkite.Projects.Get(id)
-	_, exists = project.Table("test_delete_success")
-	assert.False(t, exists)
+	assert.Nil(t, project.Table("test_delete_success"))
 
 }

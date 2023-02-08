@@ -164,7 +164,7 @@ func Test_Update_Success(t *testing.T) {
 		OK()
 
 	project, _ = sqlkite.Projects.Get(id)
-	table, _ := project.Table("test_update_success_b")
+	table := project.Table("test_update_success_b")
 	columns := table.Columns
 	assert.Equal(t, len(columns), 2)
 	assert.Equal(t, columns[0].Name, "c1_b")
@@ -207,7 +207,7 @@ func Test_Update_Success(t *testing.T) {
 		OK()
 
 	project, _ = sqlkite.Projects.Get(id)
-	table, _ = project.Table("test_update_success_b")
+	table = project.Table("test_update_success_b")
 	assert.Equal(t, len(table.Columns), 2)
 
 	assert.Equal(t, table.Access.Select.CTE, "select 2")
@@ -242,8 +242,13 @@ func Test_Update_Success(t *testing.T) {
 		Put(Update).
 		OK()
 
+	// make sure the project isn't mutated
+	table = project.Table("test_update_success_b")
+	assert.NotNil(t, table.Access.Select)
+
+	// but if we reload the project, now we get the latest changes
 	project, _ = sqlkite.Projects.Get(id)
-	table, _ = project.Table("test_update_success_b")
+	table = project.Table("test_update_success_b")
 	assert.Nil(t, table.Access.Select)
 
 	assertTriggerCount(project, "test_update_success", 0)
