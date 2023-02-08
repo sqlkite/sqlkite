@@ -26,11 +26,11 @@ func Test_Create_InvalidData(t *testing.T) {
 			"max_sql_length":          "wrong_type",
 			"max_sql_parameter_count": "wrong_type",
 			"max_database_size":       "wrong_type",
-			"max_row_count":           "wrong_type",
+			"max_select_count":        "wrong_type",
 			"max_result_length":       "wrong_type",
 		}).
 		Post(Create).
-		ExpectValidation("max_concurrency", 1005, "max_sql_length", 1005, "max_sql_parameter_count", 1005, "max_database_size", 1005, "max_row_count", 1005, "max_result_length", 1005)
+		ExpectValidation("max_concurrency", 1005, "max_sql_length", 1005, "max_sql_parameter_count", 1005, "max_database_size", 1005, "max_select_count", 1005, "max_result_length", 1005)
 
 	// values too low
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
@@ -39,11 +39,11 @@ func Test_Create_InvalidData(t *testing.T) {
 			"max_sql_length":          511,
 			"max_sql_parameter_count": -1,
 			"max_database_size":       1048575,
-			"max_row_count":           0,
+			"max_select_count":        0,
 			"max_result_length":       1023,
 		}).
 		Post(Create).
-		ExpectValidation("max_concurrency", 1008, "max_sql_length", 1008, "max_sql_parameter_count", 1008, "max_database_size", 1008, "max_row_count", 1008, "max_result_length", 1008)
+		ExpectValidation("max_concurrency", 1008, "max_sql_length", 1008, "max_sql_parameter_count", 1008, "max_database_size", 1008, "max_select_count", 1008, "max_result_length", 1008)
 
 	// values too high
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
@@ -52,11 +52,11 @@ func Test_Create_InvalidData(t *testing.T) {
 			"max_sql_length":          16385,
 			"max_sql_parameter_count": sql.MAX_PARAMETERS + 1,
 			"max_database_size":       10485760001,
-			"max_row_count":           10001,
+			"max_select_count":        10001,
 			"max_result_length":       5242881,
 		}).
 		Post(Create).
-		ExpectValidation("max_concurrency", 1008, "max_sql_length", 1008, "max_sql_parameter_count", 1008, "max_database_size", 1008, "max_row_count", 1008, "max_result_length", 1008)
+		ExpectValidation("max_concurrency", 1008, "max_sql_length", 1008, "max_sql_parameter_count", 1008, "max_database_size", 1008, "max_select_count", 1008, "max_result_length", 1008)
 }
 
 func Test_Create_DefaultInput(t *testing.T) {
@@ -74,7 +74,7 @@ func Test_Create_DefaultInput(t *testing.T) {
 	assert.Equal(t, row.Int("max_sql_length"), 4096)
 	assert.Equal(t, row.Int("max_sql_parameter_count"), 100)
 	assert.Equal(t, row.Int("max_database_size"), 104857600)
-	assert.Equal(t, row.Int("max_row_count"), 100)
+	assert.Equal(t, row.Int("max_select_count"), 100)
 	assert.Equal(t, row.Int("max_result_length"), 524288)
 }
 
@@ -87,7 +87,7 @@ func Test_Create_ExplicitInput(t *testing.T) {
 			"max_sql_length":          4098,
 			"max_sql_parameter_count": 109,
 			"max_database_size":       104857610,
-			"max_row_count":           111,
+			"max_select_count":        111,
 			"max_result_length":       524212,
 		}).
 		Post(Create).
@@ -101,7 +101,7 @@ func Test_Create_ExplicitInput(t *testing.T) {
 	assert.Equal(t, row.Int("max_sql_length"), 4098)
 	assert.Equal(t, row.Int("max_sql_parameter_count"), 109)
 	assert.Equal(t, row.Int("max_database_size"), 104857610)
-	assert.Equal(t, row.Int("max_row_count"), 111)
+	assert.Equal(t, row.Int("max_select_count"), 111)
 	assert.Equal(t, row.Int("max_result_length"), 524212)
 
 	// let's over-test this once, to make sure everything is really
@@ -112,7 +112,7 @@ func Test_Create_ExplicitInput(t *testing.T) {
 	assert.Equal(t, p.MaxSQLLength, 4098)
 	assert.Equal(t, p.MaxSQLParameterCount, 109)
 	assert.Equal(t, p.MaxDatabaseSize, 104857610)
-	assert.Equal(t, p.MaxRowCount, 111)
+	assert.Equal(t, p.MaxSelectCount, 111)
 	assert.Equal(t, p.MaxResultLength, 524212)
 
 	p.WithDB(func(db sqlite.Conn) {

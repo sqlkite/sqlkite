@@ -62,7 +62,7 @@ type Project struct {
 	MaxSQLLength         uint32
 	MaxSQLParameterCount uint16
 	MaxDatabaseSize      uint64
-	MaxRowCount          uint16
+	MaxSelectCount       uint16
 	MaxResultLength      uint32
 	MaxFromCount         uint16
 	MaxSelectColumnCount uint16
@@ -724,7 +724,7 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 		MaxDatabaseSize:      maxDatabaseSize,
 		MaxSQLLength:         projectData.MaxSQLLength,
 		MaxSQLParameterCount: projectData.MaxSQLParameterCount,
-		MaxRowCount:          projectData.MaxRowCount,
+		MaxSelectCount:       projectData.MaxSelectCount,
 		MaxResultLength:      projectData.MaxResultLength,
 		MaxFromCount:         projectData.MaxFromCount,
 		MaxSelectColumnCount: projectData.MaxSelectColumnCount,

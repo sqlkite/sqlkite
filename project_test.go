@@ -19,7 +19,7 @@ func Test_NewProject(t *testing.T) {
 		MaxDatabaseSize:      40930,
 		MaxConcurrency:       10,
 		MaxSQLParameterCount: 11,
-		MaxRowCount:          12,
+		MaxSelectCount:       12,
 		MaxFromCount:         13,
 		MaxSelectColumnCount: 14,
 		MaxConditionCount:    15,
@@ -34,7 +34,7 @@ func Test_NewProject(t *testing.T) {
 	assert.Equal(t, project.MaxDatabaseSize, 40930)
 	assert.Equal(t, project.MaxSQLLength, 200)
 	assert.Equal(t, project.MaxSQLParameterCount, 11)
-	assert.Equal(t, project.MaxRowCount, 12)
+	assert.Equal(t, project.MaxSelectCount, 12)
 	assert.Equal(t, project.MaxResultLength, 2000)
 	assert.Equal(t, project.MaxFromCount, 13)
 	assert.Equal(t, project.MaxSelectColumnCount, 14)

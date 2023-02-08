@@ -15,7 +15,7 @@ func Migrate_0001(conn sqlite.Conn) error {
 			max_sql_length int not null,
 			max_sql_parameter_count int not null,
 			max_database_size int not null,
-			max_row_count int not null,
+			max_select_count int not null,
 			max_result_length int not null,
 			max_from_count int not null,
 			max_select_column_count int not null,

@@ -70,7 +70,7 @@ func Test_GetProject_Success(t *testing.T) {
 	db.MustExec(`
 		insert into sqlkite_projects (id,
 			max_concurrency, max_sql_length, max_sql_parameter_count,
-			max_database_size, max_row_count, max_result_length, max_from_count,
+			max_database_size, max_select_count, max_result_length, max_from_count,
 			max_select_column_count, max_condition_count, max_order_by_count,
 			max_table_count, debug
 		)
@@ -84,7 +84,7 @@ func Test_GetProject_Success(t *testing.T) {
 	assert.Equal(t, p.MaxSQLLength, 2)
 	assert.Equal(t, p.MaxSQLParameterCount, 3)
 	assert.Equal(t, p.MaxDatabaseSize, 4)
-	assert.Equal(t, p.MaxRowCount, 5)
+	assert.Equal(t, p.MaxSelectCount, 5)
 	assert.Equal(t, p.MaxResultLength, 6)
 	assert.Equal(t, p.MaxFromCount, 7)
 	assert.Equal(t, p.MaxSelectColumnCount, 8)
@@ -101,7 +101,7 @@ func Test_GetUpdatedProjects_None(t *testing.T) {
 	db.MustExec(`
 		insert into sqlkite_projects (id, updated,
 			max_concurrency, max_sql_length, max_sql_parameter_count,
-			max_database_size, max_row_count, max_result_length, max_from_count,
+			max_database_size, max_select_count, max_result_length, max_from_count,
 			max_select_column_count, max_condition_count, max_order_by_count,
 			max_table_count, debug
 		)
@@ -122,7 +122,7 @@ func Test_GetUpdatedProjects_Success(t *testing.T) {
 	db.MustExec(`
 		insert into sqlkite_projects (id, updated,
 			max_concurrency, max_sql_length, max_sql_parameter_count,
-			max_database_size, max_row_count, max_result_length, max_from_count,
+			max_database_size, max_select_count, max_result_length, max_from_count,
 			max_select_column_count, max_condition_count, max_order_by_count,
 			max_table_count, debug
 		) values
@@ -150,7 +150,7 @@ func Test_CreateProject(t *testing.T) {
 		MaxSQLLength:         11,
 		MaxSQLParameterCount: 12,
 		MaxDatabaseSize:      13,
-		MaxRowCount:          14,
+		MaxSelectCount:       14,
 		MaxResultLength:      15,
 		MaxFromCount:         16,
 		MaxSelectColumnCount: 17,
@@ -166,7 +166,7 @@ func Test_CreateProject(t *testing.T) {
 	assert.Equal(t, project.MaxSQLLength, 11)
 	assert.Equal(t, project.MaxSQLParameterCount, 12)
 	assert.Equal(t, project.MaxDatabaseSize, 13)
-	assert.Equal(t, project.MaxRowCount, 14)
+	assert.Equal(t, project.MaxSelectCount, 14)
 	assert.Equal(t, project.MaxResultLength, 15)
 	assert.Equal(t, project.MaxFromCount, 16)
 	assert.Equal(t, project.MaxSelectColumnCount, 17)
@@ -196,7 +196,7 @@ func Test_UpdateProject(t *testing.T) {
 		MaxSQLLength:         21,
 		MaxSQLParameterCount: 22,
 		MaxDatabaseSize:      23,
-		MaxRowCount:          24,
+		MaxSelectCount:       24,
 		MaxResultLength:      25,
 		MaxFromCount:         26,
 		MaxSelectColumnCount: 27,
@@ -213,7 +213,7 @@ func Test_UpdateProject(t *testing.T) {
 	assert.Equal(t, project.MaxSQLLength, 21)
 	assert.Equal(t, project.MaxSQLParameterCount, 22)
 	assert.Equal(t, project.MaxDatabaseSize, 23)
-	assert.Equal(t, project.MaxRowCount, 24)
+	assert.Equal(t, project.MaxSelectCount, 24)
 	assert.Equal(t, project.MaxResultLength, 25)
 	assert.Equal(t, project.MaxFromCount, 26)
 	assert.Equal(t, project.MaxSelectColumnCount, 27)

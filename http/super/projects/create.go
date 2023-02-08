@@ -17,7 +17,7 @@ var (
 		Field("max_sql_length", maxSQLLengthValidation).
 		Field("max_sql_parameter_count", maxSQLParameterCountValidation).
 		Field("max_database_size", maxDatabaseSizeValidation).
-		Field("max_row_count", maxRowCountValidation).
+		Field("max_select_count", maxSelectCountValidation).
 		Field("max_result_length", maxResultLengthValidation)
 )
 
@@ -44,7 +44,7 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		MaxSQLLength:         uint32(input.Int("max_sql_length")),
 		MaxSQLParameterCount: uint16(input.Int("max_sql_parameter_count")),
 		MaxDatabaseSize:      uint64(input.Int("max_database_size")),
-		MaxRowCount:          uint16(input.Int("max_row_count")),
+		MaxSelectCount:       uint16(input.Int("max_select_count")),
 		MaxResultLength:      uint32(input.Int("max_result_length")),
 	})
 	if err != nil {

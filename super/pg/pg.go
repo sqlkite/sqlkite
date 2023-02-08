@@ -60,7 +60,7 @@ func (db DB) Info() (any, error) {
 func (db DB) GetProject(id string) (*data.Project, error) {
 	row := db.QueryRow(context.Background(), `
 		select id, max_concurrency, max_sql_length, max_sql_parameter_count,
-		       max_database_size, max_row_count, max_result_length, max_from_count,
+		       max_database_size, max_select_count, max_result_length, max_from_count,
 		       max_select_column_count, max_condition_count, max_order_by_count,
 		       max_table_count, debug
 		from sqlkite_projects
@@ -92,7 +92,7 @@ func (db DB) GetUpdatedProjects(timestamp time.Time) ([]*data.Project, error) {
 
 	rows, err := db.Query(context.Background(), `
 		select id, max_concurrency, max_sql_length, max_sql_parameter_count,
-		       max_database_size, max_row_count, max_result_length, max_from_count,
+		       max_database_size, max_select_count, max_result_length, max_from_count,
 		       max_select_column_count, max_condition_count, max_order_by_count,
 		       max_table_count, debug
 		from sqlkite_projects where updated > $1
@@ -118,14 +118,14 @@ func (db DB) CreateProject(data data.Project) error {
 	_, err := db.Exec(context.Background(), `
 		insert into sqlkite_projects (
 			id, max_concurrency, max_sql_length, max_sql_parameter_count,
-			max_database_size, max_row_count, max_result_length, max_from_count,
+			max_database_size, max_select_count, max_result_length, max_from_count,
 			max_select_column_count, max_condition_count, max_order_by_count,
 			max_table_count, debug
 		)
 		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`,
 		data.Id, data.MaxConcurrency, data.MaxSQLLength, data.MaxSQLParameterCount,
-		data.MaxDatabaseSize, data.MaxRowCount, data.MaxResultLength, data.MaxFromCount,
+		data.MaxDatabaseSize, data.MaxSelectCount, data.MaxResultLength, data.MaxFromCount,
 		data.MaxSelectColumnCount, data.MaxConditionCount, data.MaxOrderByCount,
 		data.MaxTableCount, data.Debug)
 
@@ -139,7 +139,7 @@ func (db DB) UpdateProject(data data.Project) (bool, error) {
 		  max_sql_length = $3,
 		  max_sql_parameter_count = $4,
 		  max_database_size = $5,
-		  max_row_count = $6,
+		  max_select_count = $6,
 		  max_result_length = $7,
 		  max_from_count = $8,
 		  max_select_column_count = $9,
@@ -150,7 +150,7 @@ func (db DB) UpdateProject(data data.Project) (bool, error) {
 		where id = $1
 	`,
 		data.Id, data.MaxConcurrency, data.MaxSQLLength, data.MaxSQLParameterCount,
-		data.MaxDatabaseSize, data.MaxRowCount, data.MaxResultLength, data.MaxFromCount,
+		data.MaxDatabaseSize, data.MaxSelectCount, data.MaxResultLength, data.MaxFromCount,
 		data.MaxSelectColumnCount, data.MaxConditionCount, data.MaxOrderByCount,
 		data.MaxTableCount, data.Debug)
 
@@ -169,7 +169,7 @@ func scanProject(row pg.Row) (*data.Project, error) {
 	var project data.Project
 	err := row.Scan(&project.Id,
 		&project.MaxConcurrency, &project.MaxSQLLength, &project.MaxSQLParameterCount,
-		&project.MaxDatabaseSize, &project.MaxRowCount, &project.MaxResultLength, &project.MaxFromCount,
+		&project.MaxDatabaseSize, &project.MaxSelectCount, &project.MaxResultLength, &project.MaxFromCount,
 		&project.MaxSelectColumnCount, &project.MaxConditionCount, &project.MaxOrderByCount,
 		&project.MaxTableCount, &project.Debug)
 	return &project, err

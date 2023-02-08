@@ -28,7 +28,7 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	offset := parseOffset(input[OFFSET_INPUT_NAME], validator)
 	parameters := extractParameters(input[PARAMETERS_INPUT_NAME], validator, project)
 	returning := parseOptionalColumnResultList(input[RETURNING_INPUT_NAME], returningField, validator, project)
-	limit := mutateParseLimit(input[LIMIT_INPUT_NAME], validator, len(returning) > 0, int(project.MaxRowCount), optional.NullInt)
+	limit := mutateParseLimit(input[LIMIT_INPUT_NAME], validator, len(returning) > 0, int(project.MaxSelectCount), optional.NullInt)
 
 	// There's more validation to do, and we do like to return all errors in one
 	// shot, but it's possible trying to go further will just cause more problems.

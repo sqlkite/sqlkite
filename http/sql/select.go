@@ -73,7 +73,7 @@ func selectParseColumns(input any, validator *validation.Result, p *sqlkite.Proj
 }
 
 func parseSelectLimit(input any, validator *validation.Result, p *sqlkite.Project) int {
-	max := int(p.MaxRowCount)
+	max := int(p.MaxSelectCount)
 	if input == nil {
 		return max
 	}

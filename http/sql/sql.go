@@ -235,12 +235,12 @@ func parseOffset(input any, validator *validation.Result) optional.Value[int] {
 }
 
 // The limit logic for update/delete is different than for select. For select,
-// the's _always_ an enforced limit (project.MaxRowCount). For update/delete,
+// the's _always_ an enforced limit (project.MaxSelectCount). For update/delete,
 // the logic is a bit more complicated.
 // Every table has an optional MaxUpdateRow or MaxDeleteRow setting which
 // (this is TODO, but definitely something we'll add ASAP). Furthermore, if
-// the statement includes a returning clause, then (project.MaxRowCount) must
-// also be considered (we'll take the Min(MaxUpdateRow, MaxRowCount))
+// the statement includes a returning clause, then (project.MaxSelectCount) must
+// also be considered (we'll take the Min(MaxUpdateRow, MaxSelectCount))
 // If the table has no MaxUpdateRow (or MaxDeleteRow) and there's no returning
 // the limit is optional
 func mutateParseLimit(input any, validator *validation.Result, hasReturning bool, maxSelect int, maxMutate optional.Value[int]) optional.Value[int] {

@@ -52,7 +52,7 @@ func init() {
 			"max_sql_length":          args.Int("max_sql_length", 4000),
 			"max_sql_parameter_count": args.Int("max_sql_parameter_count", 100),
 			"max_database_size":       args.Int("max_database_size", 100000),
-			"max_row_count":           args.Int("max_row_count", 100),
+			"max_select_count":        args.Int("max_select_count", 100),
 			"max_result_length":       args.Int("max_result_length", 10000),
 			"max_from_count":          args.Int("max_from_count", 10),
 			"max_select_column_count": args.Int("max_select_column_count", 10),
