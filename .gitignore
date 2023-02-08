@@ -1,3 +1,4 @@
 http/diagnostics/commit.txt
 ./sqlkite
 tests/databases
+tests/sqlkite.super
