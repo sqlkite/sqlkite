@@ -5,6 +5,7 @@ import (
 
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
+	"src.goblgobl.com/utils"
 	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/tests"
@@ -14,7 +15,7 @@ func Test_Delete_InvalidBody(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("nope").
 		Post(Delete).
-		ExpectInvalid(2003)
+		ExpectInvalid(utils.RES_INVALID_JSON_PAYLOAD)
 }
 
 func Test_Delete_InvalidData(t *testing.T) {
@@ -22,7 +23,7 @@ func Test_Delete_InvalidData(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("{}").
 		Post(Delete).
-		ExpectValidation("from", 1001).ExpectNoValidation("returning", "limit", "offset", "order", "where")
+		ExpectValidation("from", utils.VAL_REQUIRED).ExpectNoValidation("returning", "limit", "offset", "order", "where")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
@@ -33,7 +34,7 @@ func Test_Delete_InvalidData(t *testing.T) {
 			"offset":     []int{},
 		}).
 		Post(Delete).
-		ExpectValidation("from", 301_003, "returning", 1011, "where", 1011, "parameters", 1011, "offset", 1005)
+		ExpectValidation("from", codes.VAL_INVALID_TABLE_NAME, "returning", utils.VAL_ARRAY_TYPE, "where", utils.VAL_ARRAY_TYPE, "parameters", utils.VAL_ARRAY_TYPE, "offset", utils.VAL_INT_TYPE)
 
 	request.ReqT(t, standardProject.Env()).
 		Body(map[string]any{
@@ -41,7 +42,7 @@ func Test_Delete_InvalidData(t *testing.T) {
 			"returning": []any{"ok", "$"},
 		}).
 		Post(Delete).
-		ExpectValidation("from", 301_003, "returning.1", 301_001)
+		ExpectValidation("from", codes.VAL_INVALID_TABLE_NAME, "returning.1", codes.VAL_INVALID_COLUMN_NAME)
 
 	// We don't fully test the parser. The parser has tests for that. We just
 	// want to test that we handle parser errors correctly.
@@ -50,7 +51,7 @@ func Test_Delete_InvalidData(t *testing.T) {
 			"from": "$nope",
 		}).
 		Post(Delete).
-		ExpectValidation("from", 301_003)
+		ExpectValidation("from", codes.VAL_INVALID_TABLE_NAME)
 }
 
 func Test_Delete_InvalidTable(t *testing.T) {
@@ -59,7 +60,7 @@ func Test_Delete_InvalidTable(t *testing.T) {
 			"from": "not_a_real_table",
 		}).
 		Post(Delete).
-		ExpectValidation("from", 302033)
+		ExpectValidation("from", codes.VAL_UNKNOWN_TABLE)
 }
 
 func Test_Delete_OverLimits(t *testing.T) {
@@ -73,7 +74,7 @@ func Test_Delete_OverLimits(t *testing.T) {
 			"parameters": []any{1, 2, 3},
 		}).
 		Post(Delete).
-		ExpectValidation("parameters", 301_024)
+		ExpectValidation("parameters", codes.VAL_SQL_TOO_MANY_PARAMETERS)
 }
 
 func Test_Delete_Nothing(t *testing.T) {

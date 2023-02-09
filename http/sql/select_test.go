@@ -5,7 +5,9 @@ import (
 
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
+	"src.goblgobl.com/utils"
 	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/tests"
 )
 
@@ -23,7 +25,7 @@ func Test_Select_InvalidBody(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("nope").
 		Post(Select).
-		ExpectInvalid(2003)
+		ExpectInvalid(utils.RES_INVALID_JSON_PAYLOAD)
 }
 
 func Test_Select_InvalidData(t *testing.T) {
@@ -31,7 +33,7 @@ func Test_Select_InvalidData(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("{}").
 		Post(Select).
-		ExpectValidation("select", 1001, "from", 1001)
+		ExpectValidation("select", utils.VAL_REQUIRED, "from", utils.VAL_REQUIRED)
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
@@ -43,7 +45,7 @@ func Test_Select_InvalidData(t *testing.T) {
 			"offset":     []int{},
 		}).
 		Post(Select).
-		ExpectValidation("select", 1011, "from", 1011, "where", 1011, "parameters", 1011, "limit", 1005, "offset", 1005)
+		ExpectValidation("select", utils.VAL_ARRAY_TYPE, "from", utils.VAL_ARRAY_TYPE, "where", utils.VAL_ARRAY_TYPE, "parameters", utils.VAL_ARRAY_TYPE, "limit", utils.VAL_INT_TYPE, "offset", utils.VAL_INT_TYPE)
 
 	// We don't fully test the parser. The parser has tests for that. We just
 	// want to test that we handle parser errors correctly.
@@ -54,7 +56,7 @@ func Test_Select_InvalidData(t *testing.T) {
 			"where":  []any{[]string{"id", "====", "?1"}},
 		}).
 		Post(Select).
-		ExpectValidation("select.0", 301_001, "from.1", 301_015, "where", 301_005)
+		ExpectValidation("select.0", codes.VAL_INVALID_COLUMN_NAME, "from.1", codes.VAL_INVALID_JOINABLE_FROM_JOIN, "where", 301_005)
 }
 
 func Test_Select_InvalidTable(t *testing.T) {
@@ -64,7 +66,7 @@ func Test_Select_InvalidTable(t *testing.T) {
 			"from":   []string{"not_a_real_table"},
 		}).
 		Post(Select).
-		ExpectValidation("", 302033)
+		ExpectValidation("", codes.VAL_UNKNOWN_TABLE)
 }
 
 func Test_Select_InvalidColumn(t *testing.T) {
@@ -92,7 +94,7 @@ func Test_Select_SQLTooLong(t *testing.T) {
 			"from":   []string{"t1"},
 		}).
 		Post(Select).
-		ExpectValidation("", 301_022)
+		ExpectValidation("", codes.VAL_SQL_TOO_LONG)
 }
 
 func Test_Select_OverLimits(t *testing.T) {
@@ -106,11 +108,11 @@ func Test_Select_OverLimits(t *testing.T) {
 		}).
 		Post(Select).
 		ExpectValidation(
-			"parameters", 301_024,
-			"from", 301_026,
-			"limit", 301_025,
-			"select", 301_029,
-			"order", 301_030)
+			"parameters", codes.VAL_SQL_TOO_MANY_PARAMETERS,
+			"from", codes.VAL_TOO_MANY_FROMS,
+			"limit", codes.VAL_SQL_LIMIT_TOO_HIGH,
+			"select", codes.VAL_SQL_TOO_MANY_SELECT,
+			"order", codes.VAL_SQL_TOO_MANY_ORDER_BY)
 }
 
 func Test_Select_AtLimits(t *testing.T) {

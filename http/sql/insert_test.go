@@ -6,8 +6,10 @@ import (
 	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
+	"src.goblgobl.com/utils"
 	"src.goblgobl.com/utils/typed"
 	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/tests"
 )
 
@@ -15,7 +17,7 @@ func Test_Insert_InvalidBody(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("nope").
 		Post(Insert).
-		ExpectInvalid(2003)
+		ExpectInvalid(utils.RES_INVALID_JSON_PAYLOAD)
 }
 
 func Test_Insert_InvalidData(t *testing.T) {
@@ -23,7 +25,7 @@ func Test_Insert_InvalidData(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("{}").
 		Post(Insert).
-		ExpectValidation("into", 1001, "columns", 1001).ExpectNoValidation("returning")
+		ExpectValidation("into", utils.VAL_REQUIRED, "columns", utils.VAL_REQUIRED).ExpectNoValidation("returning")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
@@ -32,7 +34,7 @@ func Test_Insert_InvalidData(t *testing.T) {
 			"returning": 3.18,
 		}).
 		Post(Insert).
-		ExpectValidation("into", 301_003, "columns", 1011, "returning", 1011)
+		ExpectValidation("into", codes.VAL_INVALID_TABLE_NAME, "columns", utils.VAL_ARRAY_TYPE, "returning", utils.VAL_ARRAY_TYPE)
 
 	request.ReqT(t, standardProject.Env()).
 		Body(map[string]any{
@@ -41,7 +43,7 @@ func Test_Insert_InvalidData(t *testing.T) {
 			"returning": []any{"ok", "$"},
 		}).
 		Post(Insert).
-		ExpectValidation("into", 301_003, "columns.0", 301001, "columns.1", 301001, "returning.1", 301001)
+		ExpectValidation("into", codes.VAL_INVALID_TABLE_NAME, "columns.0", codes.VAL_INVALID_COLUMN_NAME, "columns.1", codes.VAL_INVALID_COLUMN_NAME, "returning.1", codes.VAL_INVALID_COLUMN_NAME)
 
 	// We don't fully test the parser. The parser has tests for that. We just
 	// want to test that we handle parser errors correctly.
@@ -50,7 +52,7 @@ func Test_Insert_InvalidData(t *testing.T) {
 			"into": "$nope",
 		}).
 		Post(Insert).
-		ExpectValidation("into", 301_003)
+		ExpectValidation("into", codes.VAL_INVALID_TABLE_NAME)
 }
 
 func Test_Insert_InvalidTable(t *testing.T) {
@@ -60,7 +62,7 @@ func Test_Insert_InvalidTable(t *testing.T) {
 			"into":    "not_a_real_table",
 		}).
 		Post(Insert).
-		ExpectValidation("into", 302033)
+		ExpectValidation("into", codes.VAL_UNKNOWN_TABLE)
 }
 
 func Test_Insert_OverLimits(t *testing.T) {
@@ -71,7 +73,7 @@ func Test_Insert_OverLimits(t *testing.T) {
 			"parameters": []any{1, 2, 3},
 		}).
 		Post(Insert).
-		ExpectValidation("parameters", 301_024)
+		ExpectValidation("parameters", codes.VAL_SQL_TOO_MANY_PARAMETERS)
 }
 
 func Test_Insert_AtLimits(t *testing.T) {

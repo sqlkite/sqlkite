@@ -5,6 +5,7 @@ import (
 
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
+	"src.goblgobl.com/utils"
 	"src.goblgobl.com/utils/uuid"
 	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/sql"
@@ -15,7 +16,7 @@ func Test_Update_InvalidBody(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("nope").
 		Put(Update).
-		ExpectInvalid(2003)
+		ExpectInvalid(utils.RES_INVALID_JSON_PAYLOAD)
 }
 
 func Test_Update_InvalidData(t *testing.T) {
@@ -30,7 +31,7 @@ func Test_Update_InvalidData(t *testing.T) {
 		}).
 		UserValue("id", "").
 		Put(Update).
-		ExpectValidation("id", 1010, "max_concurrency", 1005, "max_sql_length", 1005, "max_sql_parameter_count", 1005, "max_database_size", 1005, "max_select_count", 1005, "max_result_length", 1005)
+		ExpectValidation("id", utils.VAL_UUID_TYPE, "max_concurrency", utils.VAL_INT_TYPE, "max_sql_length", utils.VAL_INT_TYPE, "max_sql_parameter_count", utils.VAL_INT_TYPE, "max_database_size", utils.VAL_INT_TYPE, "max_select_count", utils.VAL_INT_TYPE, "max_result_length", utils.VAL_INT_TYPE)
 
 	// values too low
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
@@ -44,7 +45,7 @@ func Test_Update_InvalidData(t *testing.T) {
 		}).
 		UserValue("id", "nope").
 		Put(Update).
-		ExpectValidation("id", 1010, "max_concurrency", 1008, "max_sql_length", 1008, "max_sql_parameter_count", 1008, "max_database_size", 1008, "max_select_count", 1008, "max_result_length", 1008)
+		ExpectValidation("id", utils.VAL_UUID_TYPE, "max_concurrency", utils.VAL_INT_RANGE, "max_sql_length", utils.VAL_INT_RANGE, "max_sql_parameter_count", utils.VAL_INT_RANGE, "max_database_size", utils.VAL_INT_RANGE, "max_select_count", utils.VAL_INT_RANGE, "max_result_length", utils.VAL_INT_RANGE)
 
 	// values too high
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
@@ -58,7 +59,7 @@ func Test_Update_InvalidData(t *testing.T) {
 		}).
 		UserValue("id", "Z143BB4A-63B7-4E73-A373-54983BD2E4E6").
 		Put(Update).
-		ExpectValidation("id", 1010, "max_concurrency", 1008, "max_sql_length", 1008, "max_sql_parameter_count", 1008, "max_database_size", 1008, "max_select_count", 1008, "max_result_length", 1008)
+		ExpectValidation("id", utils.VAL_UUID_TYPE, "max_concurrency", utils.VAL_INT_RANGE, "max_sql_length", utils.VAL_INT_RANGE, "max_sql_parameter_count", utils.VAL_INT_RANGE, "max_database_size", utils.VAL_INT_RANGE, "max_select_count", utils.VAL_INT_RANGE, "max_result_length", utils.VAL_INT_RANGE)
 }
 
 func Test_Update_NotFound(t *testing.T) {

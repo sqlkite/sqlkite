@@ -5,7 +5,9 @@ import (
 
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
+	"src.goblgobl.com/utils"
 	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/data"
 	"src.sqlkite.com/sqlkite/tests"
 )
@@ -14,13 +16,13 @@ func Test_Create_InvalidBody(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("nope").
 		Post(Create).
-		ExpectInvalid(2003)
+		ExpectInvalid(utils.RES_INVALID_JSON_PAYLOAD)
 }
 
 func Test_Create_InvalidData(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Post(Create).
-		ExpectValidation("name", 1001, "columns", 1001).ExpectNoValidation("max_update_count", "max_delete_count")
+		ExpectValidation("name", utils.VAL_REQUIRED, "columns", utils.VAL_REQUIRED).ExpectNoValidation("max_update_count", "max_delete_count")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
@@ -31,7 +33,7 @@ func Test_Create_InvalidData(t *testing.T) {
 			"max_delete_count": "three",
 		}).
 		Post(Create).
-		ExpectValidation("name", 1004, "columns", 1012, "access", 1022, "max_update_count", 1005, "max_delete_count", 1005)
+		ExpectValidation("name", utils.VAL_STRING_PATTERN, "columns", utils.VAL_ARRAY_MIN_LENGTH, "access", utils.VAL_OBJECT_TYPE, "max_update_count", utils.VAL_INT_TYPE, "max_delete_count", utils.VAL_INT_TYPE)
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
@@ -43,10 +45,10 @@ func Test_Create_InvalidData(t *testing.T) {
 		}).
 		Post(Create).
 		ExpectValidation(
-			"max_update_count", 1006,
-			"max_delete_count", 1006,
-			"name", 1004, "columns.0.name", 1001, "columns.0.type", 1001, "columns.0.nullable", 1001,
-			"access.select", 1002, "access.insert", 1022, "access.update", 1022, "access.delete", 1022).
+			"max_update_count", utils.VAL_INT_MIN,
+			"max_delete_count", utils.VAL_INT_MIN,
+			"name", utils.VAL_STRING_PATTERN, "columns.0.name", utils.VAL_REQUIRED, "columns.0.type", utils.VAL_REQUIRED, "columns.0.nullable", utils.VAL_REQUIRED,
+			"access.select", utils.VAL_STRING_TYPE, "access.insert", utils.VAL_OBJECT_TYPE, "access.update", utils.VAL_OBJECT_TYPE, "access.delete", utils.VAL_OBJECT_TYPE).
 		ExpectNoValidation("columns.0.default")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
@@ -61,8 +63,8 @@ func Test_Create_InvalidData(t *testing.T) {
 		}).
 		Post(Create).
 		ExpectValidation(
-			"name", 1004, "columns.0.name", 1004, "columns.0.type", 1015, "columns.0.nullable", 1009,
-			"access.insert.when", 1002, "access.insert.trigger", 1002)
+			"name", utils.VAL_STRING_PATTERN, "columns.0.name", utils.VAL_STRING_PATTERN, "columns.0.type", utils.VAL_STRING_CHOICE, "columns.0.nullable", utils.VAL_BOOL_TYPE,
+			"access.insert.when", utils.VAL_STRING_TYPE, "access.insert.trigger", utils.VAL_STRING_TYPE)
 
 	// table name cannot start with sqlkite
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
@@ -73,7 +75,7 @@ func Test_Create_InvalidData(t *testing.T) {
 			},
 		}).
 		Post(Create).
-		ExpectValidation("name", 302_034)
+		ExpectValidation("name", codes.VAL_RESERVED_TABLE_NAME)
 }
 
 func Test_Create_InvalidDefault(t *testing.T) {
@@ -88,7 +90,7 @@ func Test_Create_InvalidDefault(t *testing.T) {
 			},
 		}).
 		Post(Create).
-		ExpectValidation("columns.0.default", 1002, "columns.1.default", 1005, "columns.2.default", 1016, "columns.3.default", 301_017)
+		ExpectValidation("columns.0.default", utils.VAL_STRING_TYPE, "columns.1.default", utils.VAL_INT_TYPE, "columns.2.default", utils.VAL_FLOAT_TYPE, "columns.3.default", codes.VAL_NON_BASE64_COLUMN_DEFAULT)
 }
 
 func Test_Create_TooManyTables(t *testing.T) {
@@ -101,7 +103,7 @@ func Test_Create_TooManyTables(t *testing.T) {
 			},
 		}).
 		Post(Create).
-		ExpectValidation("", 301032)
+		ExpectValidation("", codes.VAL_TOO_MANY_TABLES)
 }
 
 func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {

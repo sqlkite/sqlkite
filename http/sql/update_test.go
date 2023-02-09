@@ -5,6 +5,7 @@ import (
 
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
+	"src.goblgobl.com/utils"
 	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/tests"
@@ -14,7 +15,7 @@ func Test_Update_InvalidBody(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("nope").
 		Post(Update).
-		ExpectInvalid(2003)
+		ExpectInvalid(utils.RES_INVALID_JSON_PAYLOAD)
 }
 
 func Test_Update_InvalidData(t *testing.T) {
@@ -22,7 +23,7 @@ func Test_Update_InvalidData(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("{}").
 		Post(Update).
-		ExpectValidation("target", 1001, "set", 1001).ExpectNoValidation("returning", "from", "limit", "offset", "order", "where")
+		ExpectValidation("target", utils.VAL_REQUIRED, "set", utils.VAL_REQUIRED).ExpectNoValidation("returning", "from", "limit", "offset", "order", "where")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
@@ -35,7 +36,7 @@ func Test_Update_InvalidData(t *testing.T) {
 			"offset":     []int{},
 		}).
 		Post(Update).
-		ExpectValidation("target", 301_003, "set", 1022, "returning", 1011, "from", 1011, "where", 1011, "parameters", 1011, "offset", 1005)
+		ExpectValidation("target", codes.VAL_INVALID_TABLE_NAME, "set", utils.VAL_OBJECT_TYPE, "returning", utils.VAL_ARRAY_TYPE, "from", utils.VAL_ARRAY_TYPE, "where", utils.VAL_ARRAY_TYPE, "parameters", utils.VAL_ARRAY_TYPE, "offset", utils.VAL_INT_TYPE)
 
 	request.ReqT(t, standardProject.Env()).
 		Body(map[string]any{
@@ -44,7 +45,7 @@ func Test_Update_InvalidData(t *testing.T) {
 			"returning": []any{"ok", "$"},
 		}).
 		Post(Update).
-		ExpectValidation("target", 301_003, "set.$hi", 301_001, "set.valid", 301_018)
+		ExpectValidation("target", codes.VAL_INVALID_TABLE_NAME, "set.$hi", codes.VAL_INVALID_COLUMN_NAME, "set.valid", 301_018)
 
 	// We don't fully test the parser. The parser has tests for that. We just
 	// want to test that we handle parser errors correctly.
@@ -53,7 +54,7 @@ func Test_Update_InvalidData(t *testing.T) {
 			"target": "$nope",
 		}).
 		Post(Update).
-		ExpectValidation("target", 301_003)
+		ExpectValidation("target", codes.VAL_INVALID_TABLE_NAME)
 }
 
 func Test_Update_InvalidTable(t *testing.T) {
@@ -63,7 +64,7 @@ func Test_Update_InvalidTable(t *testing.T) {
 			"target": "not_a_real_table",
 		}).
 		Post(Update).
-		ExpectValidation("target", 302033)
+		ExpectValidation("target", codes.VAL_UNKNOWN_TABLE)
 }
 
 func Test_Update_OverLimits(t *testing.T) {
@@ -74,7 +75,7 @@ func Test_Update_OverLimits(t *testing.T) {
 			"parameters": []any{1, 2, 3},
 		}).
 		Post(Update).
-		ExpectValidation("parameters", 301_024)
+		ExpectValidation("parameters", codes.VAL_SQL_TOO_MANY_PARAMETERS)
 }
 
 func Test_Update_Nothing(t *testing.T) {

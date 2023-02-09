@@ -6,6 +6,7 @@ import (
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
 	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/tests"
 )
 
@@ -13,7 +14,7 @@ func Test_Delete_UnknownTable(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		UserValue("name", "test1").
 		Delete(Delete).
-		ExpectValidation("", 302_033)
+		ExpectValidation("", codes.VAL_UNKNOWN_TABLE)
 }
 
 func Test_Delete_Success(t *testing.T) {

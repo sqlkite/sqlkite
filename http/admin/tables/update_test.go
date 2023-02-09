@@ -7,7 +7,9 @@ import (
 	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
+	"src.goblgobl.com/utils"
 	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/data"
 	"src.sqlkite.com/sqlkite/tests"
 )
@@ -16,7 +18,7 @@ func Test_Update_InvalidBody(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("nope").
 		Put(Update).
-		ExpectInvalid(2003)
+		ExpectInvalid(utils.RES_INVALID_JSON_PAYLOAD)
 }
 
 func Test_Update_InvalidData(t *testing.T) {
@@ -25,7 +27,7 @@ func Test_Update_InvalidData(t *testing.T) {
 			"changes": "4",
 		}).
 		Put(Update).
-		ExpectValidation("changes", 1011).ExpectNoValidation("max_update_count", "max_delete_count")
+		ExpectValidation("changes", utils.VAL_ARRAY_TYPE).ExpectNoValidation("max_update_count", "max_delete_count")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
@@ -39,7 +41,7 @@ func Test_Update_InvalidData(t *testing.T) {
 			"max_delete_count": "three",
 		}).
 		Put(Update).
-		ExpectValidation("changes.0", 1022, "changes.1.type", 1001, "changes.2.type", 1015, "access", 1022, "max_update_count", 1005, "max_delete_count", 1005)
+		ExpectValidation("changes.0", utils.VAL_OBJECT_TYPE, "changes.1.type", utils.VAL_REQUIRED, "changes.2.type", utils.VAL_STRING_CHOICE, "access", utils.VAL_OBJECT_TYPE, "max_update_count", utils.VAL_INT_TYPE, "max_delete_count", utils.VAL_INT_TYPE)
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
@@ -64,21 +66,21 @@ func Test_Update_InvalidData(t *testing.T) {
 		Put(Update).
 		Inspect().
 		ExpectValidation(
-			"max_update_count", 1006,
-			"max_delete_count", 1006,
-			"changes.0.to", 1001,
-			"changes.1.to", 1002,
-			"changes.2.to", 1004,
-			"changes.3.name", 1001,
-			"changes.4.name", 1002,
-			"changes.5.name", 1004,
-			"changes.6.name", 1001, "changes.6.to", 1001,
-			"changes.7.name", 1002, "changes.7.to", 1002,
-			"changes.8.name", 1004, "changes.8.to", 1004,
-			"changes.9.column", 1001,
-			"changes.10.column", 1022,
-			"changes.11.column.name", 1004, "changes.11.column.type", 1015, "changes.11.column.nullable", 1009,
-			"access.select", 1002, "access.insert", 1022, "access.update", 1022, "access.delete", 1022,
+			"max_update_count", utils.VAL_INT_MIN,
+			"max_delete_count", utils.VAL_INT_MIN,
+			"changes.0.to", utils.VAL_REQUIRED,
+			"changes.1.to", utils.VAL_STRING_TYPE,
+			"changes.2.to", utils.VAL_STRING_PATTERN,
+			"changes.3.name", utils.VAL_REQUIRED,
+			"changes.4.name", utils.VAL_STRING_TYPE,
+			"changes.5.name", utils.VAL_STRING_PATTERN,
+			"changes.6.name", utils.VAL_REQUIRED, "changes.6.to", utils.VAL_REQUIRED,
+			"changes.7.name", utils.VAL_STRING_TYPE, "changes.7.to", utils.VAL_STRING_TYPE,
+			"changes.8.name", utils.VAL_STRING_PATTERN, "changes.8.to", utils.VAL_STRING_PATTERN,
+			"changes.9.column", utils.VAL_REQUIRED,
+			"changes.10.column", utils.VAL_OBJECT_TYPE,
+			"changes.11.column.name", utils.VAL_STRING_PATTERN, "changes.11.column.type", utils.VAL_STRING_CHOICE, "changes.11.column.nullable", utils.VAL_BOOL_TYPE,
+			"access.select", utils.VAL_STRING_TYPE, "access.insert", utils.VAL_OBJECT_TYPE, "access.update", utils.VAL_OBJECT_TYPE, "access.delete", utils.VAL_OBJECT_TYPE,
 		)
 }
 
@@ -86,7 +88,7 @@ func Test_Update_UnknownTable(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		UserValue("name", "test1").
 		Put(Update).
-		ExpectValidation("", 302_033)
+		ExpectValidation("", codes.VAL_UNKNOWN_TABLE)
 }
 
 // We could catch this specific error and provide structured error, so this test

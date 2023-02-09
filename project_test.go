@@ -6,6 +6,7 @@ import (
 
 	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/tests/assert"
+	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/data"
 	"src.sqlkite.com/sqlkite/sql"
 	"src.sqlkite.com/sqlkite/tests"
@@ -216,7 +217,7 @@ func Test_Project_UpdateTable_UnknownTable(t *testing.T) {
 	env := project.Env()
 	err := project.UpdateTable(env, &data.Table{}, sql.AlterTable{Name: "tab1"})
 	assert.Nil(t, err)
-	assert.Validation(t, env.Validator).Field("", 302_033, map[string]any{"value": "tab1"})
+	assert.Validation(t, env.Validator).Field("", codes.VAL_UNKNOWN_TABLE, map[string]any{"value": "tab1"})
 }
 
 func Test_Project_UpdateTable_Success(t *testing.T) {
@@ -290,7 +291,7 @@ func Test_Project_DeleteTable_UnknownTable(t *testing.T) {
 	env := project.Env()
 	err := project.DeleteTable(env, "tab_nope")
 	assert.Nil(t, err)
-	assert.Validation(t, env.Validator).Field("", 302_033, map[string]any{"value": "tab_nope"})
+	assert.Validation(t, env.Validator).Field("", codes.VAL_UNKNOWN_TABLE, map[string]any{"value": "tab_nope"})
 }
 
 func Test_Project_DeleteTable_Success(t *testing.T) {
