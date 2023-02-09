@@ -6,6 +6,7 @@ import (
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
 	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/tests"
 )
 
@@ -29,11 +30,10 @@ func Test_Delete_InvalidData(t *testing.T) {
 			"returning":  3.18,
 			"where":      3,
 			"parameters": 4,
-			"limit":      "a",
 			"offset":     []int{},
 		}).
 		Post(Delete).
-		ExpectValidation("from", 301_003, "returning", 1011, "where", 1011, "parameters", 1011, "limit", 1005, "offset", 1005)
+		ExpectValidation("from", 301_003, "returning", 1011, "where", 1011, "parameters", 1011, "offset", 1005)
 
 	request.ReqT(t, standardProject.Env()).
 		Body(map[string]any{
@@ -59,7 +59,7 @@ func Test_Delete_InvalidTable(t *testing.T) {
 			"from": "not_a_real_table",
 		}).
 		Post(Delete).
-		ExpectValidation("", 302033)
+		ExpectValidation("from", 302033)
 }
 
 func Test_Delete_OverLimits(t *testing.T) {
@@ -167,4 +167,16 @@ func Test_Delete_LimitOffsetReturningOrder(t *testing.T) {
 	assert.Equal(t, rows[3].Int("id"), 6)
 	assert.Equal(t, rows[3].String("name"), "p6")
 	assert.Equal(t, rows[3].Float("rating"), 6.6)
+}
+
+func Test_Delete_LimitOverMax(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"from":  "products",
+			"limit": 6,
+		}).
+		Post(Delete).
+		ExpectValidation("limit", codes.VAL_SQL_LIMIT_TOO_HIGH)
 }

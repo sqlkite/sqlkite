@@ -20,32 +20,29 @@ func Test_Create_InvalidBody(t *testing.T) {
 func Test_Create_InvalidData(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Post(Create).
-		ExpectValidation("name", 1001, "columns", 1001).ExpectNoValidation("max_select_count", "max_update_count", "max_delete_count")
+		ExpectValidation("name", 1001, "columns", 1001).ExpectNoValidation("max_update_count", "max_delete_count")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
 			"name":             "4",
 			"columns":          []any{},
 			"access":           9,
-			"max_select_count": "one",
 			"max_update_count": "two",
 			"max_delete_count": "three",
 		}).
 		Post(Create).
-		ExpectValidation("name", 1004, "columns", 1012, "access", 1022, "max_select_count", 1005, "max_update_count", 1005, "max_delete_count", 1005)
+		ExpectValidation("name", 1004, "columns", 1012, "access", 1022, "max_update_count", 1005, "max_delete_count", 1005)
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
 			"name":             "h@t",
 			"columns":          []any{map[string]any{}},
 			"access":           map[string]any{"select": 32, "insert": "no", "update": true, "delete": []any{}},
-			"max_select_count": -3,
 			"max_update_count": -4,
 			"max_delete_count": -5,
 		}).
 		Post(Create).
 		ExpectValidation(
-			"max_select_count", 1006,
 			"max_update_count", 1006,
 			"max_delete_count", 1006,
 			"name", 1004, "columns.0.name", 1001, "columns.0.type", 1001, "columns.0.nullable", 1001,
@@ -107,20 +104,6 @@ func Test_Create_TooManyTables(t *testing.T) {
 		ExpectValidation("", 301032)
 }
 
-func Test_Create_MaxSelectCount_Greater_Than_Project_Limit(t *testing.T) {
-	project, _ := sqlkite.Projects.Get(tests.Factory.LimitedId)
-	request.ReqT(t, project.Env()).
-		Body(map[string]any{
-			"name": "an_extra_table",
-			"columns": []any{
-				map[string]any{"name": "c1", "type": "text", "nullable": false},
-			},
-			"max_select_count": 3,
-		}).
-		Post(Create).
-		ExpectValidation("max_select_count", 302_035)
-}
-
 func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 	id := tests.Factory.DynamicId()
 	project, _ := sqlkite.Projects.Get(id)
@@ -149,7 +132,6 @@ func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 	assert.Equal(t, table.Name, "test_create_success_defaults")
 	assert.Equal(t, len(table.Columns), 4)
 
-	assert.Equal(t, table.MaxSelectCount, project.MaxSelectCount)
 	assert.False(t, table.MaxUpdateCount.Exists)
 	assert.False(t, table.MaxDeleteCount.Exists)
 
@@ -214,7 +196,6 @@ func Test_Create_Success_NoDefaults_NoAccessControl(t *testing.T) {
 	request.ReqT(t, project.Env()).
 		Body(map[string]any{
 			"name":             "test_create_success_defaults",
-			"max_select_count": 15,
 			"max_update_count": 2,
 			"max_delete_count": 3,
 			"columns": []any{
@@ -232,7 +213,6 @@ func Test_Create_Success_NoDefaults_NoAccessControl(t *testing.T) {
 	table := project.Table("test_create_success_defaults")
 	assert.Equal(t, table.Name, "test_create_success_defaults")
 
-	assert.Equal(t, table.MaxSelectCount, 15)
 	assert.Equal(t, table.MaxUpdateCount.Value, 2)
 	assert.Equal(t, table.MaxDeleteCount.Value, 3)
 

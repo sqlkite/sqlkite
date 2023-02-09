@@ -220,7 +220,7 @@ func (p *Project) CreateTable(env *Env, table *data.Table) error {
 func (p *Project) UpdateTable(env *Env, table *data.Table, alter sql.AlterTable) error {
 	existing := p.tables[alter.Name]
 	if existing == nil {
-		env.Validator.Add(unknownTable(alter.Name))
+		env.Validator.Add(UnknownTable(alter.Name))
 		return nil
 	}
 
@@ -320,7 +320,7 @@ func (p *Project) UpdateTable(env *Env, table *data.Table, alter sql.AlterTable)
 
 func (p *Project) DeleteTable(env *Env, tableName string) error {
 	if _, exists := p.tables[tableName]; !exists {
-		env.Validator.Add(unknownTable(tableName))
+		env.Validator.Add(UnknownTable(tableName))
 		return nil
 	}
 
@@ -372,7 +372,7 @@ func (p *Project) Select(env *Env, sel sql.Select) (*QueryResult, error) {
 		if table == nil {
 			// while we're looping through these tables, we might as well exit early
 			// (and with a good errorr message) on an unknown table.
-			validator.Add(unknownTable(tableName))
+			validator.Add(UnknownTable(tableName))
 		} else if selectAccess := table.Access.Select; selectAccess != nil {
 			selRef.CTE(i, selectAccess.Name, selectAccess.CTE)
 		}
@@ -386,15 +386,6 @@ func (p *Project) Select(env *Env, sel sql.Select) (*QueryResult, error) {
 }
 
 func (p *Project) Insert(env *Env, ins sql.Insert) (*QueryResult, error) {
-	validator := env.Validator
-
-	tableName := ins.Into.Name
-	_, exists := p.tables[tableName]
-	if !exists {
-		validator.Add(unknownTable(tableName))
-		return nil, nil
-	}
-
 	if len(ins.Returning) == 0 {
 		return p.executeQueryWithoutResult(env, ins)
 	} else {
@@ -403,15 +394,6 @@ func (p *Project) Insert(env *Env, ins sql.Insert) (*QueryResult, error) {
 }
 
 func (p *Project) Update(env *Env, upd sql.Update) (*QueryResult, error) {
-	validator := env.Validator
-
-	tableName := upd.Target.Name
-	_, exists := p.tables[tableName]
-	if !exists {
-		validator.Add(unknownTable(tableName))
-		return nil, nil
-	}
-
 	if len(upd.Returning) == 0 {
 		return p.executeQueryWithoutResult(env, upd)
 	} else {
@@ -420,15 +402,6 @@ func (p *Project) Update(env *Env, upd sql.Update) (*QueryResult, error) {
 }
 
 func (p *Project) Delete(env *Env, del sql.Delete) (*QueryResult, error) {
-	validator := env.Validator
-
-	tableName := del.From.Name
-	_, exists := p.tables[tableName]
-	if !exists {
-		validator.Add(unknownTable(tableName))
-		return nil, nil
-	}
-
 	if len(del.Returning) == 0 {
 		return p.executeQueryWithoutResult(env, del)
 	} else {
@@ -763,7 +736,7 @@ func ReloadProject(id string) (*Project, error) {
 	return project, nil
 }
 
-func unknownTable(tableName string) validation.Invalid {
+func UnknownTable(tableName string) validation.Invalid {
 	return validation.Invalid{
 		Code:  codes.VAL_UNKNOWN_TABLE,
 		Error: "Unknown table: " + tableName,

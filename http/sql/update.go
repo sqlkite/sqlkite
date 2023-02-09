@@ -21,6 +21,11 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	validator := env.Validator
 
 	target := parseRequiredQualifiedTable(input[TARGET_INPUT_NAME], targetField, validator)
+	table := project.Table(target.Name)
+	if table == nil {
+		validator.AddInvalidField(targetField, sqlkite.UnknownTable(target.Name))
+	}
+
 	set := updateParseSet(input[SET_INPUT_NAME], validator)
 	froms := parseFrom(input[FROM_INPUT_NAME], validator, project, false)
 	where := parseWhere(input[WHERE_INPUT_NAME], validator)
@@ -28,7 +33,11 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	offset := parseOffset(input[OFFSET_INPUT_NAME], validator)
 	parameters := extractParameters(input[PARAMETERS_INPUT_NAME], validator, project)
 	returning := parseOptionalColumnResultList(input[RETURNING_INPUT_NAME], returningField, validator, project)
-	limit := mutateParseLimit(input[LIMIT_INPUT_NAME], validator, len(returning) > 0, int(project.MaxSelectCount), optional.NullInt)
+
+	var limit optional.Value[int]
+	if table != nil {
+		limit = mutateParseLimit(input[LIMIT_INPUT_NAME], validator, len(returning) > 0, project.MaxSelectCount, table.MaxUpdateCount)
+	}
 
 	// There's more validation to do, and we do like to return all errors in one
 	// shot, but it's possible trying to go further will just cause more problems.

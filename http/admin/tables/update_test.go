@@ -25,7 +25,7 @@ func Test_Update_InvalidData(t *testing.T) {
 			"changes": "4",
 		}).
 		Put(Update).
-		ExpectValidation("changes", 1011).ExpectNoValidation("max_select_count", "max_update_count", "max_delete_count")
+		ExpectValidation("changes", 1011).ExpectNoValidation("max_update_count", "max_delete_count")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
@@ -35,16 +35,14 @@ func Test_Update_InvalidData(t *testing.T) {
 				map[string]any{"type": "nope"},
 			},
 			"access":           9,
-			"max_select_count": "one",
 			"max_update_count": "two",
 			"max_delete_count": "three",
 		}).
 		Put(Update).
-		ExpectValidation("changes.0", 1022, "changes.1.type", 1001, "changes.2.type", 1015, "access", 1022, "max_select_count", 1005, "max_update_count", 1005, "max_delete_count", 1005)
+		ExpectValidation("changes.0", 1022, "changes.1.type", 1001, "changes.2.type", 1015, "access", 1022, "max_update_count", 1005, "max_delete_count", 1005)
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
-			"max_select_count": -3,
 			"max_update_count": -4,
 			"max_delete_count": -5,
 			"changes": []any{
@@ -66,7 +64,6 @@ func Test_Update_InvalidData(t *testing.T) {
 		Put(Update).
 		Inspect().
 		ExpectValidation(
-			"max_select_count", 1006,
 			"max_update_count", 1006,
 			"max_delete_count", 1006,
 			"changes.0.to", 1001,
@@ -90,20 +87,6 @@ func Test_Update_UnknownTable(t *testing.T) {
 		UserValue("name", "test1").
 		Put(Update).
 		ExpectValidation("", 302_033)
-}
-
-func Test_Update_MaxSelectCount_Greater_Than_Project_Limit(t *testing.T) {
-	project, _ := sqlkite.Projects.Get(tests.Factory.LimitedId)
-	request.ReqT(t, project.Env()).
-		Body(map[string]any{
-			"name": "a_random_table",
-			"columns": []any{
-				map[string]any{"name": "c1", "type": "text", "nullable": false},
-			},
-			"max_select_count": 3,
-		}).
-		Post(Create).
-		ExpectValidation("max_select_count", 302_035)
 }
 
 // We could catch this specific error and provide structured error, so this test
@@ -177,7 +160,6 @@ func Test_Update_Success(t *testing.T) {
 	project, _ = sqlkite.Projects.Get(id)
 	request.ReqT(t, project.Env()).
 		Body(map[string]any{
-			"max_select_count": 16,
 			"max_update_count": 5,
 			"max_delete_count": 6,
 			"changes": []any{
@@ -193,7 +175,6 @@ func Test_Update_Success(t *testing.T) {
 
 	project, _ = sqlkite.Projects.Get(id)
 	table := project.Table("test_update_success_b")
-	assert.Equal(t, table.MaxSelectCount, 16)
 	assert.Equal(t, table.MaxUpdateCount.Value, 5)
 	assert.Equal(t, table.MaxDeleteCount.Value, 6)
 
@@ -240,7 +221,6 @@ func Test_Update_Success(t *testing.T) {
 
 	project, _ = sqlkite.Projects.Get(id)
 	table = project.Table("test_update_success_b")
-	assert.Equal(t, table.MaxSelectCount, project.MaxSelectCount)
 	assert.False(t, table.MaxUpdateCount.Exists)
 	assert.False(t, table.MaxDeleteCount.Exists)
 

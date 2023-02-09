@@ -60,7 +60,7 @@ func Test_Insert_InvalidTable(t *testing.T) {
 			"into":    "not_a_real_table",
 		}).
 		Post(Insert).
-		ExpectValidation("", 302033)
+		ExpectValidation("into", 302033)
 }
 
 func Test_Insert_OverLimits(t *testing.T) {

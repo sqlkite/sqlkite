@@ -20,6 +20,11 @@ func Insert(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	validator := env.Validator
 
 	into := parseRequiredQualifiedTable(input[INTO_INPUT_NAME], intoField, validator)
+	table := project.Table(into.Name)
+	if table == nil {
+		validator.AddInvalidField(intoField, sqlkite.UnknownTable(into.Name))
+	}
+
 	columns := insertParseColumns(input[COLUMNS_INPUT_NAME], validator)
 	parameters := extractParameters(input[PARAMETERS_INPUT_NAME], validator, project)
 	returning := parseOptionalColumnResultList(input[RETURNING_INPUT_NAME], returningField, validator, project)

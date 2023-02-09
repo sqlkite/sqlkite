@@ -6,6 +6,7 @@ import (
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
 	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/tests"
 )
 
@@ -31,11 +32,10 @@ func Test_Update_InvalidData(t *testing.T) {
 			"where":      3,
 			"from":       2,
 			"parameters": 4,
-			"limit":      "a",
 			"offset":     []int{},
 		}).
 		Post(Update).
-		ExpectValidation("target", 301_003, "set", 1022, "returning", 1011, "from", 1011, "where", 1011, "parameters", 1011, "limit", 1005, "offset", 1005)
+		ExpectValidation("target", 301_003, "set", 1022, "returning", 1011, "from", 1011, "where", 1011, "parameters", 1011, "offset", 1005)
 
 	request.ReqT(t, standardProject.Env()).
 		Body(map[string]any{
@@ -63,7 +63,7 @@ func Test_Update_InvalidTable(t *testing.T) {
 			"target": "not_a_real_table",
 		}).
 		Post(Update).
-		ExpectValidation("", 302033)
+		ExpectValidation("target", 302033)
 }
 
 func Test_Update_OverLimits(t *testing.T) {
@@ -179,4 +179,17 @@ func Test_Update_LimitOffsetReturningOrder(t *testing.T) {
 	assert.Equal(t, rows[5].Int("id"), 6)
 	assert.Equal(t, rows[5].String("name"), "p6")
 	assert.Equal(t, rows[5].Float("rating"), 6.6)
+}
+
+func Test_Update_LimitOverMax(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"target": "products",
+			"set":    map[string]any{"name": "?1", "rating": "?2"},
+			"limit":  7,
+		}).
+		Post(Update).
+		ExpectValidation("limit", codes.VAL_SQL_LIMIT_TOO_HIGH)
 }

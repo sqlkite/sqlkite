@@ -15,7 +15,6 @@ var (
 	updateValidation = validation.Object().
 				Field("changes", validation.Array().Validator(validation.Object().Func(changeValidation)).Transformer(changeMap)).
 				Field("access", accessValidation).
-				Field("max_select_count", maxSelectCountValidation).
 				Field("max_delete_count", maxMutateCountValidation).
 				Field("max_update_count", maxMutateCountValidation)
 
@@ -50,11 +49,6 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	}
 
 	access := mapAccess(input.Object("access"))
-	maxSelectCount := maxSelectCount(env, input.IntOr("max_select_count", -1))
-
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
-	}
 
 	// The last argument, our data.Table, only represents part of the data
 	// The existing table will be loaded, and its columns will be used as a base
@@ -63,7 +57,6 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	err = env.Project.UpdateTable(env, &data.Table{
 		Name:           tableName,
 		Access:         access,
-		MaxSelectCount: maxSelectCount,
 		MaxDeleteCount: input.OptionalInt("max_delete_count"),
 		MaxUpdateCount: input.OptionalInt("max_update_count"),
 	}, alterTable)

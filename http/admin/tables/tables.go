@@ -6,7 +6,6 @@ import (
 	"src.goblgobl.com/utils/ascii"
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
-	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/data"
 )
@@ -46,8 +45,6 @@ var (
 				Field("delete", mutateAccessValiation)
 
 	maxMutateCountValidation = validation.Int().Min(0)
-	maxSelectCountValidation = validation.Int().Min(0).Max(65536)
-	maxSelectCountField      = validation.NewField("max_select_count")
 
 	blobDefaultError = validation.Invalid{
 		Code:  codes.VAL_NON_BASE64_COLUMN_DEFAULT,
@@ -127,23 +124,4 @@ func columnTypeConverter(field validation.Field, value string, object typed.Type
 	}
 	// cannot be valid, Choice must have already flagged it as invalid
 	return data.COLUMN_TYPE_INVALID
-}
-
-func maxSelectCount(env *sqlkite.Env, arg int) uint16 {
-	projectMax := env.Project.MaxSelectCount
-	if arg == -1 {
-		return projectMax
-	}
-
-	if uint16(arg) <= projectMax {
-		return uint16(arg)
-	}
-
-	env.Validator.AddInvalidField(maxSelectCountField, validation.Invalid{
-		Code:  codes.VAL_TABLE_LIMIT_EXCEEDS_PROJECT_LIMIT,
-		Error: "The table select limit cannot exceed the project-wide select limit",
-		Data:  validation.Max(projectMax),
-	})
-
-	return projectMax
 }

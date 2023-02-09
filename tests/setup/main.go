@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
 	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/tests"
+	"src.goblgobl.com/utils/optional"
 	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/config"
 	"src.sqlkite.com/sqlkite/data"
@@ -180,7 +180,9 @@ func setupDynamicProject() {
 
 	project = MustGetProject(id)
 	err := project.CreateTable(project.Env(), &data.Table{
-		Name: "products",
+		Name:           "products",
+		MaxDeleteCount: optional.Int(5),
+		MaxUpdateCount: optional.Int(6),
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
 			data.Column{Name: "name", Type: data.COLUMN_TYPE_TEXT},
@@ -188,7 +190,6 @@ func setupDynamicProject() {
 			data.Column{Name: "image", Type: data.COLUMN_TYPE_BLOB, Nullable: true},
 		},
 	})
-	fmt.Println(err)
 	if err != nil {
 		panic(err)
 	}

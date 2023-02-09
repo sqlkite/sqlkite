@@ -243,7 +243,7 @@ func parseOffset(input any, validator *validation.Result) optional.Value[int] {
 // also be considered (we'll take the Min(MaxUpdateRow, MaxSelectCount))
 // If the table has no MaxUpdateRow (or MaxDeleteRow) and there's no returning
 // the limit is optional
-func mutateParseLimit(input any, validator *validation.Result, hasReturning bool, maxSelect int, maxMutate optional.Value[int]) optional.Value[int] {
+func mutateParseLimit(input any, validator *validation.Result, hasReturning bool, maxSelect uint16, maxMutate optional.Value[int]) optional.Value[int] {
 	if input == nil && !hasReturning {
 		// No limit specified, and not returning anything, our max limit is going to
 		// be whatever maxMutate is, which could be nil/infinite.
@@ -254,9 +254,9 @@ func mutateParseLimit(input any, validator *validation.Result, hasReturning bool
 	hasMax := max.Exists
 	if hasReturning {
 		// there's a returning statement, our max will be the min of maxMutate and maxSelect
-		if !hasMax || maxSelect < max.Value {
+		if !hasMax || int(maxSelect) < max.Value {
 			hasMax = true
-			max = optional.Int(maxSelect)
+			max = optional.Int(int(maxSelect))
 		}
 	}
 

@@ -14,7 +14,6 @@ var (
 		Field("name", tableNameValidation).
 		Field("columns", columnsValidation).
 		Field("access", accessValidation).
-		Field("max_select_count", maxSelectCountValidation).
 		Field("max_delete_count", maxMutateCountValidation).
 		Field("max_update_count", maxMutateCountValidation)
 )
@@ -33,17 +32,11 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	name := input.String("name")
 	columns := mapColumns(input.Objects("columns"))
 	access := mapAccess(input.Object("access"))
-	maxSelectCount := maxSelectCount(env, input.IntOr("max_select_count", -1))
-
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
-	}
 
 	err = env.Project.CreateTable(env, &data.Table{
 		Name:           name,
 		Access:         access,
 		Columns:        columns,
-		MaxSelectCount: maxSelectCount,
 		MaxDeleteCount: input.OptionalInt("max_delete_count"),
 		MaxUpdateCount: input.OptionalInt("max_update_count"),
 	})
