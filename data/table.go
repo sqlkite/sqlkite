@@ -1,6 +1,10 @@
 package data
 
-import "fmt"
+import (
+	"fmt"
+
+	"src.goblgobl.com/utils/optional"
+)
 
 type ColumnType int
 
@@ -13,9 +17,12 @@ const (
 )
 
 type Table struct {
-	Name    string      `json:"name"`
-	Columns []Column    `json:"columns"`
-	Access  TableAccess `json:"access"`
+	Name           string              `json:"name"`
+	Columns        []Column            `json:"columns"`
+	Access         TableAccess         `json:"access"`
+	MaxSelectCount uint16              `json:"max_select_count"` // never nil, defaults to the project's MaxSelectCount
+	MaxDeleteCount optional.Value[int] `json:"max_delete_count"`
+	MaxUpdateCount optional.Value[int] `json:"max_update_count"`
 }
 
 func (t Table) Column(name string) (Column, bool) {

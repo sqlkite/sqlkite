@@ -126,7 +126,7 @@ func (p *Project) WithTransaction(cb func(sqlite.Conn) error) (err error) {
 	return
 }
 
-func (p *Project) CreateTable(env *Env, table data.Table) error {
+func (p *Project) CreateTable(env *Env, table *data.Table) error {
 	if max := p.MaxTableCount; len(p.tables) >= int(max) {
 		env.Validator.Add(validation.Invalid{
 			Code:  codes.VAL_TOO_MANY_TABLES,
@@ -180,24 +180,24 @@ func (p *Project) CreateTable(env *Env, table data.Table) error {
 
 	err = p.WithTransaction(func(conn sqlite.Conn) error {
 		if err := conn.ExecTerminated(createSQL); err != nil {
-			return log.Err(codes.ERR_CREATE_TABLE_EXEC, err)
+			return log.Err(codes.ERR_CREATE_TABLE_EXEC, err).Binary("sql", createSQL)
 		}
 
 		if insertAccessSQL != nil {
 			if err := conn.ExecTerminated(insertAccessSQL); err != nil {
-				return log.Err(codes.ERR_CREATE_ACCESS_TRIGGER, err).String("action", "insert")
+				return log.Err(codes.ERR_CREATE_ACCESS_TRIGGER, err).String("action", "insert").Binary("sql", insertAccessSQL)
 			}
 		}
 
 		if updateAccessSQL != nil {
 			if err := conn.ExecTerminated(updateAccessSQL); err != nil {
-				return log.Err(codes.ERR_CREATE_ACCESS_TRIGGER, err).String("action", "update")
+				return log.Err(codes.ERR_CREATE_ACCESS_TRIGGER, err).String("action", "update").Binary("sql", updateAccessSQL)
 			}
 		}
 
 		if deleteAccessSQL != nil {
 			if err := conn.ExecTerminated(deleteAccessSQL); err != nil {
-				return log.Err(codes.ERR_CREATE_ACCESS_TRIGGER, err).String("action", "delete")
+				return log.Err(codes.ERR_CREATE_ACCESS_TRIGGER, err).String("action", "delete").Binary("sql", deleteAccessSQL)
 			}
 		}
 
@@ -217,14 +217,29 @@ func (p *Project) CreateTable(env *Env, table data.Table) error {
 	return err
 }
 
-func (p *Project) UpdateTable(env *Env, alter sql.AlterTable, access data.TableAccess) error {
+func (p *Project) UpdateTable(env *Env, table *data.Table, alter sql.AlterTable) error {
 	existing := p.tables[alter.Name]
 	if existing == nil {
 		env.Validator.Add(unknownTable(alter.Name))
 		return nil
 	}
 
-	table := applyTableChanges(*existing, alter, access)
+	// This code will do two things:
+	// 1 - It will merge existing into table
+	// 2 - It will generate the necessary SQL (not just to update the table, but
+	// also possibly creating/dropping/changing access triggers)
+	// Both of these work based on the fact that the passed in table *data.Table
+	// isn't a normal/full table object, but represents a partial table which is
+	// meant to be merged with the existing table and via the alter change list.
+	// The applyTableChanges function will turn this partial table into a proper
+	// table, fulfilling first goal of this function.
+	// However, when that happens, we've lost this partial table, which we kind of
+	// needed to figure out the SQL to generate. So, it's very important that we
+	// grab a copy of table.Access before applyTableChanges is called. applyTableChanges
+	// will mutate table.Access, but we want the unmerged version.
+
+	access := table.Access
+	applyTableChanges(table, existing, alter)
 
 	definition, err := json.Marshal(table)
 	if err != nil {
@@ -266,24 +281,24 @@ func (p *Project) UpdateTable(env *Env, alter sql.AlterTable, access data.TableA
 
 	err = p.WithTransaction(func(conn sqlite.Conn) error {
 		if err := conn.ExecTerminated(alterSQL); err != nil {
-			return log.Err(codes.ERR_UPDATE_TABLE_EXEC, err)
+			return log.Err(codes.ERR_UPDATE_TABLE_EXEC, err).Binary("sql", alterSQL)
 		}
 
 		if insertAccessSQL != nil {
 			if err := conn.ExecTerminated(insertAccessSQL); err != nil {
-				return log.Err(codes.ERR_UPDATE_ACCESS_TRIGGER, err).String("action", "insert")
+				return log.Err(codes.ERR_UPDATE_ACCESS_TRIGGER, err).String("action", "insert").Binary("sql", insertAccessSQL)
 			}
 		}
 
 		if updateAccessSQL != nil {
 			if err := conn.ExecTerminated(updateAccessSQL); err != nil {
-				return log.Err(codes.ERR_UPDATE_ACCESS_TRIGGER, err).String("action", "update")
+				return log.Err(codes.ERR_UPDATE_ACCESS_TRIGGER, err).String("action", "update").Binary("sql", updateAccessSQL)
 			}
 		}
 
 		if deleteAccessSQL != nil {
 			if err := conn.ExecTerminated(deleteAccessSQL); err != nil {
-				return log.Err(codes.ERR_UPDATE_ACCESS_TRIGGER, err).String("action", "delete")
+				return log.Err(codes.ERR_UPDATE_ACCESS_TRIGGER, err).String("action", "delete").Binary("sql", deleteAccessSQL)
 			}
 		}
 
@@ -321,7 +336,7 @@ func (p *Project) DeleteTable(env *Env, tableName string) error {
 
 	err = p.WithTransaction(func(conn sqlite.Conn) error {
 		if err := conn.ExecTerminated(dropSQL); err != nil {
-			return log.Err(codes.ERR_DELETE_TABLE_EXEC, err)
+			return log.Err(codes.ERR_DELETE_TABLE_EXEC, err).Binary("sql", dropSQL)
 		}
 
 		if err := conn.Exec("delete from sqlkite_tables where name = $1", tableName); err != nil {
@@ -758,11 +773,11 @@ func unknownTable(tableName string) validation.Invalid {
 
 // Take an existin data.Table and return a new data.Table which merges the changes
 // from the sql.AlterTable applied and the new data.TableAccess
-func applyTableChanges(table data.Table, alter sql.AlterTable, access data.TableAccess) *data.Table {
+func applyTableChanges(table *data.Table, existing *data.Table, alter sql.AlterTable) {
 	// tables / columns are immutable, we need to clone the columns to make sure
 	// changes we make here aren't reflected in any existing references
-	columns := make([]data.Column, len(table.Columns))
-	for i, c := range table.Columns {
+	columns := make([]data.Column, len(existing.Columns))
+	for i, c := range existing.Columns {
 		columns[i] = c
 	}
 
@@ -798,40 +813,35 @@ func applyTableChanges(table data.Table, alter sql.AlterTable, access data.Table
 	}
 	table.Columns = columns
 
+	access := table.Access
+	existingAccess := existing.Access
+
 	// empty means erase
 	// nil means keep the existing one
-	// kind of feels like the opposite of what you'd expect
-	if s := access.Select; s != nil {
-		if s.CTE == "" {
-			table.Access.Select = nil
-		} else {
-			table.Access.Select = s
-		}
+	// Might be the opposite of what you'd expecting
+	if s := access.Select; s == nil {
+		// use whatever the existing access is (which could be nil)
+		table.Access.Select = existingAccess.Select
+	} else if s.CTE == "" {
+		// empty cte? no access restrictions
+		table.Access.Select = nil
 	}
 
-	if access := access.Insert; access != nil {
-		if access.Trigger == "" {
-			table.Access.Insert = nil
-		} else {
-			table.Access.Insert = access
-		}
+	if ins := access.Insert; ins == nil {
+		table.Access.Insert = existingAccess.Insert
+	} else if ins.Trigger == "" {
+		table.Access.Insert = nil
 	}
 
-	if access := access.Update; access != nil {
-		if access.Trigger == "" {
-			table.Access.Update = nil
-		} else {
-			table.Access.Update = access
-		}
+	if upd := access.Update; upd == nil {
+		table.Access.Update = existingAccess.Update
+	} else if upd.Trigger == "" {
+		table.Access.Update = nil
 	}
 
-	if access := access.Delete; access != nil {
-		if access.Trigger == "" {
-			table.Access.Delete = nil
-		} else {
-			table.Access.Delete = access
-		}
+	if del := access.Delete; del == nil {
+		table.Access.Delete = existingAccess.Delete
+	} else if del.Trigger == "" {
+		table.Access.Delete = nil
 	}
-
-	return &table
 }

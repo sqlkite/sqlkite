@@ -77,7 +77,7 @@ func setupStandardProject() {
 	})
 
 	project := MustGetProject(id)
-	err := project.CreateTable(project.Env(), data.Table{
+	err := project.CreateTable(project.Env(), &data.Table{
 		Name: "products",
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
@@ -104,7 +104,7 @@ func setupStandardProject() {
 		)
 	})
 
-	err = project.CreateTable(project.Env(), data.Table{
+	err = project.CreateTable(project.Env(), &data.Table{
 		Name: "users",
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
@@ -179,7 +179,7 @@ func setupDynamicProject() {
 	})
 
 	project = MustGetProject(id)
-	err := project.CreateTable(project.Env(), data.Table{
+	err := project.CreateTable(project.Env(), &data.Table{
 		Name: "products",
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
@@ -213,7 +213,7 @@ func setupLimitedProject() {
 	})
 
 	project := MustGetProject(id)
-	err := project.CreateTable(project.Env(), data.Table{
+	err := project.CreateTable(project.Env(), &data.Table{
 		Name: "t1",
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},
@@ -225,7 +225,7 @@ func setupLimitedProject() {
 	}
 
 	project = MustGetProject(id)
-	err = project.CreateTable(project.Env(), data.Table{
+	err = project.CreateTable(project.Env(), &data.Table{
 		Name: "t2",
 		Columns: []data.Column{
 			data.Column{Name: "id", Type: data.COLUMN_TYPE_INT},

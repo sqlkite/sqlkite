@@ -1,6 +1,7 @@
 package tables
 
 import (
+	"fmt"
 	"testing"
 
 	"src.goblgobl.com/sqlite"
@@ -24,7 +25,7 @@ func Test_Update_InvalidData(t *testing.T) {
 			"changes": "4",
 		}).
 		Put(Update).
-		ExpectValidation("changes", 1011)
+		ExpectValidation("changes", 1011).ExpectNoValidation("max_select_count", "max_update_count", "max_delete_count")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
@@ -33,13 +34,19 @@ func Test_Update_InvalidData(t *testing.T) {
 				map[string]any{},
 				map[string]any{"type": "nope"},
 			},
-			"access": 9,
+			"access":           9,
+			"max_select_count": "one",
+			"max_update_count": "two",
+			"max_delete_count": "three",
 		}).
 		Put(Update).
-		ExpectValidation("changes.0", 1022, "changes.1.type", 1001, "changes.2.type", 1015, "access", 1022)
+		ExpectValidation("changes.0", 1022, "changes.1.type", 1001, "changes.2.type", 1015, "access", 1022, "max_select_count", 1005, "max_update_count", 1005, "max_delete_count", 1005)
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
+			"max_select_count": -3,
+			"max_update_count": -4,
+			"max_delete_count": -5,
 			"changes": []any{
 				map[string]any{"type": "RENAME"},
 				map[string]any{"type": "rename", "to": 32},
@@ -57,7 +64,11 @@ func Test_Update_InvalidData(t *testing.T) {
 			"access": map[string]any{"select": 32, "insert": "no", "update": true, "delete": []any{}},
 		}).
 		Put(Update).
+		Inspect().
 		ExpectValidation(
+			"max_select_count", 1006,
+			"max_update_count", 1006,
+			"max_delete_count", 1006,
 			"changes.0.to", 1001,
 			"changes.1.to", 1002,
 			"changes.2.to", 1004,
@@ -79,6 +90,20 @@ func Test_Update_UnknownTable(t *testing.T) {
 		UserValue("name", "test1").
 		Put(Update).
 		ExpectValidation("", 302_033)
+}
+
+func Test_Update_MaxSelectCount_Greater_Than_Project_Limit(t *testing.T) {
+	project, _ := sqlkite.Projects.Get(tests.Factory.LimitedId)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"name": "a_random_table",
+			"columns": []any{
+				map[string]any{"name": "c1", "type": "text", "nullable": false},
+			},
+			"max_select_count": 3,
+		}).
+		Post(Create).
+		ExpectValidation("max_select_count", 302_035)
 }
 
 // We could catch this specific error and provide structured error, so this test
@@ -104,7 +129,7 @@ func Test_Update_SQL_Error(t *testing.T) {
 		res := request.ReqT(t, project.Env()).
 			Body(map[string]any{
 				"changes": []any{
-					map[string]any{"type": "add column", "column": map[string]any{"name": "C1", "type": "text", "nullable": true}},
+					map[string]any{"type": "add column", "column": map[string]any{"name": "c1", "type": "text", "nullable": true}},
 				},
 			}).
 			UserValue("name", "Test_Update_SQL_Error").
@@ -133,7 +158,7 @@ func Test_Update_Success(t *testing.T) {
 	project, _ := sqlkite.Projects.Get(id)
 	request.ReqT(t, project.Env()).
 		Body(map[string]any{
-			"name": "Test_Update_Success",
+			"name": "test_update_success",
 			"columns": []any{
 				map[string]any{"name": "c1", "type": "text", "nullable": true},
 				map[string]any{"name": "c2", "type": "int", "nullable": true},
@@ -152,24 +177,31 @@ func Test_Update_Success(t *testing.T) {
 	project, _ = sqlkite.Projects.Get(id)
 	request.ReqT(t, project.Env()).
 		Body(map[string]any{
+			"max_select_count": 16,
+			"max_update_count": 5,
+			"max_delete_count": 6,
 			"changes": []any{
 				map[string]any{"type": "rename COLUMN", "name": "c1", "to": "c1_b"},
 				map[string]any{"type": "DROP COLUMN", "name": "c2"},
 				map[string]any{"type": "add column", "column": map[string]any{"name": "C3", "type": "real", "nullable": true, "default": 3.19}},
-				map[string]any{"type": "rename", "to": "Test_Update_Success_b"},
+				map[string]any{"type": "rename", "to": "test_update_success_b"},
 			},
 		}).
-		UserValue("name", "Test_Update_Success").
+		UserValue("name", "test_update_success").
 		Put(Update).
 		OK()
 
 	project, _ = sqlkite.Projects.Get(id)
 	table := project.Table("test_update_success_b")
+	assert.Equal(t, table.MaxSelectCount, 16)
+	assert.Equal(t, table.MaxUpdateCount.Value, 5)
+	assert.Equal(t, table.MaxDeleteCount.Value, 6)
+
 	columns := table.Columns
 	assert.Equal(t, len(columns), 2)
 	assert.Equal(t, columns[0].Name, "c1_b")
 	assert.Equal(t, columns[0].Type, data.COLUMN_TYPE_TEXT)
-	assert.Equal(t, columns[1].Name, "c3")
+	assert.Equal(t, columns[1].Name, "C3")
 	assert.Equal(t, columns[1].Type, data.COLUMN_TYPE_REAL)
 	assert.Equal(t, columns[1].Nullable, true)
 	assert.Equal(t, columns[1].Default.(float64), 3.19)
@@ -202,12 +234,16 @@ func Test_Update_Success(t *testing.T) {
 				"delete": map[string]any{"when": "22=22", "trigger": "select 22"},
 			},
 		}).
-		UserValue("name", "Test_Update_Success_b").
+		UserValue("name", "test_update_success_b").
 		Put(Update).
 		OK()
 
 	project, _ = sqlkite.Projects.Get(id)
 	table = project.Table("test_update_success_b")
+	assert.Equal(t, table.MaxSelectCount, project.MaxSelectCount)
+	assert.False(t, table.MaxUpdateCount.Exists)
+	assert.False(t, table.MaxDeleteCount.Exists)
+
 	assert.Equal(t, len(table.Columns), 2)
 
 	assert.Equal(t, table.Access.Select.CTE, "select 2")
@@ -228,6 +264,7 @@ func Test_Update_Success(t *testing.T) {
 	deleteAccessControl = tests.SqliteMaster(project, "sqlkite_row_access_test_update_success_b_delete", "test_update_success_b")
 	assert.StringContains(t, deleteAccessControl, `select 22`)
 
+	fmt.Println("HERE")
 	// remove access control
 	request.ReqT(t, project.Env()).
 		Body(map[string]any{
@@ -238,7 +275,7 @@ func Test_Update_Success(t *testing.T) {
 				"delete": map[string]any{"trigger": ""},
 			},
 		}).
-		UserValue("name", "Test_Update_Success_b").
+		UserValue("name", "test_update_success_b").
 		Put(Update).
 		OK()
 

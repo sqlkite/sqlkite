@@ -21,7 +21,7 @@ func Test_Delete_Success(t *testing.T) {
 	project, _ := sqlkite.Projects.Get(id)
 	request.ReqT(t, project.Env()).
 		Body(map[string]any{
-			"name": "Test_Delete_Success",
+			"name": "test_delete_success",
 			"columns": []any{
 				map[string]any{"name": "c1", "type": "text", "nullable": true},
 			},
@@ -33,7 +33,7 @@ func Test_Delete_Success(t *testing.T) {
 	assert.NotNil(t, project.Table("test_delete_success"))
 
 	request.ReqT(t, project.Env()).
-		UserValue("name", "Test_DELETE_Success").
+		UserValue("name", "test_delete_success").
 		Delete(Delete).
 		OK()
 

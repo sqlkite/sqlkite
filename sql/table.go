@@ -9,7 +9,7 @@ import (
 	"src.sqlkite.com/sqlkite/data"
 )
 
-func CreateTable(table data.Table, buffer *buffer.Buffer) {
+func CreateTable(table *data.Table, buffer *buffer.Buffer) {
 	columns := table.Columns
 
 	buffer.Write([]byte("create table "))

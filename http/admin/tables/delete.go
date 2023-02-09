@@ -2,13 +2,12 @@ package tables
 
 import (
 	"github.com/valyala/fasthttp"
-	"src.goblgobl.com/utils/ascii"
 	"src.goblgobl.com/utils/http"
 	"src.sqlkite.com/sqlkite"
 )
 
 func Delete(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
-	name := ascii.Lowercase(conn.UserValue("name").(string))
+	name := conn.UserValue("name").(string)
 	if err := env.Project.DeleteTable(env, name); err != nil {
 		return nil, err
 	}

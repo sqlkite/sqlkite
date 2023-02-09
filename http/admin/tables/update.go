@@ -7,13 +7,17 @@ import (
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite"
+	"src.sqlkite.com/sqlkite/data"
 	"src.sqlkite.com/sqlkite/sql"
 )
 
 var (
 	updateValidation = validation.Object().
 				Field("changes", validation.Array().Validator(validation.Object().Func(changeValidation)).Transformer(changeMap)).
-				Field("access", accessValidation)
+				Field("access", accessValidation).
+				Field("max_select_count", maxSelectCountValidation).
+				Field("max_delete_count", maxMutateCountValidation).
+				Field("max_update_count", maxMutateCountValidation)
 
 	updateChangeToField         = validation.BuildField("changes.#.to")
 	updateChangeTypeField       = validation.BuildField("changes.#.type")
@@ -38,16 +42,32 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	// It's possible we have no changes to the table, maybe we only have access
 	// control changes (which we treat separately because they don't have a pure
 	// DDL analog)
-	alterTable := sql.AlterTable{
-		Name: ascii.Lowercase(conn.UserValue("name").(string)),
-	}
+	tableName := conn.UserValue("name").(string)
+
+	alterTable := sql.AlterTable{Name: tableName}
 	if changes := input["changes"]; changes != nil {
 		alterTable.Changes = changes.([]sql.AlterTableChange)
 	}
 
 	access := mapAccess(input.Object("access"))
+	maxSelectCount := maxSelectCount(env, input.IntOr("max_select_count", -1))
 
-	err = env.Project.UpdateTable(env, alterTable, access)
+	if !validator.IsValid() {
+		return http.Validation(validator), nil
+	}
+
+	// The last argument, our data.Table, only represents part of the data
+	// The existing table will be loaded, and its columns will be used as a base
+	// to apply the alterTable changes to it. That's why the &data.Table that we're
+	// passing doesn't need the columns.
+	err = env.Project.UpdateTable(env, &data.Table{
+		Name:           tableName,
+		Access:         access,
+		MaxSelectCount: maxSelectCount,
+		MaxDeleteCount: input.OptionalInt("max_delete_count"),
+		MaxUpdateCount: input.OptionalInt("max_update_count"),
+	}, alterTable)
+
 	if err != nil {
 		return nil, err
 	}

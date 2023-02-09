@@ -124,7 +124,7 @@ func Test_Projects_Get_Known(t *testing.T) {
 
 func Test_Project_CreateTable(t *testing.T) {
 	project := dynamicProject()
-	err := project.CreateTable(project.Env(), data.Table{
+	err := project.CreateTable(project.Env(), &data.Table{
 		Name: "tab1",
 		Columns: []data.Column{
 			data.BuildColumn().Name("c1").Type("text").Nullable().Column(),
@@ -136,7 +136,7 @@ func Test_Project_CreateTable(t *testing.T) {
 	assert.Nil(t, err)
 
 	project = MustGetProject(project.Id)
-	err = project.CreateTable(project.Env(), data.Table{
+	err = project.CreateTable(project.Env(), &data.Table{
 		Name: "tab2",
 		Columns: []data.Column{
 			data.BuildColumn().Name("c1").Type("text").NotNullable().Default("def-1").Column(),
@@ -214,7 +214,7 @@ func Test_Project_CreateTable(t *testing.T) {
 func Test_Project_UpdateTable_UnknownTable(t *testing.T) {
 	project := MustGetProject(tests.Factory.StandardId)
 	env := project.Env()
-	err := project.UpdateTable(env, sql.AlterTable{Name: "tab1"}, data.TableAccess{})
+	err := project.UpdateTable(env, &data.Table{}, sql.AlterTable{Name: "tab1"})
 	assert.Nil(t, err)
 	assert.Validation(t, env.Validator).Field("", 302_033, map[string]any{"value": "tab1"})
 }
@@ -222,7 +222,7 @@ func Test_Project_UpdateTable_UnknownTable(t *testing.T) {
 func Test_Project_UpdateTable_Success(t *testing.T) {
 	id := tests.Factory.DynamicId()
 	project := MustGetProject(id)
-	err := project.CreateTable(project.Env(), data.Table{
+	err := project.CreateTable(project.Env(), &data.Table{
 		Name: "tab_update",
 		Columns: []data.Column{
 			data.BuildColumn().Name("c1").Type("text").Nullable().Column(),
@@ -234,16 +234,19 @@ func Test_Project_UpdateTable_Success(t *testing.T) {
 	assert.Nil(t, err)
 
 	project = MustGetProject(id)
-	err = project.UpdateTable(project.Env(), sql.AlterTable{
-		Name: "tab_update",
-		Changes: []sql.AlterTableChange{
-			sql.DropColumn{Name: "c2"},
-			sql.RenameColumn{Name: "c1", To: "c1_b"},
-			sql.AddColumn{Column: data.BuildColumn().Name("c5").Type("int").NotNullable().Column()},
-			sql.DropColumn{Name: "c4"},
-			sql.RenameTable{To: "tab_update_b"},
-		}},
-		data.TableAccess{Select: &data.SelectTableAccess{CTE: "select 1"}})
+	err = project.UpdateTable(project.Env(),
+		&data.Table{
+			Access: data.TableAccess{Select: &data.SelectTableAccess{CTE: "select 1"}},
+		},
+		sql.AlterTable{
+			Name: "tab_update",
+			Changes: []sql.AlterTableChange{
+				sql.DropColumn{Name: "c2"},
+				sql.RenameColumn{Name: "c1", To: "c1_b"},
+				sql.AddColumn{Column: data.BuildColumn().Name("c5").Type("int").NotNullable().Column()},
+				sql.DropColumn{Name: "c4"},
+				sql.RenameTable{To: "tab_update_b"},
+			}})
 	assert.Nil(t, err)
 
 	// Projects & tables are meant to be immutable. Changes to a project are only reflected
@@ -293,7 +296,7 @@ func Test_Project_DeleteTable_UnknownTable(t *testing.T) {
 func Test_Project_DeleteTable_Success(t *testing.T) {
 	id := tests.Factory.DynamicId()
 	project := MustGetProject(id)
-	err := project.CreateTable(project.Env(), data.Table{
+	err := project.CreateTable(project.Env(), &data.Table{
 		Name: "tab_delete",
 		Columns: []data.Column{
 			data.BuildColumn().Name("c1").Type("text").Nullable().Column(),
@@ -324,21 +327,23 @@ func Test_ApplyTableChanges(t *testing.T) {
 		},
 	}
 
-	t2 := applyTableChanges(*t1, sql.AlterTable{
+	t2 := &data.Table{
+		Access: data.TableAccess{
+			Select: &data.SelectTableAccess{CTE: "select 1"},
+			Insert: &data.MutateTableAccess{Trigger: "select 2"},
+			Update: &data.MutateTableAccess{Trigger: "select 3"},
+			Delete: &data.MutateTableAccess{Trigger: "select 4"},
+		},
+	}
+	applyTableChanges(t2, t1, sql.AlterTable{
 		Changes: []sql.AlterTableChange{
 			sql.RenameTable{To: "test2"},
 			sql.DropColumn{Name: "c2"},
 			sql.RenameColumn{Name: "c4", To: "c4-b"},
 			sql.AddColumn{Column: data.BuildColumn().Name("c5").Type("blob").NotNullable().Column()},
-		}},
-		data.TableAccess{
-			Select: &data.SelectTableAccess{CTE: "select 1"},
-		},
-	)
+		}})
 
 	assert.Equal(t, t2.Name, "test2")
-	assert.Equal(t, t2.Access.Select.CTE, "select 1")
-
 	assert.Equal(t, len(t2.Columns), 4)
 	assert.Equal(t, t2.Columns[0].Name, "c1")
 	assert.Equal(t, t2.Columns[1].Name, "c3")
@@ -347,32 +352,47 @@ func Test_ApplyTableChanges(t *testing.T) {
 	assert.Nil(t, t2.Columns[3].Default)
 	assert.Equal(t, t2.Columns[3].Nullable, false)
 	assert.Equal(t, t2.Columns[3].Type, data.COLUMN_TYPE_BLOB)
+	assert.Equal(t, t2.Access.Select.CTE, "select 1")
+	assert.Equal(t, t2.Access.Insert.Trigger, "select 2")
+	assert.Equal(t, t2.Access.Update.Trigger, "select 3")
+	assert.Equal(t, t2.Access.Delete.Trigger, "select 4")
 
-	// make sure our drop column correct modified our column array
-	t3 := applyTableChanges(*t2, sql.AlterTable{
+	// make sure our drop column correctly modified our column array
+	t3 := &data.Table{}
+	applyTableChanges(t3, t2, sql.AlterTable{
 		Changes: []sql.AlterTableChange{
 			sql.DropColumn{Name: "c1"},
 			sql.DropColumn{Name: "c5"},
 			sql.DropColumn{Name: "c3"},
-		}}, data.TableAccess{})
+		}})
 
 	assert.Equal(t, len(t3.Columns), 1)
-	assert.Equal(t, t3.Access.Select.CTE, "select 1")
 	assert.Equal(t, t3.Columns[0].Name, "c4-b")
+	assert.Equal(t, t3.Access.Select.CTE, "select 1")
+	assert.Equal(t, t3.Access.Insert.Trigger, "select 2")
+	assert.Equal(t, t3.Access.Update.Trigger, "select 3")
+	assert.Equal(t, t3.Access.Delete.Trigger, "select 4")
 
 	// Make sure our drop column correct modified our column array.
 	// Delete our select CTE
-	t4 := applyTableChanges(*t3, sql.AlterTable{
+	t4 := &data.Table{
+		Access: data.TableAccess{
+			Select: &data.SelectTableAccess{CTE: ""},
+			Insert: &data.MutateTableAccess{Trigger: ""},
+			Update: &data.MutateTableAccess{Trigger: ""},
+			Delete: &data.MutateTableAccess{Trigger: ""},
+		},
+	}
+	applyTableChanges(t4, t3, sql.AlterTable{
 		Changes: []sql.AlterTableChange{
 			sql.DropColumn{Name: "c4-b"},
-		}},
-		data.TableAccess{
-			Select: &data.SelectTableAccess{CTE: ""},
-		},
-	)
+		}})
 
-	assert.Nil(t, t4.Access.Select)
 	assert.Equal(t, len(t4.Columns), 0)
+	assert.Nil(t, t4.Access.Select)
+	assert.Nil(t, t4.Access.Insert)
+	assert.Nil(t, t4.Access.Update)
+	assert.Nil(t, t4.Access.Delete)
 }
 
 func MustGetProject(id string) *Project {

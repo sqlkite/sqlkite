@@ -10,7 +10,7 @@ import (
 
 func Test_CreateTable_Without_Defauls(t *testing.T) {
 	buffer := buffer.New(256, 256)
-	CreateTable(data.Table{
+	CreateTable(&data.Table{
 		Name: "tab1",
 		Columns: []data.Column{
 			data.Column{Name: "c1", Type: data.COLUMN_TYPE_TEXT, Nullable: true},
@@ -30,7 +30,7 @@ func Test_CreateTable_Without_Defauls(t *testing.T) {
 
 func Test_CreateTable_With_Defaults(t *testing.T) {
 	buffer := buffer.New(256, 256)
-	CreateTable(data.Table{
+	CreateTable(&data.Table{
 		Name: "tab1",
 		Columns: []data.Column{
 			data.Column{Name: "c1", Type: data.COLUMN_TYPE_TEXT, Nullable: false, Default: "def-1"},
