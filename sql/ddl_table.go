@@ -125,99 +125,40 @@ type MutateTableAccess struct {
 	Trigger string `json:"trigger"`
 }
 
-type AlterTableChange interface {
-	Part
-}
+func (m *MutateTableAccess) WriteCreate(b *buffer.Buffer, table string, action string) {
+	b.Write([]byte("create trigger sqlkite_row_access_"))
+	m.writeTriggerNameSuffix(b, table, action)
+	b.Write([]byte("\nbefore "))
+	b.WriteUnsafe(action)
 
-type AlterTable struct {
-	Name    string             `json:"name"`
-	Changes []AlterTableChange `json:"changes"`
-}
+	b.Write([]byte(" on "))
+	b.WriteUnsafe(table)
+	b.Write([]byte(" for each row"))
 
-func (a *AlterTable) Write(b *buffer.Buffer) {
-	name := a.Name
-	for _, change := range a.Changes {
-		b.Write([]byte("alter table "))
-		b.WriteUnsafe(name)
-		b.WriteByte(' ')
-		change.Write(b)
-		b.Write([]byte(";\n"))
-	}
-}
-
-type AddColumn struct {
-	Column Column `json:"column"`
-}
-
-func (a AddColumn) Write(b *buffer.Buffer) {
-	b.Write([]byte("add column "))
-	a.Column.Write(b)
-}
-
-type DropColumn struct {
-	Name string `json:"name"`
-}
-
-func (d DropColumn) Write(b *buffer.Buffer) {
-	b.Write([]byte("drop column "))
-	b.WriteUnsafe(d.Name)
-}
-
-type RenameTable struct {
-	To string `json:"to"`
-}
-
-func (r RenameTable) Write(b *buffer.Buffer) {
-	b.Write([]byte("rename to "))
-	b.WriteUnsafe(r.To)
-}
-
-type RenameColumn struct {
-	Name string `json:"name"`
-	To   string `json:"to"`
-}
-
-func (r RenameColumn) Write(b *buffer.Buffer) {
-	b.Write([]byte("rename column "))
-	b.WriteUnsafe(r.Name)
-	b.Write([]byte(" to "))
-	b.WriteUnsafe(r.To)
-}
-
-func TableAccessCreateTrigger(table string, action string, access *MutateTableAccess, buffer *buffer.Buffer) {
-	buffer.Write([]byte("create trigger sqlkite_row_access_"))
-	triggerNameSuffix(table, action, buffer)
-	buffer.Write([]byte("\nbefore "))
-	buffer.WriteUnsafe(action)
-
-	buffer.Write([]byte(" on "))
-	buffer.WriteUnsafe(table)
-	buffer.Write([]byte(" for each row"))
-
-	if w := access.When; w != "" {
-		buffer.Write([]byte("\nwhen ("))
-		buffer.WriteUnsafe(w)
-		buffer.WriteByte(')')
+	if w := m.When; w != "" {
+		b.Write([]byte("\nwhen ("))
+		b.WriteUnsafe(w)
+		b.WriteByte(')')
 	}
 
-	buffer.Write([]byte("\nbegin\n "))
-	trigger := access.Trigger
-	buffer.WriteUnsafe(trigger)
+	b.Write([]byte("\nbegin\n "))
+	trigger := m.Trigger
+	b.WriteUnsafe(trigger)
 	if trigger[len(trigger)-1] != ';' {
-		buffer.WriteByte(';')
+		b.WriteByte(';')
 	}
-	buffer.Write([]byte("\nend"))
+	b.Write([]byte("\nend"))
 }
 
-func TableAccessDropTrigger(table string, action string, buffer *buffer.Buffer) {
-	buffer.Write([]byte("drop trigger if exists sqlkite_row_access_"))
-	triggerNameSuffix(table, action, buffer)
+func (m *MutateTableAccess) WriteDrop(b *buffer.Buffer, table string, action string) {
+	b.Write([]byte("drop trigger if exists sqlkite_row_access_"))
+	m.writeTriggerNameSuffix(b, table, action)
 }
 
-func triggerNameSuffix(table string, action string, buffer *buffer.Buffer) {
-	buffer.WriteUnsafe(table)
-	buffer.WriteByte('_')
-	buffer.WriteUnsafe(action)
+func (_ *MutateTableAccess) writeTriggerNameSuffix(b *buffer.Buffer, table string, action string) {
+	b.WriteUnsafe(table)
+	b.WriteByte('_')
+	b.WriteUnsafe(action)
 }
 
 // yes, we need to sub-select in order to ensure json_group_array aggregates

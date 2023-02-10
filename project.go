@@ -429,7 +429,7 @@ func (p *Project) buildAccessTrigger(tableName string, action string, access *sq
 	}
 
 	buffer := p.SQLBuffer()
-	sql.TableAccessCreateTrigger(tableName, action, access, buffer)
+	access.WriteCreate(buffer, tableName, action)
 
 	bytes, err := buffer.SqliteBytes()
 	if err != nil {
@@ -465,12 +465,12 @@ func (p *Project) buildAccessTriggerChange(tableName string, action string, acce
 
 	// there might not be an existing trigger, but we drop it with an "if exists"
 	// so it's simply to just always try to drop it
-	sql.TableAccessDropTrigger(existingTableName, action, buffer)
+	access.WriteDrop(buffer, existingTableName, action)
 	if access.Trigger != "" {
 		// if the trigger is empty, it means remove (which we always do)
 		// if it isn't empty, it means replace, which involved drop + create
 		buffer.Write([]byte(";\n"))
-		sql.TableAccessCreateTrigger(tableName, action, access, buffer)
+		access.WriteCreate(buffer, tableName, action)
 	}
 
 	bytes, err := buffer.SqliteBytes()

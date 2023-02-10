@@ -44,7 +44,7 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 
 	alterTable := sql.AlterTable{Name: tableName}
 	if changes := input["changes"]; changes != nil {
-		alterTable.Changes = changes.([]sql.AlterTableChange)
+		alterTable.Changes = changes.([]sql.Part)
 	}
 
 	access := mapAccess(input.Object("access"))
@@ -130,13 +130,13 @@ func changeMap(changes []any) any {
 	if changes == nil {
 		return nil
 	}
-	parts := make([]sql.AlterTableChange, len(changes))
+	parts := make([]sql.Part, len(changes))
 	for i, change := range changes {
 		if change == nil {
 			// Some (or all) of the changes were invalid, no need to do this
 			return changes
 		}
-		parts[i] = change.(sql.AlterTableChange)
+		parts[i] = change.(sql.Part)
 	}
 	return parts
 }

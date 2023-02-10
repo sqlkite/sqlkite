@@ -241,7 +241,7 @@ func Test_Project_UpdateTable_Success(t *testing.T) {
 		},
 		sql.AlterTable{
 			Name: "tab_update",
-			Changes: []sql.AlterTableChange{
+			Changes: []sql.Part{
 				sql.DropColumn{Name: "c2"},
 				sql.RenameColumn{Name: "c1", To: "c1_b"},
 				sql.AddColumn{Column: sql.BuildColumn().Name("c5").Type("int").NotNullable().Column()},
@@ -337,7 +337,7 @@ func Test_ApplyTableChanges(t *testing.T) {
 		},
 	}
 	applyTableChanges(t2, t1, sql.AlterTable{
-		Changes: []sql.AlterTableChange{
+		Changes: []sql.Part{
 			sql.RenameTable{To: "test2"},
 			sql.DropColumn{Name: "c2"},
 			sql.RenameColumn{Name: "c4", To: "c4-b"},
@@ -361,7 +361,7 @@ func Test_ApplyTableChanges(t *testing.T) {
 	// make sure our drop column correctly modified our column array
 	t3 := &sql.Table{}
 	applyTableChanges(t3, t2, sql.AlterTable{
-		Changes: []sql.AlterTableChange{
+		Changes: []sql.Part{
 			sql.DropColumn{Name: "c1"},
 			sql.DropColumn{Name: "c5"},
 			sql.DropColumn{Name: "c3"},
@@ -385,7 +385,7 @@ func Test_ApplyTableChanges(t *testing.T) {
 		},
 	}
 	applyTableChanges(t4, t3, sql.AlterTable{
-		Changes: []sql.AlterTableChange{
+		Changes: []sql.Part{
 			sql.DropColumn{Name: "c4-b"},
 		}})
 
