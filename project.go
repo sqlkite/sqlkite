@@ -69,7 +69,7 @@ type Project struct {
 	MaxConditionCount    uint16
 	MaxOrderByCount      uint16
 	MaxTableCount        uint16
-	tables               map[string]*data.Table
+	tables               map[string]*sql.Table
 }
 
 func (p *Project) Shutdown() {
@@ -85,7 +85,7 @@ func (p *Project) NextRequestId() string {
 	return utils.EncodeRequestId(nextId, Config.InstanceId)
 }
 
-func (p *Project) Table(name string) *data.Table {
+func (p *Project) Table(name string) *sql.Table {
 	return p.tables[name]
 }
 
@@ -126,7 +126,7 @@ func (p *Project) WithTransaction(cb func(sqlite.Conn) error) (err error) {
 	return
 }
 
-func (p *Project) CreateTable(env *Env, table *data.Table) error {
+func (p *Project) CreateTable(env *Env, table *sql.Table) error {
 	if max := p.MaxTableCount; len(p.tables) >= int(max) {
 		env.Validator.Add(validation.Invalid{
 			Code:  codes.VAL_TOO_MANY_TABLES,
@@ -144,7 +144,7 @@ func (p *Project) CreateTable(env *Env, table *data.Table) error {
 	createBuffer := p.SQLBuffer()
 	defer createBuffer.Release()
 
-	sql.CreateTable(table, createBuffer)
+	table.Write(createBuffer)
 	createSQL, err := createBuffer.SqliteBytes()
 	if err != nil {
 		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
@@ -217,7 +217,7 @@ func (p *Project) CreateTable(env *Env, table *data.Table) error {
 	return err
 }
 
-func (p *Project) UpdateTable(env *Env, table *data.Table, alter sql.AlterTable) error {
+func (p *Project) UpdateTable(env *Env, table *sql.Table, alter sql.AlterTable) error {
 	existing := p.tables[alter.Name]
 	if existing == nil {
 		env.Validator.Add(UnknownTable(alter.Name))
@@ -228,7 +228,7 @@ func (p *Project) UpdateTable(env *Env, table *data.Table, alter sql.AlterTable)
 	// 1 - It will merge existing into table
 	// 2 - It will generate the necessary SQL (not just to update the table, but
 	// also possibly creating/dropping/changing access triggers)
-	// Both of these work based on the fact that the passed in table *data.Table
+	// Both of these work based on the fact that the passed in table *sql.Table
 	// isn't a normal/full table object, but represents a partial table which is
 	// meant to be merged with the existing table and via the alter change list.
 	// The applyTableChanges function will turn this partial table into a proper
@@ -423,7 +423,7 @@ func (p *Project) ResultBuffer() *buffer.Buffer {
 	return Buffer.CheckoutMax(p.MaxResultLength)
 }
 
-func (p *Project) buildAccessTrigger(tableName string, action string, access *data.MutateTableAccess) ([]byte, utils.Releasable, error) {
+func (p *Project) buildAccessTrigger(tableName string, action string, access *sql.MutateTableAccess) ([]byte, utils.Releasable, error) {
 	if access == nil {
 		return nil, utils.NoopReleasable, nil
 	}
@@ -447,7 +447,7 @@ func (p *Project) buildAccessTrigger(tableName string, action string, access *da
 // the new table name. This isn't strictly necessary, but it avoids a few potential
 // issues down the road - like avoid conflicts if a new table with the old name
 // is created and has its own triggers.
-func (p *Project) buildAccessTriggerChange(tableName string, action string, access *data.MutateTableAccess, existingTableName string, existingAccess *data.MutateTableAccess) ([]byte, utils.Releasable, error) {
+func (p *Project) buildAccessTriggerChange(tableName string, action string, access *sql.MutateTableAccess, existingTableName string, existingAccess *sql.MutateTableAccess) ([]byte, utils.Releasable, error) {
 	if access == nil {
 		if tableName == existingTableName || existingAccess == nil {
 			// the new access is nil (which means "keep what we have")
@@ -648,7 +648,7 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 		return nil, err
 	}
 
-	tables := make(map[string]*data.Table)
+	tables := make(map[string]*sql.Table)
 
 	conn := dbPool.Checkout()
 	rows := conn.Rows("select name, definition from sqlkite_tables")
@@ -658,7 +658,7 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 
 		rows.Scan(&name, &definition)
 
-		var table *data.Table
+		var table *sql.Table
 		err = json.Unmarshal(definition, &table)
 		if err != nil {
 			break
@@ -669,7 +669,7 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 			// the []byte. And it's unclear if that would ever be a problem, but it
 			// would be easy to forget this little quirk in the future, and it would
 			// certainly be unexpected.
-			if c.Type == data.COLUMN_TYPE_BLOB && c.Default != nil {
+			if c.Type == sql.COLUMN_TYPE_BLOB && c.Default != nil {
 				var encodeLength int
 				stringDefault := utils.S2B(c.Default.(string))
 				byteDefault := make([]byte, base64.StdEncoding.DecodedLen(len(stringDefault)))
@@ -744,12 +744,12 @@ func UnknownTable(tableName string) validation.Invalid {
 	}
 }
 
-// Take an existin data.Table and return a new data.Table which merges the changes
-// from the sql.AlterTable applied and the new data.TableAccess
-func applyTableChanges(table *data.Table, existing *data.Table, alter sql.AlterTable) {
+// Take an existin sql.Table and return a new sql.Table which merges the changes
+// from the sql.AlterTable applied and the new sql.TableAccess
+func applyTableChanges(table *sql.Table, existing *sql.Table, alter sql.AlterTable) {
 	// tables / columns are immutable, we need to clone the columns to make sure
 	// changes we make here aren't reflected in any existing references
-	columns := make([]data.Column, len(existing.Columns))
+	columns := make([]sql.Column, len(existing.Columns))
 	for i, c := range existing.Columns {
 		columns[i] = c
 	}

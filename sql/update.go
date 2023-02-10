@@ -8,7 +8,7 @@ import (
 )
 
 type Update struct {
-	Target     Table
+	Target     TableName
 	Set        []UpdateSet
 	Froms      []JoinableFrom
 	Where      Condition

@@ -10,7 +10,7 @@ import (
 	"src.goblgobl.com/utils"
 	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/codes"
-	"src.sqlkite.com/sqlkite/data"
+	"src.sqlkite.com/sqlkite/sql"
 	"src.sqlkite.com/sqlkite/tests"
 )
 
@@ -183,9 +183,9 @@ func Test_Update_Success(t *testing.T) {
 	columns := table.Columns
 	assert.Equal(t, len(columns), 2)
 	assert.Equal(t, columns[0].Name, "c1_b")
-	assert.Equal(t, columns[0].Type, data.COLUMN_TYPE_TEXT)
+	assert.Equal(t, columns[0].Type, sql.COLUMN_TYPE_TEXT)
 	assert.Equal(t, columns[1].Name, "C3")
-	assert.Equal(t, columns[1].Type, data.COLUMN_TYPE_REAL)
+	assert.Equal(t, columns[1].Type, sql.COLUMN_TYPE_REAL)
 	assert.Equal(t, columns[1].Nullable, true)
 	assert.Equal(t, columns[1].Default.(float64), 3.19)
 

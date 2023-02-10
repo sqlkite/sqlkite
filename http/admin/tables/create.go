@@ -6,7 +6,7 @@ import (
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite"
-	"src.sqlkite.com/sqlkite/data"
+	"src.sqlkite.com/sqlkite/sql"
 )
 
 var (
@@ -33,7 +33,7 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	columns := mapColumns(input.Objects("columns"))
 	access := mapAccess(input.Object("access"))
 
-	err = env.Project.CreateTable(env, &data.Table{
+	err = env.Project.CreateTable(env, &sql.Table{
 		Name:           name,
 		Access:         access,
 		Columns:        columns,
@@ -49,41 +49,41 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	return http.Ok(nil), err
 }
 
-func mapColumns(input []typed.Typed) []data.Column {
-	columns := make([]data.Column, len(input))
+func mapColumns(input []typed.Typed) []sql.Column {
+	columns := make([]sql.Column, len(input))
 	for i, ci := range input {
 		columns[i] = mapColumn(ci)
 	}
 	return columns
 }
 
-func mapColumn(input typed.Typed) data.Column {
-	return data.Column{
+func mapColumn(input typed.Typed) sql.Column {
+	return sql.Column{
 		Name:     input.String("name"),
 		Nullable: input.Bool("nullable"),
 		Default:  input["default"],
-		Type:     input["type"].(data.ColumnType),
+		Type:     input["type"].(sql.ColumnType),
 	}
 }
 
-func mapAccess(input typed.Typed) data.TableAccess {
-	var access data.TableAccess
+func mapAccess(input typed.Typed) sql.TableAccess {
+	var access sql.TableAccess
 	if input == nil {
 		return access
 	}
 
 	if cte, ok := input.StringIf("select"); ok {
-		access.Select = &data.SelectTableAccess{CTE: cte}
+		access.Select = &sql.SelectTableAccess{CTE: cte}
 	}
 
 	if input, ok := input.ObjectIf("insert"); ok {
-		access.Insert = &data.MutateTableAccess{When: input.String("when"), Trigger: input.String("trigger")}
+		access.Insert = &sql.MutateTableAccess{When: input.String("when"), Trigger: input.String("trigger")}
 	}
 	if input, ok := input.ObjectIf("update"); ok {
-		access.Update = &data.MutateTableAccess{When: input.String("when"), Trigger: input.String("trigger")}
+		access.Update = &sql.MutateTableAccess{When: input.String("when"), Trigger: input.String("trigger")}
 	}
 	if input, ok := input.ObjectIf("delete"); ok {
-		access.Delete = &data.MutateTableAccess{When: input.String("when"), Trigger: input.String("trigger")}
+		access.Delete = &sql.MutateTableAccess{When: input.String("when"), Trigger: input.String("trigger")}
 	}
 
 	return access

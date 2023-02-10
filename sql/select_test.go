@@ -8,37 +8,37 @@ import (
 )
 
 func Test_JoinableFrom_TableName(t *testing.T) {
-	sf := JoinableFrom{Table: Table{"table1", nil}}
+	sf := JoinableFrom{Table: TableName{"table1", nil}}
 	assert.Equal(t, sf.TableName(), "table1")
 }
 
 func Test_JoinableFrom_Write(t *testing.T) {
 	assertSQL(t, JoinableFrom{
-		Table: Table{"table1", nil},
+		Table: TableName{"table1", nil},
 	}, "table1")
 
 	assertSQL(t, JoinableFrom{
-		Table: Table{"table1", &Alias{Alias: "t1"}},
+		Table: TableName{"table1", &Alias{Alias: "t1"}},
 	}, "table1 as t1")
 
 	assertSQL(t, JoinableFrom{
 		Join:  JOIN_TYPE_INNER,
-		Table: Table{"table1", nil},
+		Table: TableName{"table1", nil},
 	}, "inner join table1")
 
 	assertSQL(t, JoinableFrom{
 		Join:  JOIN_TYPE_LEFT,
-		Table: Table{"table1", nil},
+		Table: TableName{"table1", nil},
 	}, "left join table1")
 
 	assertSQL(t, JoinableFrom{
 		Join:  JOIN_TYPE_RIGHT,
-		Table: Table{"table1", nil},
+		Table: TableName{"table1", nil},
 	}, "right join table1")
 
 	assertSQL(t, JoinableFrom{
 		Join:  JOIN_TYPE_FULL,
-		Table: Table{"table1", &Alias{Alias: "tt"}},
+		Table: TableName{"table1", &Alias{Alias: "tt"}},
 	}, "full join table1 as tt")
 
 	// join conditions (e.g. "on ...") are tested in http/sql/parser
@@ -48,7 +48,7 @@ func Test_Select_Write_NoWhere_NoOrderBy(t *testing.T) {
 	assertSQL(t, Select{
 		Columns: []DataField{DataField{Name: "id"}},
 		Froms: []JoinableFrom{
-			JoinableFrom{Table: Table{"table1", nil}},
+			JoinableFrom{Table: TableName{"table1", nil}},
 		},
 		Limit: 100,
 	}, "select json_object('id', id) from table1 limit 100")
@@ -58,7 +58,7 @@ func Test_Select_Write_SingleColumn_SingleFrom(t *testing.T) {
 	assertSQL(t, Select{
 		Columns: []DataField{DataField{Name: "id"}},
 		Froms: []JoinableFrom{
-			JoinableFrom{Table: Table{"table1", nil}},
+			JoinableFrom{Table: TableName{"table1", nil}},
 		},
 		Where: Condition{
 			Parts: []Part{Predicate{
@@ -79,9 +79,9 @@ func Test_Select_Write_MultipleColumn_MultipleFrom(t *testing.T) {
 			DataField{Name: "full_name", Table: "t2", Alias: &Alias{"name"}},
 		},
 		Froms: []JoinableFrom{
-			JoinableFrom{Table: Table{"table1", &Alias{"t1"}}},
+			JoinableFrom{Table: TableName{"table1", &Alias{"t1"}}},
 			JoinableFrom{
-				Table: Table{"table2", &Alias{"t2"}},
+				Table: TableName{"table2", &Alias{"t2"}},
 				Join:  JOIN_TYPE_INNER,
 				On: &Condition{
 					Parts: []Part{Predicate{
@@ -112,7 +112,7 @@ func Test_Select_Single_CTE(t *testing.T) {
 	sel := Select{
 		Columns: []DataField{DataField{Name: "id"}},
 		Froms: []JoinableFrom{
-			JoinableFrom{Table: Table{"table1", &Alias{"t1"}}},
+			JoinableFrom{Table: TableName{"table1", &Alias{"t1"}}},
 		},
 	}
 
@@ -124,9 +124,9 @@ func Test_Select_Multiple_CTE(t *testing.T) {
 	sel := Select{
 		Columns: []DataField{DataField{Name: "id"}},
 		Froms: []JoinableFrom{
-			JoinableFrom{Table: Table{"table1", &Alias{"t1"}}},
-			JoinableFrom{Join: JOIN_TYPE_LEFT, Table: Table{"table2", nil}},
-			JoinableFrom{Join: JOIN_TYPE_LEFT, Table: Table{"table3", nil}},
+			JoinableFrom{Table: TableName{"table1", &Alias{"t1"}}},
+			JoinableFrom{Join: JOIN_TYPE_LEFT, Table: TableName{"table2", nil}},
+			JoinableFrom{Join: JOIN_TYPE_LEFT, Table: TableName{"table3", nil}},
 		},
 	}
 

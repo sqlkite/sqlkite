@@ -2,7 +2,7 @@
 
 // Used as a factory for tests only
 
-package data
+package sql
 
 import (
 	"strings"

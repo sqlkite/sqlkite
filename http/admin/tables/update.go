@@ -7,7 +7,6 @@ import (
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite"
-	"src.sqlkite.com/sqlkite/data"
 	"src.sqlkite.com/sqlkite/sql"
 )
 
@@ -50,11 +49,11 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 
 	access := mapAccess(input.Object("access"))
 
-	// The last argument, our data.Table, only represents part of the data
+	// The last argument, our sql.Table, only represents part of the data
 	// The existing table will be loaded, and its columns will be used as a base
-	// to apply the alterTable changes to it. That's why the &data.Table that we're
+	// to apply the alterTable changes to it. That's why the &sql.Table that we're
 	// passing doesn't need the columns.
-	err = env.Project.UpdateTable(env, &data.Table{
+	err = env.Project.UpdateTable(env, &sql.Table{
 		Name:           tableName,
 		Access:         access,
 		MaxDeleteCount: input.OptionalInt("max_delete_count"),

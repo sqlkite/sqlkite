@@ -8,7 +8,7 @@ import (
 	"src.goblgobl.com/utils"
 	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/codes"
-	"src.sqlkite.com/sqlkite/data"
+	"src.sqlkite.com/sqlkite/sql"
 	"src.sqlkite.com/sqlkite/tests"
 )
 
@@ -140,22 +140,22 @@ func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 	assert.Equal(t, table.Columns[0].Name, "C1")
 	assert.Equal(t, table.Columns[0].Default.(string), "a")
 	assert.Equal(t, table.Columns[0].Nullable, true)
-	assert.Equal(t, table.Columns[0].Type, data.COLUMN_TYPE_TEXT)
+	assert.Equal(t, table.Columns[0].Type, sql.COLUMN_TYPE_TEXT)
 
 	assert.Equal(t, table.Columns[1].Name, "c2")
 	assert.Equal(t, table.Columns[1].Default.(float64), 32)
 	assert.Equal(t, table.Columns[1].Nullable, true)
-	assert.Equal(t, table.Columns[1].Type, data.COLUMN_TYPE_INT)
+	assert.Equal(t, table.Columns[1].Type, sql.COLUMN_TYPE_INT)
 
 	assert.Equal(t, table.Columns[2].Name, "C3")
 	assert.Equal(t, table.Columns[2].Default.(float64), 9000.1)
 	assert.Equal(t, table.Columns[2].Nullable, true)
-	assert.Equal(t, table.Columns[2].Type, data.COLUMN_TYPE_REAL)
+	assert.Equal(t, table.Columns[2].Type, sql.COLUMN_TYPE_REAL)
 
 	assert.Equal(t, table.Columns[3].Name, "c4")
 	assert.Equal(t, string(table.Columns[3].Default.([]byte)), "over9000")
 	assert.Equal(t, table.Columns[3].Nullable, true)
-	assert.Equal(t, table.Columns[3].Type, data.COLUMN_TYPE_BLOB)
+	assert.Equal(t, table.Columns[3].Type, sql.COLUMN_TYPE_BLOB)
 
 	assert.Equal(t, table.Access.Select.Name, "sqlkite_cte_test_create_success_defaults")
 	assert.Equal(t, table.Access.Select.CTE, "select * from a_table where user_id = sqlkite_user_id()")
@@ -222,22 +222,22 @@ func Test_Create_Success_NoDefaults_NoAccessControl(t *testing.T) {
 	assert.Equal(t, table.Columns[0].Name, "c1")
 	assert.Nil(t, table.Columns[0].Default)
 	assert.Equal(t, table.Columns[0].Nullable, false)
-	assert.Equal(t, table.Columns[0].Type, data.COLUMN_TYPE_TEXT)
+	assert.Equal(t, table.Columns[0].Type, sql.COLUMN_TYPE_TEXT)
 
 	assert.Equal(t, table.Columns[1].Name, "c2")
 	assert.Nil(t, table.Columns[1].Default)
 	assert.Equal(t, table.Columns[1].Nullable, false)
-	assert.Equal(t, table.Columns[1].Type, data.COLUMN_TYPE_INT)
+	assert.Equal(t, table.Columns[1].Type, sql.COLUMN_TYPE_INT)
 
 	assert.Equal(t, table.Columns[2].Name, "c3")
 	assert.Nil(t, table.Columns[2].Default)
 	assert.Equal(t, table.Columns[2].Nullable, false)
-	assert.Equal(t, table.Columns[2].Type, data.COLUMN_TYPE_REAL)
+	assert.Equal(t, table.Columns[2].Type, sql.COLUMN_TYPE_REAL)
 
 	assert.Equal(t, table.Columns[3].Name, "c4")
 	assert.Nil(t, table.Columns[3].Default)
 	assert.Equal(t, table.Columns[3].Nullable, false)
-	assert.Equal(t, table.Columns[3].Type, data.COLUMN_TYPE_BLOB)
+	assert.Equal(t, table.Columns[3].Type, sql.COLUMN_TYPE_BLOB)
 
 	assert.Nil(t, table.Access.Select)
 	assert.Nil(t, table.Access.Insert)

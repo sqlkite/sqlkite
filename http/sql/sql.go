@@ -113,16 +113,16 @@ func parseColumnResultList(input any, field validation.Field, validator *validat
 	return columns
 }
 
-func parseRequiredQualifiedTable(input any, field validation.Field, validator *validation.Result) sql.Table {
+func parseRequiredQualifiedTable(input any, field validation.Field, validator *validation.Result) sql.TableName {
 	if input == nil {
 		validator.AddInvalidField(field, valRequired)
-		return sql.Table{}
+		return sql.TableName{}
 	}
 
 	table, err := parser.QualifiedTableName(input)
 	if err != nil {
 		validator.AddInvalidField(field, *err)
-		return sql.Table{}
+		return sql.TableName{}
 	}
 	return table
 }

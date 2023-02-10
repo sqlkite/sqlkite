@@ -27,7 +27,7 @@ func init() {
 }
 
 type Insert struct {
-	Into       Table
+	Into       TableName
 	Columns    []string
 	Parameters []any
 	Returning  []DataField

@@ -52,12 +52,12 @@ func (a *Alias) Write(b *buffer.Buffer) {
 	b.WriteUnsafe(a.Alias)
 }
 
-type Table struct {
+type TableName struct {
 	Name  string `json:"name"`
 	Alias *Alias `json:"alias",omitempty`
 }
 
-func (t Table) Write(b *buffer.Buffer) {
+func (t TableName) Write(b *buffer.Buffer) {
 	b.WriteUnsafe(t.Name)
 	if alias := t.Alias; alias != nil {
 		alias.Write(b)
@@ -129,7 +129,7 @@ func (cte CTE) Write(b *buffer.Buffer) {
 
 type JoinableFrom struct {
 	Join  JoinType   `json:"join",omitempty`
-	Table Table      `json:"table"`
+	Table TableName  `json:"table"`
 	On    *Condition `json:"on",omitempty`
 }
 

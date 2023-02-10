@@ -125,28 +125,28 @@ func Test_Projects_Get_Known(t *testing.T) {
 
 func Test_Project_CreateTable(t *testing.T) {
 	project := dynamicProject()
-	err := project.CreateTable(project.Env(), &data.Table{
+	err := project.CreateTable(project.Env(), &sql.Table{
 		Name: "tab1",
-		Columns: []data.Column{
-			data.BuildColumn().Name("c1").Type("text").Nullable().Column(),
-			data.BuildColumn().Name("c2").Type("int").Nullable().Column(),
-			data.BuildColumn().Name("c3").Type("real").Nullable().Column(),
-			data.BuildColumn().Name("c4").Type("blob").Nullable().Column(),
+		Columns: []sql.Column{
+			sql.BuildColumn().Name("c1").Type("text").Nullable().Column(),
+			sql.BuildColumn().Name("c2").Type("int").Nullable().Column(),
+			sql.BuildColumn().Name("c3").Type("real").Nullable().Column(),
+			sql.BuildColumn().Name("c4").Type("blob").Nullable().Column(),
 		},
 	})
 	assert.Nil(t, err)
 
 	project = MustGetProject(project.Id)
-	err = project.CreateTable(project.Env(), &data.Table{
+	err = project.CreateTable(project.Env(), &sql.Table{
 		Name: "tab2",
-		Columns: []data.Column{
-			data.BuildColumn().Name("c1").Type("text").NotNullable().Default("def-1").Column(),
-			data.BuildColumn().Name("c2").Type("int").NotNullable().Default(9001).Column(),
-			data.BuildColumn().Name("c3").Type("real").NotNullable().Default(8999.9).Column(),
-			data.BuildColumn().Name("c4").Type("blob").NotNullable().Default([]byte("d9")).Column(),
+		Columns: []sql.Column{
+			sql.BuildColumn().Name("c1").Type("text").NotNullable().Default("def-1").Column(),
+			sql.BuildColumn().Name("c2").Type("int").NotNullable().Default(9001).Column(),
+			sql.BuildColumn().Name("c3").Type("real").NotNullable().Default(8999.9).Column(),
+			sql.BuildColumn().Name("c4").Type("blob").NotNullable().Default([]byte("d9")).Column(),
 		},
-		Access: data.TableAccess{
-			Select: &data.SelectTableAccess{CTE: "select * from tab2 where public"},
+		Access: sql.TableAccess{
+			Select: &sql.SelectTableAccess{CTE: "select * from tab2 where public"},
 		},
 	})
 	assert.Nil(t, err)
@@ -162,22 +162,22 @@ func Test_Project_CreateTable(t *testing.T) {
 	assert.Equal(t, table.Columns[0].Name, "c1")
 	assert.Nil(t, table.Columns[0].Default)
 	assert.Equal(t, table.Columns[0].Nullable, true)
-	assert.Equal(t, table.Columns[0].Type, data.COLUMN_TYPE_TEXT)
+	assert.Equal(t, table.Columns[0].Type, sql.COLUMN_TYPE_TEXT)
 
 	assert.Equal(t, table.Columns[1].Name, "c2")
 	assert.Nil(t, table.Columns[1].Default)
 	assert.Equal(t, table.Columns[1].Nullable, true)
-	assert.Equal(t, table.Columns[1].Type, data.COLUMN_TYPE_INT)
+	assert.Equal(t, table.Columns[1].Type, sql.COLUMN_TYPE_INT)
 
 	assert.Equal(t, table.Columns[2].Name, "c3")
 	assert.Nil(t, table.Columns[2].Default)
 	assert.Equal(t, table.Columns[2].Nullable, true)
-	assert.Equal(t, table.Columns[2].Type, data.COLUMN_TYPE_REAL)
+	assert.Equal(t, table.Columns[2].Type, sql.COLUMN_TYPE_REAL)
 
 	assert.Equal(t, table.Columns[3].Name, "c4")
 	assert.Nil(t, table.Columns[3].Default)
 	assert.Equal(t, table.Columns[3].Nullable, true)
-	assert.Equal(t, table.Columns[3].Type, data.COLUMN_TYPE_BLOB)
+	assert.Equal(t, table.Columns[3].Type, sql.COLUMN_TYPE_BLOB)
 
 	assert.Nil(t, table.Access.Select)
 
@@ -191,22 +191,22 @@ func Test_Project_CreateTable(t *testing.T) {
 	assert.Equal(t, table.Columns[0].Name, "c1")
 	assert.Equal(t, table.Columns[0].Nullable, false)
 	assert.Equal(t, table.Columns[0].Default.(string), "def-1")
-	assert.Equal(t, table.Columns[0].Type, data.COLUMN_TYPE_TEXT)
+	assert.Equal(t, table.Columns[0].Type, sql.COLUMN_TYPE_TEXT)
 
 	assert.Equal(t, table.Columns[1].Name, "c2")
 	assert.Equal(t, table.Columns[1].Nullable, false)
 	assert.Equal(t, table.Columns[1].Default.(float64), 9001)
-	assert.Equal(t, table.Columns[1].Type, data.COLUMN_TYPE_INT)
+	assert.Equal(t, table.Columns[1].Type, sql.COLUMN_TYPE_INT)
 
 	assert.Equal(t, table.Columns[2].Name, "c3")
 	assert.Equal(t, table.Columns[2].Nullable, false)
 	assert.Equal(t, table.Columns[2].Default.(float64), 8999.9)
-	assert.Equal(t, table.Columns[2].Type, data.COLUMN_TYPE_REAL)
+	assert.Equal(t, table.Columns[2].Type, sql.COLUMN_TYPE_REAL)
 
 	assert.Equal(t, table.Columns[3].Name, "c4")
 	assert.Equal(t, table.Columns[3].Nullable, false)
 	assert.Equal(t, string(table.Columns[3].Default.([]byte)), "d9")
-	assert.Equal(t, table.Columns[3].Type, data.COLUMN_TYPE_BLOB)
+	assert.Equal(t, table.Columns[3].Type, sql.COLUMN_TYPE_BLOB)
 
 	assert.Equal(t, table.Access.Select.CTE, "select * from tab2 where public")
 	assert.Equal(t, table.Access.Select.Name, "sqlkite_cte_tab2")
@@ -215,7 +215,7 @@ func Test_Project_CreateTable(t *testing.T) {
 func Test_Project_UpdateTable_UnknownTable(t *testing.T) {
 	project := MustGetProject(tests.Factory.StandardId)
 	env := project.Env()
-	err := project.UpdateTable(env, &data.Table{}, sql.AlterTable{Name: "tab1"})
+	err := project.UpdateTable(env, &sql.Table{}, sql.AlterTable{Name: "tab1"})
 	assert.Nil(t, err)
 	assert.Validation(t, env.Validator).Field("", codes.VAL_UNKNOWN_TABLE, map[string]any{"value": "tab1"})
 }
@@ -223,28 +223,28 @@ func Test_Project_UpdateTable_UnknownTable(t *testing.T) {
 func Test_Project_UpdateTable_Success(t *testing.T) {
 	id := tests.Factory.DynamicId()
 	project := MustGetProject(id)
-	err := project.CreateTable(project.Env(), &data.Table{
+	err := project.CreateTable(project.Env(), &sql.Table{
 		Name: "tab_update",
-		Columns: []data.Column{
-			data.BuildColumn().Name("c1").Type("text").Nullable().Column(),
-			data.BuildColumn().Name("c2").Type("int").Nullable().Column(),
-			data.BuildColumn().Name("c3").Type("real").Nullable().Column(),
-			data.BuildColumn().Name("c4").Type("blob").Nullable().Column(),
+		Columns: []sql.Column{
+			sql.BuildColumn().Name("c1").Type("text").Nullable().Column(),
+			sql.BuildColumn().Name("c2").Type("int").Nullable().Column(),
+			sql.BuildColumn().Name("c3").Type("real").Nullable().Column(),
+			sql.BuildColumn().Name("c4").Type("blob").Nullable().Column(),
 		},
 	})
 	assert.Nil(t, err)
 
 	project = MustGetProject(id)
 	err = project.UpdateTable(project.Env(),
-		&data.Table{
-			Access: data.TableAccess{Select: &data.SelectTableAccess{CTE: "select 1"}},
+		&sql.Table{
+			Access: sql.TableAccess{Select: &sql.SelectTableAccess{CTE: "select 1"}},
 		},
 		sql.AlterTable{
 			Name: "tab_update",
 			Changes: []sql.AlterTableChange{
 				sql.DropColumn{Name: "c2"},
 				sql.RenameColumn{Name: "c1", To: "c1_b"},
-				sql.AddColumn{Column: data.BuildColumn().Name("c5").Type("int").NotNullable().Column()},
+				sql.AddColumn{Column: sql.BuildColumn().Name("c5").Type("int").NotNullable().Column()},
 				sql.DropColumn{Name: "c4"},
 				sql.RenameTable{To: "tab_update_b"},
 			}})
@@ -272,15 +272,15 @@ func Test_Project_UpdateTable_Success(t *testing.T) {
 	assert.Equal(t, len(table.Columns), 3)
 	assert.Equal(t, table.Columns[0].Name, "c1_b")
 	assert.Equal(t, table.Columns[0].Nullable, true)
-	assert.Equal(t, table.Columns[0].Type, data.COLUMN_TYPE_TEXT)
+	assert.Equal(t, table.Columns[0].Type, sql.COLUMN_TYPE_TEXT)
 
 	assert.Equal(t, table.Columns[1].Name, "c3")
 	assert.Equal(t, table.Columns[1].Nullable, true)
-	assert.Equal(t, table.Columns[1].Type, data.COLUMN_TYPE_REAL)
+	assert.Equal(t, table.Columns[1].Type, sql.COLUMN_TYPE_REAL)
 
 	assert.Equal(t, table.Columns[2].Name, "c5")
 	assert.Equal(t, table.Columns[2].Nullable, false)
-	assert.Equal(t, table.Columns[2].Type, data.COLUMN_TYPE_INT)
+	assert.Equal(t, table.Columns[2].Type, sql.COLUMN_TYPE_INT)
 
 	assert.Equal(t, table.Access.Select.CTE, "select 1")
 	assert.Equal(t, table.Access.Select.Name, "sqlkite_cte_tab_update_b")
@@ -297,10 +297,10 @@ func Test_Project_DeleteTable_UnknownTable(t *testing.T) {
 func Test_Project_DeleteTable_Success(t *testing.T) {
 	id := tests.Factory.DynamicId()
 	project := MustGetProject(id)
-	err := project.CreateTable(project.Env(), &data.Table{
+	err := project.CreateTable(project.Env(), &sql.Table{
 		Name: "tab_delete",
-		Columns: []data.Column{
-			data.BuildColumn().Name("c1").Type("text").Nullable().Column(),
+		Columns: []sql.Column{
+			sql.BuildColumn().Name("c1").Type("text").Nullable().Column(),
 		},
 	})
 	assert.Nil(t, err)
@@ -318,22 +318,22 @@ func dynamicProject() *Project {
 }
 
 func Test_ApplyTableChanges(t *testing.T) {
-	t1 := &data.Table{
+	t1 := &sql.Table{
 		Name: "test1",
-		Columns: []data.Column{
-			data.BuildColumn().Name("c1").Column(),
-			data.BuildColumn().Name("c2").Column(),
-			data.BuildColumn().Name("c3").Column(),
-			data.BuildColumn().Name("c4").Column(),
+		Columns: []sql.Column{
+			sql.BuildColumn().Name("c1").Column(),
+			sql.BuildColumn().Name("c2").Column(),
+			sql.BuildColumn().Name("c3").Column(),
+			sql.BuildColumn().Name("c4").Column(),
 		},
 	}
 
-	t2 := &data.Table{
-		Access: data.TableAccess{
-			Select: &data.SelectTableAccess{CTE: "select 1"},
-			Insert: &data.MutateTableAccess{Trigger: "select 2"},
-			Update: &data.MutateTableAccess{Trigger: "select 3"},
-			Delete: &data.MutateTableAccess{Trigger: "select 4"},
+	t2 := &sql.Table{
+		Access: sql.TableAccess{
+			Select: &sql.SelectTableAccess{CTE: "select 1"},
+			Insert: &sql.MutateTableAccess{Trigger: "select 2"},
+			Update: &sql.MutateTableAccess{Trigger: "select 3"},
+			Delete: &sql.MutateTableAccess{Trigger: "select 4"},
 		},
 	}
 	applyTableChanges(t2, t1, sql.AlterTable{
@@ -341,7 +341,7 @@ func Test_ApplyTableChanges(t *testing.T) {
 			sql.RenameTable{To: "test2"},
 			sql.DropColumn{Name: "c2"},
 			sql.RenameColumn{Name: "c4", To: "c4-b"},
-			sql.AddColumn{Column: data.BuildColumn().Name("c5").Type("blob").NotNullable().Column()},
+			sql.AddColumn{Column: sql.BuildColumn().Name("c5").Type("blob").NotNullable().Column()},
 		}})
 
 	assert.Equal(t, t2.Name, "test2")
@@ -352,14 +352,14 @@ func Test_ApplyTableChanges(t *testing.T) {
 	assert.Equal(t, t2.Columns[3].Name, "c5")
 	assert.Nil(t, t2.Columns[3].Default)
 	assert.Equal(t, t2.Columns[3].Nullable, false)
-	assert.Equal(t, t2.Columns[3].Type, data.COLUMN_TYPE_BLOB)
+	assert.Equal(t, t2.Columns[3].Type, sql.COLUMN_TYPE_BLOB)
 	assert.Equal(t, t2.Access.Select.CTE, "select 1")
 	assert.Equal(t, t2.Access.Insert.Trigger, "select 2")
 	assert.Equal(t, t2.Access.Update.Trigger, "select 3")
 	assert.Equal(t, t2.Access.Delete.Trigger, "select 4")
 
 	// make sure our drop column correctly modified our column array
-	t3 := &data.Table{}
+	t3 := &sql.Table{}
 	applyTableChanges(t3, t2, sql.AlterTable{
 		Changes: []sql.AlterTableChange{
 			sql.DropColumn{Name: "c1"},
@@ -376,12 +376,12 @@ func Test_ApplyTableChanges(t *testing.T) {
 
 	// Make sure our drop column correct modified our column array.
 	// Delete our select CTE
-	t4 := &data.Table{
-		Access: data.TableAccess{
-			Select: &data.SelectTableAccess{CTE: ""},
-			Insert: &data.MutateTableAccess{Trigger: ""},
-			Update: &data.MutateTableAccess{Trigger: ""},
-			Delete: &data.MutateTableAccess{Trigger: ""},
+	t4 := &sql.Table{
+		Access: sql.TableAccess{
+			Select: &sql.SelectTableAccess{CTE: ""},
+			Insert: &sql.MutateTableAccess{Trigger: ""},
+			Update: &sql.MutateTableAccess{Trigger: ""},
+			Delete: &sql.MutateTableAccess{Trigger: ""},
 		},
 	}
 	applyTableChanges(t4, t3, sql.AlterTable{

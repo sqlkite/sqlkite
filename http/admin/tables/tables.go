@@ -7,7 +7,7 @@ import (
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite/codes"
-	"src.sqlkite.com/sqlkite/data"
+	"src.sqlkite.com/sqlkite/sql"
 )
 
 var (
@@ -68,14 +68,14 @@ func validateDefault(field validation.Field, value any, object typed.Typed, inpu
 		return nil // no default, no problem
 	}
 
-	switch object["type"].(data.ColumnType) {
-	case data.COLUMN_TYPE_TEXT:
+	switch object["type"].(sql.ColumnType) {
+	case sql.COLUMN_TYPE_TEXT:
 		n, ok := value.(string)
 		if !ok {
 			res.AddInvalidField(field, validation.InvalidStringType())
 		}
 		return n
-	case data.COLUMN_TYPE_INT:
+	case sql.COLUMN_TYPE_INT:
 		// IntIf will do some sane conversion (e.g. float -> int since
 		// we're coming from JSON). This is more consistent than type-checking
 		// value.
@@ -84,7 +84,7 @@ func validateDefault(field validation.Field, value any, object typed.Typed, inpu
 			res.AddInvalidField(field, validation.InvalidIntType())
 		}
 		return n
-	case data.COLUMN_TYPE_REAL:
+	case sql.COLUMN_TYPE_REAL:
 		// FloatIf will do some sane conversion (e.g. float -> int since
 		// we're coming from JSON). This is more consistent than type-checking
 		// value.
@@ -93,7 +93,7 @@ func validateDefault(field validation.Field, value any, object typed.Typed, inpu
 			res.AddInvalidField(field, validation.InvalidFloatType())
 		}
 		return n
-	case data.COLUMN_TYPE_BLOB:
+	case sql.COLUMN_TYPE_BLOB:
 		n, ok := value.(string)
 		if !ok {
 			res.AddInvalidField(field, blobDefaultError)
@@ -104,7 +104,7 @@ func validateDefault(field validation.Field, value any, object typed.Typed, inpu
 			res.AddInvalidField(field, blobDefaultError)
 		}
 		return bytes
-	case data.COLUMN_TYPE_INVALID:
+	case sql.COLUMN_TYPE_INVALID:
 		return nil
 	}
 
@@ -114,14 +114,14 @@ func validateDefault(field validation.Field, value any, object typed.Typed, inpu
 func columnTypeConverter(field validation.Field, value string, object typed.Typed, input typed.Typed, res *validation.Result) any {
 	switch value {
 	case "text":
-		return data.COLUMN_TYPE_TEXT
+		return sql.COLUMN_TYPE_TEXT
 	case "int":
-		return data.COLUMN_TYPE_INT
+		return sql.COLUMN_TYPE_INT
 	case "real":
-		return data.COLUMN_TYPE_REAL
+		return sql.COLUMN_TYPE_REAL
 	case "blob":
-		return data.COLUMN_TYPE_BLOB
+		return sql.COLUMN_TYPE_BLOB
 	}
 	// cannot be valid, Choice must have already flagged it as invalid
-	return data.COLUMN_TYPE_INVALID
+	return sql.COLUMN_TYPE_INVALID
 }

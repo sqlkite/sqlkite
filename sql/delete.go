@@ -8,7 +8,7 @@ import (
 )
 
 type Delete struct {
-	From       Table
+	From       TableName
 	Where      Condition
 	Parameters []any
 	Limit      optional.Value[int]

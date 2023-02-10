@@ -167,37 +167,37 @@ func Condition(input []any, depth int) (sql.Condition, *validation.Invalid) {
 // Parses a single table name with an optional alias. This is
 // different and simpler than a JoinableFrom as it doesn't allow join
 // types and conditions (it's used for update/delele/insert).
-func QualifiedTableName(raw any) (sql.Table, *validation.Invalid) {
+func QualifiedTableName(raw any) (sql.TableName, *validation.Invalid) {
 	tableName, ok := raw.(string)
 	if !ok {
-		return sql.Table{}, invalidTable(EmptyParser)
+		return sql.TableName{}, invalidTable(EmptyParser)
 	}
 	return QualifiedTableNameString(tableName)
 }
 
-func QualifiedTableNameString(input string) (sql.Table, *validation.Invalid) {
+func QualifiedTableNameString(input string) (sql.TableName, *validation.Invalid) {
 	p := &parser{0, input}
 	p.skipSpaces()
 
 	name, err := p.requiredObjectName(invalidTable)
 	if err != nil {
-		return sql.Table{}, err
+		return sql.TableName{}, err
 	}
 
 	if name == "" {
-		return sql.Table{}, invalidTable(p)
+		return sql.TableName{}, invalidTable(p)
 	}
 
-	table := sql.Table{Name: name}
+	table := sql.TableName{Name: name}
 
 	if next := p.skip1(); next == ' ' {
 		p.skipSpaces()
 		table.Alias, err = p.alias()
 		if err != nil {
-			return sql.Table{}, err
+			return sql.TableName{}, err
 		}
 	} else if next != 0 {
-		return sql.Table{}, invalidTable(p)
+		return sql.TableName{}, invalidTable(p)
 	}
 
 	return table, nil
