@@ -1,5 +1,27 @@
 package sql
 
+// The sqlkite concept of a table has differences than the SQLite concept. For
+// example, an sqlkite table can have a MaxUpdateCount or access control.
+// Because of this extra data, we store the table definition in the sqlkite_tables
+// table. But SQLite also knows a lot about the tables, such as columns, primary
+// key, indexes, etc. Having this data maintained by both sqlkite and SQLite is
+// problematic, because we need to keep it in sync.
+// A lot of the SQLite data isn't something sqlkite really cares about. For example
+// sqlkite doesn't care what columns are primary keys. There's no reason to store
+// this data in the sqlkite_tables table...the best that can come from that is
+// that we introduce an inconsistency. All of this data which sqlkite doesn't
+// really care about (but which is still important, and which we at least need
+// to be aware of when creating the table (to generate the correct SQL)), is stored
+// in the TableExtended and ColumnExtended.
+
+// SQLite has a noteworthy way to implement and declare auto-incrementing IDs.
+// https://www.sqlite.org/autoinc.html  describes the behavior.
+// With respect to what we're trying to do here (generate the create table statement),
+// the main concern is that, to create a monotonic autoincrement primary key, we
+// HAVE to use the  "column_name integer primary key autoincrement". Note that
+// we HAVE to use "integer" and not "int" and note that the "primary key" statement
+// has to be in the column definition, not as a separate statetement.
+
 import (
 	"encoding/hex"
 	"fmt"
@@ -11,6 +33,7 @@ import (
 )
 
 type ColumnType int
+type AutoIncrementType int
 
 const (
 	COLUMN_TYPE_INVALID ColumnType = iota
@@ -19,6 +42,16 @@ const (
 	COLUMN_TYPE_TEXT
 	COLUMN_TYPE_BLOB
 )
+const (
+	AUTO_INCREMENT_TYPE_NONE AutoIncrementType = iota
+	AUTO_INCREMENT_TYPE_STRICT
+	AUTO_INCREMENT_TYPE_REUSE
+)
+
+var (
+	defaultTableExtended  = &TableExtended{}
+	defaultColumnExtended = &ColumnExtended{}
+)
 
 type Table struct {
 	Name           string              `json:"name"`
@@ -26,6 +59,7 @@ type Table struct {
 	Access         TableAccess         `json:"access"`
 	MaxDeleteCount optional.Value[int] `json:"max_delete_count"`
 	MaxUpdateCount optional.Value[int] `json:"max_update_count"`
+	Extended       *TableExtended      `json:"-"`
 }
 
 func (t *Table) Column(name string) (Column, bool) {
@@ -38,6 +72,11 @@ func (t *Table) Column(name string) (Column, bool) {
 }
 
 func (t *Table) Write(b *buffer.Buffer) {
+	extended := t.Extended
+	if extended == nil {
+		extended = defaultTableExtended
+	}
+
 	b.Write([]byte("create table "))
 	b.WriteUnsafe(t.Name)
 	b.Write([]byte("(\n\t"))
@@ -47,26 +86,97 @@ func (t *Table) Write(b *buffer.Buffer) {
 		c.Write(b)
 		b.Write([]byte(",\n\t"))
 	}
+
+	// If we have an auto-increment column, the we expect the "primary key" statement
+	// to appear in the column definition (because this is what SQLite requires).
+	if pk := extended.PrimaryKey; len(pk) > 0 {
+		if !t.hasAutoIncrement(extended) {
+			b.Write([]byte("primary key ("))
+			for _, columnName := range pk {
+				b.WriteUnsafe(columnName)
+				b.WriteByte(',')
+			}
+			b.Truncate(1)
+			b.Write([]byte("),\n\t"))
+		}
+	}
+
 	b.Truncate(3)
 	b.Write([]byte("\n)"))
 }
 
-type Column struct {
-	Name     string     `json:"name"`
-	Type     ColumnType `json:"type"`
-	Default  any        `json:"default"`
-	Nullable bool       `json:"nullable"`
+func (t *Table) hasAutoIncrement(extended *TableExtended) bool {
+	pk := extended.PrimaryKey
+
+	// "autoincrement" is only valid when we have a 1 column primary key.
+	if len(pk) != 1 {
+		return false
+	}
+
+	columnName := pk[0]
+
+	for _, column := range t.Columns {
+		if column.Name != columnName {
+			continue
+		}
+
+		if ex := column.Extended; ex != nil {
+			return ex.AutoIncrement.Value != AUTO_INCREMENT_TYPE_NONE
+		}
+	}
+
+	return false
 }
 
-func (c Column) Write(b *buffer.Buffer) {
-	tpe := c.Type
+type TableExtended struct {
+	PrimaryKey []string
+	Indexes    []Index
+}
+
+type Column struct {
+	Name     string          `json:"name"`
+	Type     ColumnType      `json:"type"`
+	Default  any             `json:"default"`
+	Nullable bool            `json:"nullable"`
+	Extended *ColumnExtended `json:"-"`
+}
+
+func (c *Column) Write(b *buffer.Buffer) {
+	extended := c.Extended
+	if extended == nil {
+		extended = defaultColumnExtended
+	}
 
 	b.WriteUnsafe(c.Name)
 	b.WriteByte(' ')
-	b.WriteUnsafe(tpe.String())
+
+	tpe := c.Type
+	switch tpe {
+	case COLUMN_TYPE_INT:
+		if ai := extended.AutoIncrement; !ai.Exists {
+			b.Write([]byte("int"))
+		} else {
+			switch ai.Value {
+			case AUTO_INCREMENT_TYPE_REUSE:
+				b.Write([]byte("integer primary key"))
+			case AUTO_INCREMENT_TYPE_STRICT:
+				b.Write([]byte("integer primary key autoincrement"))
+			}
+		}
+	case COLUMN_TYPE_REAL:
+		b.Write([]byte("real"))
+	case COLUMN_TYPE_TEXT:
+		b.Write([]byte("text"))
+	case COLUMN_TYPE_BLOB:
+		b.Write([]byte("blob"))
+	default:
+		panic(fmt.Sprintf("unknown column type: %d", tpe))
+	}
+
 	if !c.Nullable {
 		b.Write([]byte(" not"))
 	}
+
 	b.Write([]byte(" null"))
 	if d := c.Default; d != nil {
 		b.Write([]byte(" default("))
@@ -86,18 +196,15 @@ func (c Column) Write(b *buffer.Buffer) {
 	}
 }
 
-func (c ColumnType) String() string {
-	switch c {
-	case COLUMN_TYPE_INT:
-		return "int"
-	case COLUMN_TYPE_REAL:
-		return "real"
-	case COLUMN_TYPE_TEXT:
-		return "text"
-	case COLUMN_TYPE_BLOB:
-		return "blob"
-	}
-	panic(fmt.Sprintf("ColumnType.String(%d)", c))
+type ColumnExtended struct {
+	AutoIncrement optional.Value[AutoIncrementType] `json:"autoincrement`
+}
+
+type Index struct {
+	Name    string
+	Columns []string
+	Desc    []bool
+	Unique  bool
 }
 
 type TableAccess struct {

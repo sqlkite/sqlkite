@@ -22,7 +22,7 @@ func Test_Create_InvalidBody(t *testing.T) {
 func Test_Create_InvalidData(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Post(Create).
-		ExpectValidation("name", utils.VAL_REQUIRED, "columns", utils.VAL_REQUIRED).ExpectNoValidation("max_update_count", "max_delete_count")
+		ExpectValidation("name", utils.VAL_REQUIRED, "columns", utils.VAL_REQUIRED).ExpectNoValidation("max_update_count", "max_delete_count", "primary_key")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
@@ -42,13 +42,16 @@ func Test_Create_InvalidData(t *testing.T) {
 			"access":           map[string]any{"select": 32, "insert": "no", "update": true, "delete": []any{}},
 			"max_update_count": -4,
 			"max_delete_count": -5,
+			"primary_key":      true,
 		}).
 		Post(Create).
 		ExpectValidation(
 			"max_update_count", utils.VAL_INT_MIN,
 			"max_delete_count", utils.VAL_INT_MIN,
 			"name", utils.VAL_STRING_PATTERN, "columns.0.name", utils.VAL_REQUIRED, "columns.0.type", utils.VAL_REQUIRED, "columns.0.nullable", utils.VAL_REQUIRED,
-			"access.select", utils.VAL_STRING_TYPE, "access.insert", utils.VAL_OBJECT_TYPE, "access.update", utils.VAL_OBJECT_TYPE, "access.delete", utils.VAL_OBJECT_TYPE).
+			"access.select", utils.VAL_STRING_TYPE, "access.insert", utils.VAL_OBJECT_TYPE, "access.update", utils.VAL_OBJECT_TYPE, "access.delete", utils.VAL_OBJECT_TYPE,
+			"primary_key", utils.VAL_ARRAY_TYPE,
+		).
 		ExpectNoValidation("columns.0.default")
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
@@ -60,11 +63,14 @@ func Test_Create_InvalidData(t *testing.T) {
 			"access": map[string]any{
 				"insert": map[string]any{"when": 32, "trigger": true},
 			},
+			"primary_key": []any{"$nope", "ok", 33},
 		}).
 		Post(Create).
 		ExpectValidation(
 			"name", utils.VAL_STRING_PATTERN, "columns.0.name", utils.VAL_STRING_PATTERN, "columns.0.type", utils.VAL_STRING_CHOICE, "columns.0.nullable", utils.VAL_BOOL_TYPE,
-			"access.insert.when", utils.VAL_STRING_TYPE, "access.insert.trigger", utils.VAL_STRING_TYPE)
+			"access.insert.when", utils.VAL_STRING_TYPE, "access.insert.trigger", utils.VAL_STRING_TYPE,
+			"primary_key.0", utils.VAL_STRING_PATTERN, "primary_key.2", utils.VAL_STRING_TYPE,
+		)
 
 	// table name cannot start with sqlkite
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
@@ -91,6 +97,45 @@ func Test_Create_InvalidDefault(t *testing.T) {
 		}).
 		Post(Create).
 		ExpectValidation("columns.0.default", utils.VAL_STRING_TYPE, "columns.1.default", utils.VAL_INT_TYPE, "columns.2.default", utils.VAL_FLOAT_TYPE, "columns.3.default", codes.VAL_NON_BASE64_COLUMN_DEFAULT)
+}
+
+func Test_Create_AutoIncrement_NonInt(t *testing.T) {
+	request.ReqT(t, sqlkite.BuildEnv().Env()).
+		Body(map[string]any{
+			"name": "tab1",
+			"columns": []any{
+				map[string]any{"name": "c1", "type": "text", "nullable": true, "autoincrement": "reuse"},
+			},
+		}).
+		Post(Create).
+		ExpectValidation("columns.0.autoincrement", codes.VAL_AUTOINCREMENT_NOT_INT)
+}
+
+func Test_Create_AutoIncrement_NonPK(t *testing.T) {
+	request.ReqT(t, sqlkite.BuildEnv().Env()).
+		Body(map[string]any{
+			"name":        "tab1",
+			"primary_key": []any{"name"},
+			"columns": []any{
+				map[string]any{"name": "id", "type": "int", "nullable": true, "autoincrement": "strict"},
+			},
+		}).
+		Post(Create).
+		ExpectValidation("columns.0.autoincrement", codes.VAL_AUTOINCREMENT_NON_PK)
+}
+
+func Test_Create_AutoIncrement_MultiplePK(t *testing.T) {
+	request.ReqT(t, sqlkite.BuildEnv().Env()).
+		Body(map[string]any{
+			"name":        "tab1",
+			"primary_key": []any{"id", "name"},
+			"columns": []any{
+				map[string]any{"name": "name", "type": "text", "nullable": true},
+				map[string]any{"name": "id", "type": "int", "nullable": true, "autoincrement": "strict"},
+			},
+		}).
+		Post(Create).
+		ExpectValidation("columns.1.autoincrement", codes.VAL_AUTOINCREMENT_COMPOSITE_PK)
 }
 
 func Test_Create_TooManyTables(t *testing.T) {
@@ -190,6 +235,14 @@ when (3=3)
 begin
  select 3;
 end`)
+
+	createDDL := tests.SqliteMaster(project, "test_create_success_defaults", "test_create_success_defaults")
+	tests.AssertSQL(t, createDDL, `CREATE TABLE test_create_success_defaults(
+		C1 text null default('a'),
+		c2 int null default(32),
+		C3 real null default(9000.1),
+		c4 blob null default(x'6f76657239303030')
+	)`)
 }
 
 func Test_Create_Success_NoDefaults_NoAccessControl(t *testing.T) {
@@ -252,4 +305,86 @@ func Test_Create_Success_NoDefaults_NoAccessControl(t *testing.T) {
 
 	deleteAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_delete", "test_create_success_defaults")
 	assert.Equal(t, deleteAccessControl, "")
+}
+
+func Test_Create_Success_Explicit_PK(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"name": "test_create_success_pk_1",
+			"columns": []any{
+				map[string]any{"name": "c1", "type": "text", "nullable": true},
+			},
+			"primary_key": []any{"c1"},
+		}).
+		Post(Create).
+		OK()
+
+	createDDL := tests.SqliteMaster(project, "test_create_success_pk_1", "test_create_success_pk_1")
+	tests.AssertSQL(t, createDDL, `CREATE TABLE test_create_success_pk_1(
+		c1 text null,
+		primary key (c1)
+	)`)
+}
+
+func Test_Create_Success_Composite_PK(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"name": "test_create_success_pk_2",
+			"columns": []any{
+				map[string]any{"name": "c1", "type": "text", "nullable": true},
+				map[string]any{"name": "c2", "type": "int", "nullable": true},
+			},
+			"primary_key": []any{"c1", "c2"},
+		}).
+		Post(Create).
+		OK()
+
+	createDDL := tests.SqliteMaster(project, "test_create_success_pk_2", "test_create_success_pk_2")
+	tests.AssertSQL(t, createDDL, `CREATE TABLE test_create_success_pk_2(
+		c1 text null,
+		c2 int null,
+		primary key (c1,c2)
+	)`)
+}
+
+func Test_Create_Success_AutoIncrement_Reuse(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"name": "test_create_success_pk_air",
+			"columns": []any{
+				map[string]any{"name": "id", "type": "int", "nullable": true, "autoincrement": "reuse"},
+			},
+		}).
+		Post(Create).
+		OK()
+
+	createDDL := tests.SqliteMaster(project, "test_create_success_pk_air", "test_create_success_pk_air")
+	tests.AssertSQL(t, createDDL, `CREATE TABLE test_create_success_pk_air(
+		id integer primary key null
+	)`)
+}
+
+func Test_Create_Success_AutoIncrement_Strict(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"name": "test_create_success_pk_ais",
+			"columns": []any{
+				map[string]any{"name": "id", "type": "int", "nullable": true, "autoincrement": "strict"},
+			},
+		}).
+		Post(Create).
+		OK()
+
+	createDDL := tests.SqliteMaster(project, "test_create_success_pk_ais", "test_create_success_pk_ais")
+	tests.AssertSQL(t, createDDL, `CREATE TABLE test_create_success_pk_ais(
+		id integer primary key autoincrement null
+	)`)
 }

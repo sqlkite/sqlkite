@@ -9,10 +9,13 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
+	"testing"
 
 	sqliteDriver "src.goblgobl.com/sqlite"
+	"src.goblgobl.com/tests/assert"
 
 	"src.goblgobl.com/tests"
 	"src.goblgobl.com/utils/log"
@@ -128,4 +131,13 @@ func SqliteMaster(connProvider ConnProvider, name string, tableName string) stri
 		}
 	})
 	return sql
+}
+
+var sqlNormalizePattern = regexp.MustCompile("\\s+")
+
+func AssertSQL(t *testing.T, actual string, expected string) {
+	t.Helper()
+	actual = sqlNormalizePattern.ReplaceAllString(actual, " ")
+	expected = sqlNormalizePattern.ReplaceAllString(expected, " ")
+	assert.Equal(t, actual, expected)
 }

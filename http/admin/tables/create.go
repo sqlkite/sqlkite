@@ -3,6 +3,7 @@ package tables
 import (
 	"github.com/valyala/fasthttp"
 	"src.goblgobl.com/utils/http"
+	"src.goblgobl.com/utils/optional"
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite"
@@ -14,6 +15,7 @@ var (
 		Field("name", tableNameValidation).
 		Field("columns", columnsValidation).
 		Field("access", accessValidation).
+		Field("primary_key", primaryKeyValidation).
 		Field("max_delete_count", maxMutateCountValidation).
 		Field("max_update_count", maxMutateCountValidation)
 )
@@ -39,6 +41,9 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		Columns:        columns,
 		MaxDeleteCount: input.OptionalInt("max_delete_count"),
 		MaxUpdateCount: input.OptionalInt("max_update_count"),
+		Extended: &sql.TableExtended{
+			PrimaryKey: input.Strings("primary_key"),
+		},
 	})
 
 	// possible that CreateTable added validation errors
@@ -58,12 +63,19 @@ func mapColumns(input []typed.Typed) []sql.Column {
 }
 
 func mapColumn(input typed.Typed) sql.Column {
-	return sql.Column{
+	c := sql.Column{
 		Name:     input.String("name"),
 		Nullable: input.Bool("nullable"),
 		Default:  input["default"],
 		Type:     input["type"].(sql.ColumnType),
+		Extended: new(sql.ColumnExtended),
 	}
+
+	if ai, ok := input["autoincrement"].(sql.AutoIncrementType); ok {
+		c.Extended.AutoIncrement = optional.New(ai)
+	}
+
+	return c
 }
 
 func mapAccess(input typed.Typed) sql.TableAccess {

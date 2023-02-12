@@ -6,6 +6,7 @@ import (
 
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/utils/buffer"
+	"src.sqlkite.com/sqlkite/tests"
 )
 
 func Test_DataField_Write(t *testing.T) {
@@ -54,12 +55,11 @@ func Test_DataField_WriteAsJsonObject(t *testing.T) {
 
 var sqlNormalizePattern = regexp.MustCompile("\\s+")
 
-func assertSQL(t *testing.T, part Part, expectedSQL string) {
+func assertSQL(t *testing.T, part Part, expected string) {
 	t.Helper()
 	buf := buffer.New(512, 512)
 	part.Write(buf)
-	actual := sqlNormalizePattern.ReplaceAllString(buf.MustString(), " ")
-	assert.Equal(t, actual, expectedSQL)
+	tests.AssertSQL(t, buf.MustString(), expected)
 }
 
 func assertColumnJson(t *testing.T, df DataField, expectedSQL string) {

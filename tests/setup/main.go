@@ -79,7 +79,8 @@ func setupStandardProject() {
 
 	project := MustGetProject(id)
 	err := project.CreateTable(project.Env(), &sql.Table{
-		Name: "products",
+		Name:     "products",
+		Extended: &sql.TableExtended{},
 		Columns: []sql.Column{
 			sql.Column{Name: "id", Type: sql.COLUMN_TYPE_INT},
 			sql.Column{Name: "name", Type: sql.COLUMN_TYPE_TEXT},
@@ -106,7 +107,8 @@ func setupStandardProject() {
 	})
 
 	err = project.CreateTable(project.Env(), &sql.Table{
-		Name: "users",
+		Name:     "users",
+		Extended: &sql.TableExtended{},
 		Columns: []sql.Column{
 			sql.Column{Name: "id", Type: sql.COLUMN_TYPE_INT},
 			sql.Column{Name: "name", Type: sql.COLUMN_TYPE_TEXT},
@@ -162,7 +164,14 @@ func setupDynamicProject() {
 	// clear out all the tables in this "messy" database
 	project.WithDB(func(conn sqlite.Conn) {
 		conn.Transaction(func() error {
-			rows := conn.Rows("select name from sqlite_schema where type='table' and name not like 'sqlkite_%'")
+			tablesToDeleteSQL := `
+				select name
+				from sqlite_schema
+				where type='table'
+					and name not like 'sqlite_%'
+					and name not like 'sqlkite_%'
+			`
+			rows := conn.Rows(tablesToDeleteSQL)
 			defer rows.Close()
 
 			for rows.Next() {
@@ -182,6 +191,7 @@ func setupDynamicProject() {
 	project = MustGetProject(id)
 	err := project.CreateTable(project.Env(), &sql.Table{
 		Name:           "products",
+		Extended:       &sql.TableExtended{},
 		MaxDeleteCount: optional.Int(5),
 		MaxUpdateCount: optional.Int(6),
 		Columns: []sql.Column{
@@ -216,7 +226,8 @@ func setupLimitedProject() {
 
 	project := MustGetProject(id)
 	err := project.CreateTable(project.Env(), &sql.Table{
-		Name: "t1",
+		Name:     "t1",
+		Extended: &sql.TableExtended{},
 		Columns: []sql.Column{
 			sql.Column{Name: "id", Type: sql.COLUMN_TYPE_INT},
 			sql.Column{Name: "name", Type: sql.COLUMN_TYPE_TEXT},

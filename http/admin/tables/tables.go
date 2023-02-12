@@ -30,9 +30,12 @@ var (
 				Field("name", columnNameValidation).
 				Field("type", validation.String().Required().Choice("text", "int", "real", "blob").Convert(columnTypeConverter)).
 				Field("nullable", validation.Bool().Required()).
-				Field("default", validation.Any().Func(validateDefault))
+				Field("default", validation.Any().Func(validateDefault)).
+				Field("autoincrement", validation.String().Choice("strict", "reuse").Func(autoIncrementValidation).Convert(autoIncrementConverter))
 
 	columnsValidation = validation.Array().Min(1).Max(100).Required().Validator(columnValidation)
+
+	primaryKeyValidation = validation.Array().Max(5).Validator(columnNameValidation)
 
 	mutateAccessValiation = validation.Object().
 				Field("when", validation.String().TrimSpace().Length(0, 4096)).
@@ -124,4 +127,47 @@ func columnTypeConverter(field validation.Field, value string, object typed.Type
 	}
 	// cannot be valid, Choice must have already flagged it as invalid
 	return sql.COLUMN_TYPE_INVALID
+}
+
+func autoIncrementValidation(field validation.Field, value string, object typed.Typed, input typed.Typed, res *validation.Result) string {
+	if object["type"].(sql.ColumnType) != sql.COLUMN_TYPE_INT {
+		res.AddInvalidField(field, validation.Invalid{
+			Code:  codes.VAL_AUTOINCREMENT_NOT_INT,
+			Error: "Autoincrement can only be defined on a column of type 'int'",
+		})
+		return value
+	}
+
+	// Autoincrement can only be added to a column if it's the only primary key.
+	pk := input.Strings("primary_key")
+	if len(pk) > 1 {
+		res.AddInvalidField(field, validation.Invalid{
+			Code:  codes.VAL_AUTOINCREMENT_COMPOSITE_PK,
+			Error: "Autoincrement cannot be used as part of a composite primary key",
+		})
+	} else if len(pk) == 1 {
+		if pk[0] != object.String("name") {
+			res.AddInvalidField(field, validation.Invalid{
+				Code:  codes.VAL_AUTOINCREMENT_NON_PK,
+				Error: "Autoincrement can only be used on the primary key",
+			})
+		}
+	}
+
+	// it's ok if there is 0 PKs, it just means that this column (the one with the
+	// "autoincrement" attribute will be the PK)
+
+	// TODO: we should validate that there are not multiple auto-increment columns!
+	return value
+}
+
+func autoIncrementConverter(field validation.Field, value string, object typed.Typed, input typed.Typed, res *validation.Result) any {
+	switch value {
+	case "strict":
+		return sql.AUTO_INCREMENT_TYPE_STRICT
+	case "reuse":
+		return sql.AUTO_INCREMENT_TYPE_REUSE
+	}
+	// cannot be valid, Choice must have already flagged it as invalid
+	return sql.AUTO_INCREMENT_TYPE_NONE
 }
