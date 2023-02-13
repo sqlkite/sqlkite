@@ -5,6 +5,7 @@ import (
 
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/utils/optional"
+	"src.sqlkite.com/sqlkite/tests"
 )
 
 func Test_JoinableFrom_TableName(t *testing.T) {
@@ -13,30 +14,30 @@ func Test_JoinableFrom_TableName(t *testing.T) {
 }
 
 func Test_JoinableFrom_Write(t *testing.T) {
-	assertSQL(t, JoinableFrom{
+	tests.AssertSQL(t, JoinableFrom{
 		Table: TableName{"table1", nil},
 	}, "table1")
 
-	assertSQL(t, JoinableFrom{
+	tests.AssertSQL(t, JoinableFrom{
 		Table: TableName{"table1", &Alias{Alias: "t1"}},
 	}, "table1 as t1")
 
-	assertSQL(t, JoinableFrom{
+	tests.AssertSQL(t, JoinableFrom{
 		Join:  JOIN_TYPE_INNER,
 		Table: TableName{"table1", nil},
 	}, "inner join table1")
 
-	assertSQL(t, JoinableFrom{
+	tests.AssertSQL(t, JoinableFrom{
 		Join:  JOIN_TYPE_LEFT,
 		Table: TableName{"table1", nil},
 	}, "left join table1")
 
-	assertSQL(t, JoinableFrom{
+	tests.AssertSQL(t, JoinableFrom{
 		Join:  JOIN_TYPE_RIGHT,
 		Table: TableName{"table1", nil},
 	}, "right join table1")
 
-	assertSQL(t, JoinableFrom{
+	tests.AssertSQL(t, JoinableFrom{
 		Join:  JOIN_TYPE_FULL,
 		Table: TableName{"table1", &Alias{Alias: "tt"}},
 	}, "full join table1 as tt")
@@ -45,7 +46,7 @@ func Test_JoinableFrom_Write(t *testing.T) {
 }
 
 func Test_Select_Write_NoWhere_NoOrderBy(t *testing.T) {
-	assertSQL(t, Select{
+	tests.AssertSQL(t, Select{
 		Columns: []DataField{DataField{Name: "id"}},
 		Froms: []JoinableFrom{
 			JoinableFrom{Table: TableName{"table1", nil}},
@@ -55,7 +56,7 @@ func Test_Select_Write_NoWhere_NoOrderBy(t *testing.T) {
 }
 
 func Test_Select_Write_SingleColumn_SingleFrom(t *testing.T) {
-	assertSQL(t, Select{
+	tests.AssertSQL(t, Select{
 		Columns: []DataField{DataField{Name: "id"}},
 		Froms: []JoinableFrom{
 			JoinableFrom{Table: TableName{"table1", nil}},
@@ -73,7 +74,7 @@ func Test_Select_Write_SingleColumn_SingleFrom(t *testing.T) {
 }
 
 func Test_Select_Write_MultipleColumn_MultipleFrom(t *testing.T) {
-	assertSQL(t, Select{
+	tests.AssertSQL(t, Select{
 		Columns: []DataField{
 			DataField{Name: "id", Table: "t1"},
 			DataField{Name: "full_name", Table: "t2", Alias: &Alias{"name"}},
@@ -117,7 +118,7 @@ func Test_Select_Single_CTE(t *testing.T) {
 	}
 
 	sel.CTE(0, "table1_cte", "select * from table1 where public")
-	assertSQL(t, sel, "with table1_cte as (select * from table1 where public) select json_object('id', id) from table1_cte as t1 limit 0")
+	tests.AssertSQL(t, sel, "with table1_cte as (select * from table1 where public) select json_object('id', id) from table1_cte as t1 limit 0")
 }
 
 func Test_Select_Multiple_CTE(t *testing.T) {
@@ -132,5 +133,5 @@ func Test_Select_Multiple_CTE(t *testing.T) {
 
 	sel.CTE(0, "table1_cte", "select * from table1 where public")
 	sel.CTE(2, "table3_cte", "select * from table3")
-	assertSQL(t, sel, "with table1_cte as (select * from table1 where public), table3_cte as (select * from table3) select json_object('id', id) from table1_cte as t1 left join table2 left join table3_cte limit 0")
+	tests.AssertSQL(t, sel, "with table1_cte as (select * from table1 where public), table3_cte as (select * from table3) select json_object('id', id) from table1_cte as t1 left join table2 left join table3_cte limit 0")
 }

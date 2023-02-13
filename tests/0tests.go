@@ -18,6 +18,7 @@ import (
 	"src.goblgobl.com/tests/assert"
 
 	"src.goblgobl.com/tests"
+	"src.goblgobl.com/utils/buffer"
 	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
@@ -135,9 +136,26 @@ func SqliteMaster(connProvider ConnProvider, name string, tableName string) stri
 
 var sqlNormalizePattern = regexp.MustCompile("\\s+")
 
-func AssertSQL(t *testing.T, actual string, expected string) {
+type BufferWriter interface {
+	Write(*buffer.Buffer)
+}
+
+// allow either a string to be passed in, or an sql.Part. But since we can't
+// reference sql.Part from here, we use a BufferWriter interface.
+func AssertSQL(t *testing.T, actual any, expected string) {
 	t.Helper()
-	actual = sqlNormalizePattern.ReplaceAllString(actual, " ")
+
+	var actualString string
+	switch typed := actual.(type) {
+	case string:
+		actualString = typed
+	case BufferWriter:
+		buf := buffer.New(1024, 1024)
+		typed.Write(buf)
+		actualString = buf.MustString()
+	}
+
+	actualString = sqlNormalizePattern.ReplaceAllString(actualString, " ")
 	expected = sqlNormalizePattern.ReplaceAllString(expected, " ")
-	assert.Equal(t, actual, expected)
+	assert.Equal(t, actualString, expected)
 }

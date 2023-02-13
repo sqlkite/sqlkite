@@ -5,9 +5,8 @@ import (
 	"testing"
 
 	"src.goblgobl.com/tests/assert"
-	"src.goblgobl.com/utils/buffer"
 	"src.sqlkite.com/sqlkite/codes"
-	"src.sqlkite.com/sqlkite/sql"
+	"src.sqlkite.com/sqlkite/tests"
 )
 
 func Test_Column_Invalid(t *testing.T) {
@@ -30,7 +29,7 @@ func Test_DataField_Valid(t *testing.T) {
 		t.Helper()
 		dataField, err := DataField(input)
 		assert.Nil(t, err)
-		assertSQL(t, dataField, expectedSQL)
+		tests.AssertSQL(t, dataField, expectedSQL)
 	}
 
 	assertDataField("?1", "?1")
@@ -88,7 +87,7 @@ func Test_QualifiedTableName_Valid(t *testing.T) {
 		t.Helper()
 		from, err := QualifiedTableName(input)
 		assert.Nil(t, err)
-		assertSQL(t, from, expectedSQL)
+		tests.AssertSQL(t, from, expectedSQL)
 	}
 
 	assertFrom("table1", "table1")
@@ -118,7 +117,7 @@ func Test_JoinableFrom_Valid(t *testing.T) {
 		t.Helper()
 		from, err := JoinableFrom(input)
 		assert.Nil(t, err)
-		assertSQL(t, from, expectedSQL)
+		tests.AssertSQL(t, from, expectedSQL)
 	}
 
 	// single string is treated just like a From
@@ -175,7 +174,7 @@ func Test_Predicate_Valid(t *testing.T) {
 		t.Helper()
 		p, err := predicate(input, 0)
 		assert.Nil(t, err)
-		assertSQL(t, p, expectedSQL)
+		tests.AssertSQL(t, p, expectedSQL)
 	}
 
 	for _, op := range []any{"=", "!=", ">", "<", ">=", "<=", "is", "is not"} {
@@ -226,7 +225,7 @@ func Test_Condition_Valid(t *testing.T) {
 		t.Helper()
 		c, err := Condition(input, 0)
 		assert.Nil(t, err)
-		assertSQL(t, c, expectedSQL)
+		tests.AssertSQL(t, c, expectedSQL)
 	}
 
 	assertCondition([]any{
@@ -268,7 +267,7 @@ func Test_OrderBy_Valid(t *testing.T) {
 		t.Helper()
 		dataField, err := OrderBy(input)
 		assert.Nil(t, err)
-		assertSQL(t, dataField, expectedSQL)
+		tests.AssertSQL(t, dataField, expectedSQL)
 	}
 
 	assertOrderBy("?1", "?1")
@@ -311,11 +310,4 @@ func Test_OrderBy_Invalid(t *testing.T) {
 	assertInvalid("^.name", codes.VAL_INVALID_ORDER_BY)
 
 	assertInvalid("name as x", codes.VAL_INVALID_ORDER_BY)
-}
-
-func assertSQL(t *testing.T, part sql.Part, expectedSQL string) {
-	t.Helper()
-	buf := buffer.New(256, 256)
-	part.Write(buf)
-	assert.Equal(t, buf.MustString(), expectedSQL)
 }

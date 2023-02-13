@@ -1,18 +1,16 @@
-package sql
+package sqlkite
 
 // The sqlkite concept of a table has differences than the SQLite concept. For
 // example, an sqlkite table can have a MaxUpdateCount or access control.
 // Because of this extra data, we store the table definition in the sqlkite_tables
 // table. But SQLite also knows a lot about the tables, such as columns, primary
-// key, indexes, etc. Having this data maintained by both sqlkite and SQLite is
-// problematic, because we need to keep it in sync.
-// A lot of the SQLite data isn't something sqlkite really cares about. For example
-// sqlkite doesn't care what columns are primary keys. There's no reason to store
-// this data in the sqlkite_tables table...the best that can come from that is
-// that we introduce an inconsistency. All of this data which sqlkite doesn't
-// really care about (but which is still important, and which we at least need
-// to be aware of when creating the table (to generate the correct SQL)), is stored
-// in the TableExtended and ColumnExtended.
+// key, indexes, etc. There's overlap between what we keep in our "table" and
+// what SQLite inherently knows. This duplication isn't ideal, and I am
+// worried about things falling out of sync (what if someone renames a column
+// directly in the database?). One thing that makes this a lot easier is that
+// SQLite seriously limits the types of changes that can be made to a table (e.g.
+// the primary key can't be changed after the fact), so, for now, we just deal
+// with it.
 
 // SQLite has a noteworthy way to implement and declare auto-incrementing IDs.
 // https://www.sqlite.org/autoinc.html  describes the behavior.
@@ -29,11 +27,14 @@ import (
 
 	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/utils/buffer"
+	"src.goblgobl.com/utils/kdr"
 	"src.goblgobl.com/utils/optional"
+	"src.sqlkite.com/sqlkite/sql"
 )
 
 type ColumnType int
 type AutoIncrementType int
+type TableAccessMutateType int
 
 const (
 	COLUMN_TYPE_INVALID ColumnType = iota
@@ -48,8 +49,13 @@ const (
 	AUTO_INCREMENT_TYPE_REUSE
 )
 
+const (
+	TABLE_ACCESS_MUTATE_INSERT TableAccessMutateType = iota
+	TABLE_ACCESS_MUTATE_UPDATE
+	TABLE_ACCESS_MUTATE_DELETE
+)
+
 var (
-	defaultTableExtended  = &TableExtended{}
 	defaultColumnExtended = &ColumnExtended{}
 )
 
@@ -59,7 +65,7 @@ type Table struct {
 	Access         TableAccess         `json:"access"`
 	MaxDeleteCount optional.Value[int] `json:"max_delete_count"`
 	MaxUpdateCount optional.Value[int] `json:"max_update_count"`
-	Extended       *TableExtended      `json:"-"`
+	PrimaryKey     []string            `json:"primary_key"`
 }
 
 func (t *Table) Column(name string) (Column, bool) {
@@ -72,11 +78,6 @@ func (t *Table) Column(name string) (Column, bool) {
 }
 
 func (t *Table) Write(b *buffer.Buffer) {
-	extended := t.Extended
-	if extended == nil {
-		extended = defaultTableExtended
-	}
-
 	b.Write([]byte("create table "))
 	b.WriteUnsafe(t.Name)
 	b.Write([]byte("(\n\t"))
@@ -89,8 +90,8 @@ func (t *Table) Write(b *buffer.Buffer) {
 
 	// If we have an auto-increment column, the we expect the "primary key" statement
 	// to appear in the column definition (because this is what SQLite requires).
-	if pk := extended.PrimaryKey; len(pk) > 0 {
-		if !t.hasAutoIncrement(extended) {
+	if pk := t.PrimaryKey; len(pk) > 0 {
+		if !t.hasAutoIncrement(pk) {
 			b.Write([]byte("primary key ("))
 			for _, columnName := range pk {
 				b.WriteUnsafe(columnName)
@@ -105,9 +106,7 @@ func (t *Table) Write(b *buffer.Buffer) {
 	b.Write([]byte("\n)"))
 }
 
-func (t *Table) hasAutoIncrement(extended *TableExtended) bool {
-	pk := extended.PrimaryKey
-
+func (t *Table) hasAutoIncrement(pk []string) bool {
 	// "autoincrement" is only valid when we have a 1 column primary key.
 	if len(pk) != 1 {
 		return false
@@ -126,11 +125,6 @@ func (t *Table) hasAutoIncrement(extended *TableExtended) bool {
 	}
 
 	return false
-}
-
-type TableExtended struct {
-	PrimaryKey []string
-	Indexes    []Index
 }
 
 type Column struct {
@@ -200,22 +194,15 @@ type ColumnExtended struct {
 	AutoIncrement optional.Value[AutoIncrementType] `json:"autoincrement`
 }
 
-type Index struct {
-	Name    string
-	Columns []string
-	Desc    []bool
-	Unique  bool
-}
-
 type TableAccess struct {
-	Select *SelectTableAccess `json:"select",omitempty`
-	Insert *MutateTableAccess `json:"insert",omitempty`
-	Update *MutateTableAccess `json:"update",omitempty`
-	Delete *MutateTableAccess `json:"delete",omitempty`
+	Select *TableAccessSelect `json:"select",omitempty`
+	Insert *TableAccessMutate `json:"insert",omitempty`
+	Update *TableAccessMutate `json:"update",omitempty`
+	Delete *TableAccessMutate `json:"delete",omitempty`
 }
 
 // Table access for selects is implemented using a CTE
-type SelectTableAccess struct {
+type TableAccessSelect struct {
 	CTE string `json:"cte"`
 	// Not persisted, but set when the table is loaded.
 	// Makes it easier to deal with table renamed
@@ -227,19 +214,50 @@ type SelectTableAccess struct {
 // create trigger sqlkite_row_access before (insert|update|delete) on $table
 // for each row [when $when]
 // begin ${triger} end
-type MutateTableAccess struct {
-	When    string `json:"when",omitempty`
-	Trigger string `json:"trigger"`
+type TableAccessMutate struct {
+	Name    string                `json:"name"`
+	Type    TableAccessMutateType `json:"type"`
+	When    string                `json:"when",omitempty`
+	Trigger string                `json:"trigger"`
 }
 
-func (m *MutateTableAccess) WriteCreate(b *buffer.Buffer, table string, action string) {
-	b.Write([]byte("create trigger sqlkite_row_access_"))
-	m.writeTriggerNameSuffix(b, table, action)
+func NewTableAccessMutate(table string, tpe TableAccessMutateType, trigger string, when string) *TableAccessMutate {
+	var name string
+	switch tpe {
+	case TABLE_ACCESS_MUTATE_INSERT:
+		name = "sqlkite_ra_" + table + "_i"
+	case TABLE_ACCESS_MUTATE_UPDATE:
+		name = "sqlkite_ra_" + table + "_u"
+	case TABLE_ACCESS_MUTATE_DELETE:
+		name = "sqlkite_ra_" + table + "_d"
+	}
+
+	return &TableAccessMutate{
+		Name:    name,
+		Type:    tpe,
+		When:    when,
+		Trigger: trigger,
+	}
+}
+
+func (m *TableAccessMutate) WriteCreate(b *buffer.Buffer) {
+	name := m.Name
+
+	b.Write([]byte("create trigger "))
+	b.WriteUnsafe(name)
 	b.Write([]byte("\nbefore "))
-	b.WriteUnsafe(action)
+
+	switch m.Type {
+	case TABLE_ACCESS_MUTATE_INSERT:
+		b.Write([]byte("insert"))
+	case TABLE_ACCESS_MUTATE_UPDATE:
+		b.Write([]byte("update"))
+	case TABLE_ACCESS_MUTATE_DELETE:
+		b.Write([]byte("delete"))
+	}
 
 	b.Write([]byte(" on "))
-	b.WriteUnsafe(table)
+	b.WriteUnsafe(name[11 : len(name)-2]) // awful
 	b.Write([]byte(" for each row"))
 
 	if w := m.When; w != "" {
@@ -257,15 +275,72 @@ func (m *MutateTableAccess) WriteCreate(b *buffer.Buffer, table string, action s
 	b.Write([]byte("\nend"))
 }
 
-func (m *MutateTableAccess) WriteDrop(b *buffer.Buffer, table string, action string) {
-	b.Write([]byte("drop trigger if exists sqlkite_row_access_"))
-	m.writeTriggerNameSuffix(b, table, action)
+func (m *TableAccessMutate) WriteDrop(b *buffer.Buffer) {
+	b.Write([]byte("drop trigger if exists "))
+	b.WriteUnsafe(m.Name)
 }
 
-func (_ *MutateTableAccess) writeTriggerNameSuffix(b *buffer.Buffer, table string, action string) {
-	b.WriteUnsafe(table)
-	b.WriteByte('_')
-	b.WriteUnsafe(action)
+func (m *TableAccessMutate) Clone(tableName string) *TableAccessMutate {
+	return NewTableAccessMutate(tableName, m.Type, m.Trigger, m.When)
+}
+
+type TableAlter struct {
+	Name         string     `json:"name"`
+	Changes      []sql.Part `json:"changes"`
+	SelectAccess kdr.Value[*TableAccessSelect]
+	InsertAccess kdr.Value[*TableAccessMutate]
+	UpdateAccess kdr.Value[*TableAccessMutate]
+	DeleteAccess kdr.Value[*TableAccessMutate]
+}
+
+func (a *TableAlter) Write(b *buffer.Buffer) {
+	name := a.Name
+	for _, change := range a.Changes {
+		b.Write([]byte("alter table "))
+		b.WriteUnsafe(name)
+		b.WriteByte(' ')
+		change.Write(b)
+		b.Write([]byte(";\n"))
+	}
+}
+
+type TableAlterAddColumn struct {
+	Column Column `json:"column"`
+}
+
+func (a TableAlterAddColumn) Write(b *buffer.Buffer) {
+	b.Write([]byte("add column "))
+	a.Column.Write(b)
+}
+
+type TableAlterDropColumn struct {
+	Name string `json:"name"`
+}
+
+func (d TableAlterDropColumn) Write(b *buffer.Buffer) {
+	b.Write([]byte("drop column "))
+	b.WriteUnsafe(d.Name)
+}
+
+type TableAlterRename struct {
+	To string `json:"to"`
+}
+
+func (r TableAlterRename) Write(b *buffer.Buffer) {
+	b.Write([]byte("rename to "))
+	b.WriteUnsafe(r.To)
+}
+
+type TableAlterRenameColumn struct {
+	Name string `json:"name"`
+	To   string `json:"to"`
+}
+
+func (r TableAlterRenameColumn) Write(b *buffer.Buffer) {
+	b.Write([]byte("rename column "))
+	b.WriteUnsafe(r.Name)
+	b.Write([]byte(" to "))
+	b.WriteUnsafe(r.To)
 }
 
 // yes, we need to sub-select in order to ensure json_group_array aggregates

@@ -7,7 +7,6 @@ import (
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite"
-	"src.sqlkite.com/sqlkite/sql"
 )
 
 var (
@@ -31,19 +30,35 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.Validation(validator), nil
 	}
 
-	name := input.String("name")
+	tableName := input.String("name")
 	columns := mapColumns(input.Objects("columns"))
-	access := mapAccess(input.Object("access"))
 
-	err = env.Project.CreateTable(env, &sql.Table{
-		Name:           name,
+	var access sqlkite.TableAccess
+	if input, exists := input.ObjectIf("access"); exists {
+		if cte, ok := input.StringIf("select"); ok {
+			access.Select = &sqlkite.TableAccessSelect{CTE: cte}
+		}
+
+		if input, ok := input.ObjectIf("insert"); ok {
+			access.Insert = createTableAccessMutate(tableName, sqlkite.TABLE_ACCESS_MUTATE_INSERT, input)
+		}
+
+		if input, ok := input.ObjectIf("update"); ok {
+			access.Update = createTableAccessMutate(tableName, sqlkite.TABLE_ACCESS_MUTATE_UPDATE, input)
+		}
+
+		if input, ok := input.ObjectIf("delete"); ok {
+			access.Delete = createTableAccessMutate(tableName, sqlkite.TABLE_ACCESS_MUTATE_DELETE, input)
+		}
+	}
+
+	err = env.Project.CreateTable(env, &sqlkite.Table{
+		Name:           tableName,
 		Access:         access,
 		Columns:        columns,
+		PrimaryKey:     input.Strings("primary_key"),
 		MaxDeleteCount: input.OptionalInt("max_delete_count"),
 		MaxUpdateCount: input.OptionalInt("max_update_count"),
-		Extended: &sql.TableExtended{
-			PrimaryKey: input.Strings("primary_key"),
-		},
 	})
 
 	// possible that CreateTable added validation errors
@@ -54,49 +69,26 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	return http.Ok(nil), err
 }
 
-func mapColumns(input []typed.Typed) []sql.Column {
-	columns := make([]sql.Column, len(input))
+func mapColumns(input []typed.Typed) []sqlkite.Column {
+	columns := make([]sqlkite.Column, len(input))
 	for i, ci := range input {
 		columns[i] = mapColumn(ci)
 	}
 	return columns
 }
 
-func mapColumn(input typed.Typed) sql.Column {
-	c := sql.Column{
+func mapColumn(input typed.Typed) sqlkite.Column {
+	c := sqlkite.Column{
 		Name:     input.String("name"),
 		Nullable: input.Bool("nullable"),
 		Default:  input["default"],
-		Type:     input["type"].(sql.ColumnType),
-		Extended: new(sql.ColumnExtended),
+		Type:     input["type"].(sqlkite.ColumnType),
+		Extended: new(sqlkite.ColumnExtended),
 	}
 
-	if ai, ok := input["autoincrement"].(sql.AutoIncrementType); ok {
+	if ai, ok := input["autoincrement"].(sqlkite.AutoIncrementType); ok {
 		c.Extended.AutoIncrement = optional.New(ai)
 	}
 
 	return c
-}
-
-func mapAccess(input typed.Typed) sql.TableAccess {
-	var access sql.TableAccess
-	if input == nil {
-		return access
-	}
-
-	if cte, ok := input.StringIf("select"); ok {
-		access.Select = &sql.SelectTableAccess{CTE: cte}
-	}
-
-	if input, ok := input.ObjectIf("insert"); ok {
-		access.Insert = &sql.MutateTableAccess{When: input.String("when"), Trigger: input.String("trigger")}
-	}
-	if input, ok := input.ObjectIf("update"); ok {
-		access.Update = &sql.MutateTableAccess{When: input.String("when"), Trigger: input.String("trigger")}
-	}
-	if input, ok := input.ObjectIf("delete"); ok {
-		access.Delete = &sql.MutateTableAccess{When: input.String("when"), Trigger: input.String("trigger")}
-	}
-
-	return access
 }

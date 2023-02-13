@@ -12,6 +12,7 @@ import (
 	"src.goblgobl.com/utils"
 	"src.goblgobl.com/utils/buffer"
 	"src.goblgobl.com/utils/concurrent"
+	"src.goblgobl.com/utils/kdr"
 	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite/codes"
@@ -69,7 +70,7 @@ type Project struct {
 	MaxConditionCount    uint16
 	MaxOrderByCount      uint16
 	MaxTableCount        uint16
-	tables               map[string]*sql.Table
+	tables               map[string]*Table
 }
 
 func (p *Project) Shutdown() {
@@ -85,7 +86,7 @@ func (p *Project) NextRequestId() string {
 	return utils.EncodeRequestId(nextId, Config.InstanceId)
 }
 
-func (p *Project) Table(name string) *sql.Table {
+func (p *Project) Table(name string) *Table {
 	return p.tables[name]
 }
 
@@ -126,7 +127,7 @@ func (p *Project) WithTransaction(cb func(sqlite.Conn) error) (err error) {
 	return
 }
 
-func (p *Project) CreateTable(env *Env, table *sql.Table) error {
+func (p *Project) CreateTable(env *Env, table *Table) error {
 	if max := p.MaxTableCount; len(p.tables) >= int(max) {
 		env.Validator.Add(validation.Invalid{
 			Code:  codes.VAL_TOO_MANY_TABLES,
@@ -160,19 +161,19 @@ func (p *Project) CreateTable(env *Env, table *sql.Table) error {
 
 	access := table.Access
 	tableName := table.Name
-	insertAccessSQL, insertAccessBuffer, err := p.buildAccessTrigger(tableName, "insert", access.Insert)
+	insertAccessSQL, insertAccessBuffer, err := p.buildAccessTrigger(access.Insert)
 	if err != nil {
 		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
 	defer insertAccessBuffer.Release()
 
-	updateAccessSQL, udpdateAccessBuffer, err := p.buildAccessTrigger(tableName, "update", access.Update)
+	updateAccessSQL, udpdateAccessBuffer, err := p.buildAccessTrigger(access.Update)
 	if err != nil {
 		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
 	defer udpdateAccessBuffer.Release()
 
-	deleteAccessSQL, deleteAccessBuffer, err := p.buildAccessTrigger(tableName, "delete", access.Delete)
+	deleteAccessSQL, deleteAccessBuffer, err := p.buildAccessTrigger(access.Delete)
 	if err != nil {
 		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
@@ -217,28 +218,13 @@ func (p *Project) CreateTable(env *Env, table *sql.Table) error {
 	return err
 }
 
-func (p *Project) UpdateTable(env *Env, table *sql.Table, alter sql.AlterTable) error {
+func (p *Project) UpdateTable(env *Env, table *Table, alter TableAlter) error {
 	existing := p.tables[alter.Name]
 	if existing == nil {
 		env.Validator.Add(UnknownTable(alter.Name))
 		return nil
 	}
 
-	// This code will do two things:
-	// 1 - It will merge existing into table
-	// 2 - It will generate the necessary SQL (not just to update the table, but
-	// also possibly creating/dropping/changing access triggers)
-	// Both of these work based on the fact that the passed in table *sql.Table
-	// isn't a normal/full table object, but represents a partial table which is
-	// meant to be merged with the existing table and via the alter change list.
-	// The applyTableChanges function will turn this partial table into a proper
-	// table, fulfilling first goal of this function.
-	// However, when that happens, we've lost this partial table, which we kind of
-	// needed to figure out the SQL to generate. So, it's very important that we
-	// grab a copy of table.Access before applyTableChanges is called. applyTableChanges
-	// will mutate table.Access, but we want the unmerged version.
-
-	access := table.Access
 	applyTableChanges(table, existing, alter)
 
 	definition, err := json.Marshal(table)
@@ -255,25 +241,26 @@ func (p *Project) UpdateTable(env *Env, table *sql.Table, alter sql.AlterTable) 
 		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
 
-	// See comments in CreateTable about my conflicting feelings about how this
-	// should be done.
 	tableName := table.Name
-	existingAccess := existing.Access
 	existingTableName := existing.Name
 
-	insertAccessSQL, insertAccessBuffer, err := p.buildAccessTriggerChange(tableName, "insert", access.Insert, existingTableName, existingAccess.Insert)
+	existingAccess := existing.Access
+
+	// See comments in CreateTable about my conflicting feelings about how this
+	// should be done.
+	insertAccessSQL, insertAccessBuffer, err := p.buildAccessTriggerChange(alter.InsertAccess, tableName, existingAccess.Insert, existingTableName)
 	if err != nil {
 		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
 	defer insertAccessBuffer.Release()
 
-	updateAccessSQL, udpdateAccessBuffer, err := p.buildAccessTriggerChange(tableName, "update", access.Update, existingTableName, existingAccess.Update)
+	updateAccessSQL, udpdateAccessBuffer, err := p.buildAccessTriggerChange(alter.UpdateAccess, tableName, existingAccess.Update, existingTableName)
 	if err != nil {
 		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
 	defer udpdateAccessBuffer.Release()
 
-	deleteAccessSQL, deleteAccessBuffer, err := p.buildAccessTriggerChange(tableName, "delete", access.Delete, existingTableName, existingAccess.Delete)
+	deleteAccessSQL, deleteAccessBuffer, err := p.buildAccessTriggerChange(alter.DeleteAccess, tableName, existingAccess.Delete, existingTableName)
 	if err != nil {
 		return p.bufferErrorToValidation(env, err, BUFFER_TYPE_GENERATE_SQL)
 	}
@@ -302,7 +289,7 @@ func (p *Project) UpdateTable(env *Env, table *sql.Table, alter sql.AlterTable) 
 			}
 		}
 
-		if err := conn.Exec("update sqlkite_tables set name = $1, definition = $2 where name = $3", tableName, definition, existing.Name); err != nil {
+		if err := conn.Exec("update sqlkite_tables set name = $1, definition = $2 where name = $3", tableName, definition, existingTableName); err != nil {
 			return log.Err(codes.ERR_UPDATE_SQLKITE_TABLES, err)
 		}
 
@@ -423,13 +410,13 @@ func (p *Project) ResultBuffer() *buffer.Buffer {
 	return Buffer.CheckoutMax(p.MaxResultLength)
 }
 
-func (p *Project) buildAccessTrigger(tableName string, action string, access *sql.MutateTableAccess) ([]byte, utils.Releasable, error) {
+func (p *Project) buildAccessTrigger(access *TableAccessMutate) ([]byte, utils.Releasable, error) {
 	if access == nil {
 		return nil, utils.NoopReleasable, nil
 	}
 
 	buffer := p.SQLBuffer()
-	access.WriteCreate(buffer, tableName, action)
+	access.WriteCreate(buffer)
 
 	bytes, err := buffer.SqliteBytes()
 	if err != nil {
@@ -447,30 +434,30 @@ func (p *Project) buildAccessTrigger(tableName string, action string, access *sq
 // the new table name. This isn't strictly necessary, but it avoids a few potential
 // issues down the road - like avoid conflicts if a new table with the old name
 // is created and has its own triggers.
-func (p *Project) buildAccessTriggerChange(tableName string, action string, access *sql.MutateTableAccess, existingTableName string, existingAccess *sql.MutateTableAccess) ([]byte, utils.Releasable, error) {
-	if access == nil {
+func (p *Project) buildAccessTriggerChange(change kdr.Value[*TableAccessMutate], tableName string, existingAccess *TableAccessMutate, existingTableName string) ([]byte, utils.Releasable, error) {
+	access := change.Replacement
+	if change.IsKeep() {
 		if tableName == existingTableName || existingAccess == nil {
-			// the new access is nil (which means "keep what we have")
-			// and our table name hasn't changed or there was also no existing
-			// access, there's nothing to do
+			// We're being told to keep what we have now AND (the table name hasn't
+			// changed OR there was no access to begin with). In this case, there's
+			// nothing for us to do.
 			return nil, utils.NoopReleasable, nil
 		}
 		// We're told to "keep what we have", but our table name has changed. For the
 		// purpose of generating our create trigger, we'll use the existing access
 		// control (and just give it the new name later)
-		access = existingAccess
+		access = existingAccess.Clone(tableName)
 	}
 
 	buffer := p.SQLBuffer()
 
-	// there might not be an existing trigger, but we drop it with an "if exists"
-	// so it's simply to just always try to drop it
-	access.WriteDrop(buffer, existingTableName, action)
-	if access.Trigger != "" {
-		// if the trigger is empty, it means remove (which we always do)
-		// if it isn't empty, it means replace, which involved drop + create
+	if existingAccess != nil {
+		existingAccess.WriteDrop(buffer)
+	}
+
+	if access != nil {
 		buffer.Write([]byte(";\n"))
-		access.WriteCreate(buffer, tableName, action)
+		access.WriteCreate(buffer)
 	}
 
 	bytes, err := buffer.SqliteBytes()
@@ -530,6 +517,15 @@ func (p *Project) executeQueryWithoutResult(env *Env, q sql.Query) (*QueryResult
 	return &QueryResult{RowCount: affected}, err
 }
 
+// TODO: This function represents the single best opportunity for performance
+// improvement. The more closely we can tie the execution of the statement to the
+// fasthttp response, the better.
+// This function calls cgo multiple times (via the rows.Next and rows.Scan)
+// and moves data from sqlite to the sqlite driver to our buffer to the http response.
+// The result is _always_ 1 column (it's a json string) and multiple rows.
+// We should be able to pass our buffer into C and let it populate it directly
+// from SQLite. There will be challenges with respect to growing the buffer as
+// needed, but I think the gymnatics will be well worth the effort.
 func (p *Project) executeQueryWithResults(env *Env, q sql.Query) (*QueryResult, error) {
 	rowCount := 0
 
@@ -648,7 +644,7 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 		return nil, err
 	}
 
-	tables := make(map[string]*sql.Table)
+	tables := make(map[string]*Table)
 
 	conn := dbPool.Checkout()
 	rows := conn.Rows("select name, definition from sqlkite_tables")
@@ -658,7 +654,7 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 
 		rows.Scan(&name, &definition)
 
-		var table *sql.Table
+		var table *Table
 		err = json.Unmarshal(definition, &table)
 		if err != nil {
 			break
@@ -669,7 +665,7 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 			// the []byte. And it's unclear if that would ever be a problem, but it
 			// would be easy to forget this little quirk in the future, and it would
 			// certainly be unexpected.
-			if c.Type == sql.COLUMN_TYPE_BLOB && c.Default != nil {
+			if c.Type == COLUMN_TYPE_BLOB && c.Default != nil {
 				var encodeLength int
 				stringDefault := utils.S2B(c.Default.(string))
 				byteDefault := make([]byte, base64.StdEncoding.DecodedLen(len(stringDefault)))
@@ -744,23 +740,25 @@ func UnknownTable(tableName string) validation.Invalid {
 	}
 }
 
-// Take an existin sql.Table and return a new sql.Table which merges the changes
-// from the sql.AlterTable applied and the new sql.TableAccess
-func applyTableChanges(table *sql.Table, existing *sql.Table, alter sql.AlterTable) {
+// Take an existin Table and return a new Table which merges the changes
+// from the TableAlter
+func applyTableChanges(table *Table, existing *Table, alter TableAlter) {
 	// tables / columns are immutable, we need to clone the columns to make sure
 	// changes we make here aren't reflected in any existing references
-	columns := make([]sql.Column, len(existing.Columns))
+	columns := make([]Column, len(existing.Columns))
 	for i, c := range existing.Columns {
 		columns[i] = c
 	}
 
+	renamed := false
 	for _, change := range alter.Changes {
 		switch c := change.(type) {
-		case sql.RenameTable:
+		case TableAlterRename:
 			table.Name = c.To
-		case sql.AddColumn:
+			renamed = true
+		case TableAlterAddColumn:
 			columns = append(columns, c.Column)
-		case sql.DropColumn:
+		case TableAlterDropColumn:
 			target := c.Name
 			for i, column := range columns {
 				if column.Name == target {
@@ -771,7 +769,7 @@ func applyTableChanges(table *sql.Table, existing *sql.Table, alter sql.AlterTab
 					break
 				}
 			}
-		case sql.RenameColumn:
+		case TableAlterRenameColumn:
 			target := c.Name
 			for i, column := range columns {
 				if column.Name == target {
@@ -781,40 +779,61 @@ func applyTableChanges(table *sql.Table, existing *sql.Table, alter sql.AlterTab
 			}
 		default:
 			// should not be possible
-			panic("Unknown AlterTableChange")
+			panic("Unknown TableAlterChange")
 		}
 	}
 	table.Columns = columns
 
-	access := table.Access
-	existingAccess := existing.Access
-
-	// empty means erase
-	// nil means keep the existing one
-	// Might be the opposite of what you'd expecting
-	if s := access.Select; s == nil {
-		// use whatever the existing access is (which could be nil)
-		table.Access.Select = existingAccess.Select
-	} else if s.CTE == "" {
-		// empty cte? no access restrictions
-		table.Access.Select = nil
+	if sa := alter.SelectAccess; sa.IsKeep() {
+		// could be nil or not, either way, we're told to keep it as-is
+		table.Access.Select = existing.Access.Select
+	} else {
+		// sa.Replacement is conveniently nil when Action == DELETE
+		table.Access.Select = sa.Replacement
 	}
 
-	if ins := access.Insert; ins == nil {
-		table.Access.Insert = existingAccess.Insert
-	} else if ins.Trigger == "" {
-		table.Access.Insert = nil
+	if ia := alter.InsertAccess; ia.IsKeep() {
+		if existingAccess := existing.Access.Insert; existingAccess != nil && renamed {
+			// the name of our table has changed, we need a new Access object based
+			// on the new table name
+			table.Access.Insert = existingAccess.Clone(table.Name)
+		} else {
+			// either nil or not renamed, either way, we can copy the existing access as-is
+			table.Access.Insert = existingAccess
+		}
+	} else {
+		// ia.Replacement is conveniently nil when Action == DELETE, so this handles
+		// both the "delete" and the "replace" option
+		table.Access.Insert = ia.Replacement
 	}
 
-	if upd := access.Update; upd == nil {
-		table.Access.Update = existingAccess.Update
-	} else if upd.Trigger == "" {
-		table.Access.Update = nil
+	if ua := alter.UpdateAccess; ua.IsKeep() {
+		if existingAccess := existing.Access.Update; existingAccess != nil && renamed {
+			// the name of our table has changed, we need a new Access object based
+			// on the new table name
+			table.Access.Update = existingAccess.Clone(table.Name)
+		} else {
+			// ia.Replacement is conveniently nil when Action == DELETE, so this handles
+			// both the "delete" and the "replace" option
+			table.Access.Update = existingAccess
+		}
+	} else {
+		// ua.Replacement is conveniently nil when Action == DELETE
+		table.Access.Update = ua.Replacement
 	}
 
-	if del := access.Delete; del == nil {
-		table.Access.Delete = existingAccess.Delete
-	} else if del.Trigger == "" {
-		table.Access.Delete = nil
+	if da := alter.DeleteAccess; da.IsKeep() {
+		if existingAccess := existing.Access.Delete; existingAccess != nil && renamed {
+			// the name of our table has changed, we need a new Access object based
+			// on the new table name
+			table.Access.Delete = existingAccess.Clone(table.Name)
+		} else {
+			// either nil or not renamed, either way, we can copy the existing access as-is
+			table.Access.Delete = existingAccess
+		}
+	} else {
+		// ia.Replacement is conveniently nil when Action == DELETE, so this handles
+		// both the "delete" and the "replace" option
+		table.Access.Delete = da.Replacement
 	}
 }

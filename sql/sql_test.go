@@ -10,21 +10,21 @@ import (
 )
 
 func Test_DataField_Write(t *testing.T) {
-	assertSQL(t, DataField{
+	tests.AssertSQL(t, DataField{
 		Name: "full_name",
 	}, "full_name")
 
-	assertSQL(t, DataField{
+	tests.AssertSQL(t, DataField{
 		Table: "t1",
 		Name:  "full_name",
 	}, "t1.full_name")
 
-	assertSQL(t, DataField{
+	tests.AssertSQL(t, DataField{
 		Name:  "full_name",
 		Alias: &Alias{"name"},
 	}, "full_name as name")
 
-	assertSQL(t, DataField{
+	tests.AssertSQL(t, DataField{
 		Table: "t1",
 		Name:  "full_name",
 		Alias: &Alias{"name"},
@@ -54,13 +54,6 @@ func Test_DataField_WriteAsJsonObject(t *testing.T) {
 }
 
 var sqlNormalizePattern = regexp.MustCompile("\\s+")
-
-func assertSQL(t *testing.T, part Part, expected string) {
-	t.Helper()
-	buf := buffer.New(512, 512)
-	part.Write(buf)
-	tests.AssertSQL(t, buf.MustString(), expected)
-}
 
 func assertColumnJson(t *testing.T, df DataField, expectedSQL string) {
 	t.Helper()

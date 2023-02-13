@@ -8,7 +8,6 @@ import (
 	"src.goblgobl.com/utils"
 	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/codes"
-	"src.sqlkite.com/sqlkite/sql"
 	"src.sqlkite.com/sqlkite/tests"
 )
 
@@ -185,22 +184,22 @@ func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 	assert.Equal(t, table.Columns[0].Name, "C1")
 	assert.Equal(t, table.Columns[0].Default.(string), "a")
 	assert.Equal(t, table.Columns[0].Nullable, true)
-	assert.Equal(t, table.Columns[0].Type, sql.COLUMN_TYPE_TEXT)
+	assert.Equal(t, table.Columns[0].Type, sqlkite.COLUMN_TYPE_TEXT)
 
 	assert.Equal(t, table.Columns[1].Name, "c2")
 	assert.Equal(t, table.Columns[1].Default.(float64), 32)
 	assert.Equal(t, table.Columns[1].Nullable, true)
-	assert.Equal(t, table.Columns[1].Type, sql.COLUMN_TYPE_INT)
+	assert.Equal(t, table.Columns[1].Type, sqlkite.COLUMN_TYPE_INT)
 
 	assert.Equal(t, table.Columns[2].Name, "C3")
 	assert.Equal(t, table.Columns[2].Default.(float64), 9000.1)
 	assert.Equal(t, table.Columns[2].Nullable, true)
-	assert.Equal(t, table.Columns[2].Type, sql.COLUMN_TYPE_REAL)
+	assert.Equal(t, table.Columns[2].Type, sqlkite.COLUMN_TYPE_REAL)
 
 	assert.Equal(t, table.Columns[3].Name, "c4")
 	assert.Equal(t, string(table.Columns[3].Default.([]byte)), "over9000")
 	assert.Equal(t, table.Columns[3].Nullable, true)
-	assert.Equal(t, table.Columns[3].Type, sql.COLUMN_TYPE_BLOB)
+	assert.Equal(t, table.Columns[3].Type, sqlkite.COLUMN_TYPE_BLOB)
 
 	assert.Equal(t, table.Access.Select.Name, "sqlkite_cte_test_create_success_defaults")
 	assert.Equal(t, table.Access.Select.CTE, "select * from a_table where user_id = sqlkite_user_id()")
@@ -212,24 +211,24 @@ func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 	assert.Equal(t, table.Access.Delete.When, "3=3")
 	assert.Equal(t, table.Access.Delete.Trigger, "select 3")
 
-	insertAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_test_create_success_defaults_insert", "test_create_success_defaults")
-	assert.Equal(t, insertAccessControl, `CREATE TRIGGER sqlkite_row_access_test_create_success_defaults_insert
+	insertAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_create_success_defaults_i", "test_create_success_defaults")
+	assert.Equal(t, insertAccessControl, `CREATE TRIGGER sqlkite_ra_test_create_success_defaults_i
 before insert on test_create_success_defaults for each row
 when (1=1)
 begin
  select 1;
 end`)
 
-	updateAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_test_create_success_defaults_update", "test_create_success_defaults")
-	assert.Equal(t, updateAccessControl, `CREATE TRIGGER sqlkite_row_access_test_create_success_defaults_update
+	updateAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_create_success_defaults_u", "test_create_success_defaults")
+	assert.Equal(t, updateAccessControl, `CREATE TRIGGER sqlkite_ra_test_create_success_defaults_u
 before update on test_create_success_defaults for each row
 when (2=2)
 begin
  select 2 ;
 end`)
 
-	deleteAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_test_create_success_defaults_delete", "test_create_success_defaults")
-	assert.Equal(t, deleteAccessControl, `CREATE TRIGGER sqlkite_row_access_test_create_success_defaults_delete
+	deleteAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_create_success_defaults_d", "test_create_success_defaults")
+	assert.Equal(t, deleteAccessControl, `CREATE TRIGGER sqlkite_ra_test_create_success_defaults_d
 before delete on test_create_success_defaults for each row
 when (3=3)
 begin
@@ -275,36 +274,63 @@ func Test_Create_Success_NoDefaults_NoAccessControl(t *testing.T) {
 	assert.Equal(t, table.Columns[0].Name, "c1")
 	assert.Nil(t, table.Columns[0].Default)
 	assert.Equal(t, table.Columns[0].Nullable, false)
-	assert.Equal(t, table.Columns[0].Type, sql.COLUMN_TYPE_TEXT)
+	assert.Equal(t, table.Columns[0].Type, sqlkite.COLUMN_TYPE_TEXT)
 
 	assert.Equal(t, table.Columns[1].Name, "c2")
 	assert.Nil(t, table.Columns[1].Default)
 	assert.Equal(t, table.Columns[1].Nullable, false)
-	assert.Equal(t, table.Columns[1].Type, sql.COLUMN_TYPE_INT)
+	assert.Equal(t, table.Columns[1].Type, sqlkite.COLUMN_TYPE_INT)
 
 	assert.Equal(t, table.Columns[2].Name, "c3")
 	assert.Nil(t, table.Columns[2].Default)
 	assert.Equal(t, table.Columns[2].Nullable, false)
-	assert.Equal(t, table.Columns[2].Type, sql.COLUMN_TYPE_REAL)
+	assert.Equal(t, table.Columns[2].Type, sqlkite.COLUMN_TYPE_REAL)
 
 	assert.Equal(t, table.Columns[3].Name, "c4")
 	assert.Nil(t, table.Columns[3].Default)
 	assert.Equal(t, table.Columns[3].Nullable, false)
-	assert.Equal(t, table.Columns[3].Type, sql.COLUMN_TYPE_BLOB)
+	assert.Equal(t, table.Columns[3].Type, sqlkite.COLUMN_TYPE_BLOB)
 
 	assert.Nil(t, table.Access.Select)
 	assert.Nil(t, table.Access.Insert)
 	assert.Nil(t, table.Access.Update)
 	assert.Nil(t, table.Access.Delete)
 
-	insertAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_insert", "test_create_success_defaults")
+	insertAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_create_success_defaults_i", "test_create_success_defaults")
 	assert.Equal(t, insertAccessControl, "")
 
-	updateAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_update", "test_create_success_defaults")
+	updateAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_create_success_defaults_u", "test_create_success_defaults")
 	assert.Equal(t, updateAccessControl, "")
 
-	deleteAccessControl := tests.SqliteMaster(project, "sqlkite_row_access_delete", "test_create_success_defaults")
+	deleteAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_create_success_defaults_d", "test_create_success_defaults")
 	assert.Equal(t, deleteAccessControl, "")
+}
+
+func Test_Create_Success_NullAccessControl(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"name": "test_create_success_null_ai",
+			"access": map[string]any{
+				"select": nil,
+				"insert": nil,
+				"update": nil,
+				"delete": nil,
+			},
+			"columns": []any{
+				map[string]any{"name": "c1", "type": "text", "nullable": false},
+			},
+		}).
+		Post(Create).
+		OK()
+
+	project, _ = sqlkite.Projects.Get(id)
+	table := project.Table("test_create_success_null_ai")
+	assert.Nil(t, table.Access.Select)
+	assert.Nil(t, table.Access.Insert)
+	assert.Nil(t, table.Access.Update)
+	assert.Nil(t, table.Access.Delete)
 }
 
 func Test_Create_Success_Explicit_PK(t *testing.T) {

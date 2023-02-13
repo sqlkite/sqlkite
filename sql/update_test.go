@@ -4,17 +4,18 @@ import (
 	"testing"
 
 	"src.goblgobl.com/utils/optional"
+	"src.sqlkite.com/sqlkite/tests"
 )
 
 func Test_Update_Simple(t *testing.T) {
-	assertSQL(t, Update{
+	tests.AssertSQL(t, Update{
 		Target: TableName{"tab1", nil},
 		Set: []UpdateSet{
 			UpdateSet{Column: "c1", Value: DataField{Name: "?1"}},
 		},
 	}, "update tab1 set c1 = ?1")
 
-	assertSQL(t, Update{
+	tests.AssertSQL(t, Update{
 		Target: TableName{"tab1", &Alias{"t1"}},
 		Set: []UpdateSet{
 			UpdateSet{Column: "c1", Value: DataField{Name: "?1"}},
@@ -24,7 +25,7 @@ func Test_Update_Simple(t *testing.T) {
 }
 
 func Test_Update_WhereAndLimit(t *testing.T) {
-	assertSQL(t, Update{
+	tests.AssertSQL(t, Update{
 		Target: TableName{"tab1", nil},
 		Set: []UpdateSet{
 			UpdateSet{Column: "c1", Value: DataField{Name: "?1"}},
@@ -42,7 +43,7 @@ func Test_Update_WhereAndLimit(t *testing.T) {
 }
 
 func Test_Update_From(t *testing.T) {
-	assertSQL(t, Update{
+	tests.AssertSQL(t, Update{
 		Target: TableName{"tab1", nil},
 		Set: []UpdateSet{
 			UpdateSet{Column: "id", Value: DataField{Name: "id", Table: "tab2"}},
@@ -74,7 +75,7 @@ func Test_Update_From(t *testing.T) {
 }
 
 func Test_Update_Single_Returning(t *testing.T) {
-	assertSQL(t, Update{
+	tests.AssertSQL(t, Update{
 		Target: TableName{"tab1", nil},
 		Set: []UpdateSet{
 			UpdateSet{Column: "c1", Value: DataField{Name: "?1"}},
@@ -84,7 +85,7 @@ func Test_Update_Single_Returning(t *testing.T) {
 }
 
 func Test_Update_Multiple_Returning_OrderLimitOffset(t *testing.T) {
-	assertSQL(t, Update{
+	tests.AssertSQL(t, Update{
 		Target: TableName{"tab1", nil},
 		Set: []UpdateSet{
 			UpdateSet{Column: "c1", Value: DataField{Name: "?1"}},

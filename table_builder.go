@@ -2,7 +2,7 @@
 
 // Used as a factory for tests only
 
-package sql
+package sqlkite
 
 import (
 	"strings"

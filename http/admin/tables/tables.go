@@ -6,8 +6,8 @@ import (
 	"src.goblgobl.com/utils/ascii"
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
+	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/codes"
-	"src.sqlkite.com/sqlkite/sql"
 )
 
 var (
@@ -39,10 +39,10 @@ var (
 
 	mutateAccessValiation = validation.Object().
 				Field("when", validation.String().TrimSpace().Length(0, 4096)).
-				Field("trigger", validation.String().TrimSpace().Length(0, 4096))
+				Field("trigger", validation.String().TrimSpace().Length(1, 4096))
 
 	accessValidation = validation.Object().
-				Field("select", validation.String().TrimSpace().Length(0, 4096)).
+				Field("select", validation.String().Nullable().TrimSpace().Length(0, 4096)).
 				Field("insert", mutateAccessValiation).
 				Field("update", mutateAccessValiation).
 				Field("delete", mutateAccessValiation)
@@ -71,14 +71,14 @@ func validateDefault(field validation.Field, value any, object typed.Typed, inpu
 		return nil // no default, no problem
 	}
 
-	switch object["type"].(sql.ColumnType) {
-	case sql.COLUMN_TYPE_TEXT:
+	switch object["type"].(sqlkite.ColumnType) {
+	case sqlkite.COLUMN_TYPE_TEXT:
 		n, ok := value.(string)
 		if !ok {
 			res.AddInvalidField(field, validation.InvalidStringType())
 		}
 		return n
-	case sql.COLUMN_TYPE_INT:
+	case sqlkite.COLUMN_TYPE_INT:
 		// IntIf will do some sane conversion (e.g. float -> int since
 		// we're coming from JSON). This is more consistent than type-checking
 		// value.
@@ -87,7 +87,7 @@ func validateDefault(field validation.Field, value any, object typed.Typed, inpu
 			res.AddInvalidField(field, validation.InvalidIntType())
 		}
 		return n
-	case sql.COLUMN_TYPE_REAL:
+	case sqlkite.COLUMN_TYPE_REAL:
 		// FloatIf will do some sane conversion (e.g. float -> int since
 		// we're coming from JSON). This is more consistent than type-checking
 		// value.
@@ -96,7 +96,7 @@ func validateDefault(field validation.Field, value any, object typed.Typed, inpu
 			res.AddInvalidField(field, validation.InvalidFloatType())
 		}
 		return n
-	case sql.COLUMN_TYPE_BLOB:
+	case sqlkite.COLUMN_TYPE_BLOB:
 		n, ok := value.(string)
 		if !ok {
 			res.AddInvalidField(field, blobDefaultError)
@@ -107,7 +107,7 @@ func validateDefault(field validation.Field, value any, object typed.Typed, inpu
 			res.AddInvalidField(field, blobDefaultError)
 		}
 		return bytes
-	case sql.COLUMN_TYPE_INVALID:
+	case sqlkite.COLUMN_TYPE_INVALID:
 		return nil
 	}
 
@@ -117,20 +117,20 @@ func validateDefault(field validation.Field, value any, object typed.Typed, inpu
 func columnTypeConverter(field validation.Field, value string, object typed.Typed, input typed.Typed, res *validation.Result) any {
 	switch value {
 	case "text":
-		return sql.COLUMN_TYPE_TEXT
+		return sqlkite.COLUMN_TYPE_TEXT
 	case "int":
-		return sql.COLUMN_TYPE_INT
+		return sqlkite.COLUMN_TYPE_INT
 	case "real":
-		return sql.COLUMN_TYPE_REAL
+		return sqlkite.COLUMN_TYPE_REAL
 	case "blob":
-		return sql.COLUMN_TYPE_BLOB
+		return sqlkite.COLUMN_TYPE_BLOB
 	}
 	// cannot be valid, Choice must have already flagged it as invalid
-	return sql.COLUMN_TYPE_INVALID
+	return sqlkite.COLUMN_TYPE_INVALID
 }
 
 func autoIncrementValidation(field validation.Field, value string, object typed.Typed, input typed.Typed, res *validation.Result) string {
-	if object["type"].(sql.ColumnType) != sql.COLUMN_TYPE_INT {
+	if object["type"].(sqlkite.ColumnType) != sqlkite.COLUMN_TYPE_INT {
 		res.AddInvalidField(field, validation.Invalid{
 			Code:  codes.VAL_AUTOINCREMENT_NOT_INT,
 			Error: "Autoincrement can only be defined on a column of type 'int'",
@@ -164,10 +164,14 @@ func autoIncrementValidation(field validation.Field, value string, object typed.
 func autoIncrementConverter(field validation.Field, value string, object typed.Typed, input typed.Typed, res *validation.Result) any {
 	switch value {
 	case "strict":
-		return sql.AUTO_INCREMENT_TYPE_STRICT
+		return sqlkite.AUTO_INCREMENT_TYPE_STRICT
 	case "reuse":
-		return sql.AUTO_INCREMENT_TYPE_REUSE
+		return sqlkite.AUTO_INCREMENT_TYPE_REUSE
 	}
 	// cannot be valid, Choice must have already flagged it as invalid
-	return sql.AUTO_INCREMENT_TYPE_NONE
+	return sqlkite.AUTO_INCREMENT_TYPE_NONE
+}
+
+func createTableAccessMutate(tableName string, tpe sqlkite.TableAccessMutateType, input typed.Typed) *sqlkite.TableAccessMutate {
+	return sqlkite.NewTableAccessMutate(tableName, tpe, input.String("trigger"), input.String("when"))
 }

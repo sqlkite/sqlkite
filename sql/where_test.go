@@ -1,15 +1,19 @@
 package sql
 
-import "testing"
+import (
+	"testing"
+
+	"src.sqlkite.com/sqlkite/tests"
+)
 
 func Test_Predicate_Write(t *testing.T) {
-	assertSQL(t, Predicate{
+	tests.AssertSQL(t, Predicate{
 		Left:  DataField{Name: "full_name"},
 		Op:    []byte(" = "),
 		Right: DataField{Name: "?1"},
 	}, "full_name = ?1")
 
-	assertSQL(t, Predicate{
+	tests.AssertSQL(t, Predicate{
 		Left:  DataField{Table: "t2", Name: "id"},
 		Op:    []byte(" != "),
 		Right: DataField{Table: "t3", Name: "id"},
@@ -17,6 +21,6 @@ func Test_Predicate_Write(t *testing.T) {
 }
 
 func Test_Condition_Write(t *testing.T) {
-	assertSQL(t, Condition{}, "true")
+	tests.AssertSQL(t, Condition{}, "true")
 	// this is more fully tested in http/sql/parser
 }

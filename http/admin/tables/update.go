@@ -4,6 +4,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"src.goblgobl.com/utils/ascii"
 	"src.goblgobl.com/utils/http"
+	"src.goblgobl.com/utils/kdr"
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite"
@@ -17,11 +18,11 @@ var (
 				Field("max_delete_count", maxMutateCountValidation).
 				Field("max_update_count", maxMutateCountValidation)
 
-	updateChangeToField         = validation.BuildField("changes.#.to")
-	updateChangeTypeField       = validation.BuildField("changes.#.type")
-	updateChangeColumnNameField = validation.BuildField("changes.#.name")
-	updateChangeColumnField     = validation.BuildField("changes.#.column")
-	updateAddColumnValidator    = columnValidation.AddField(updateChangeColumnField)
+	updateChangeToField                = validation.BuildField("changes.#.to")
+	updateChangeTypeField              = validation.BuildField("changes.#.type")
+	updateChangeColumnNameField        = validation.BuildField("changes.#.name")
+	updateChangeColumnField            = validation.BuildField("changes.#.column")
+	updateTableAlterAddColumnValidator = columnValidation.AddField(updateChangeColumnField)
 )
 
 func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
@@ -35,27 +36,61 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.Validation(validator), nil
 	}
 
-	// input["change"] has already been converted to things like sql.RenameTable
-	// and sql.DropColumn in the validation
+	tableName := conn.UserValue("name").(string)
+	alterTable := sqlkite.TableAlter{Name: tableName}
+
+	// Our validators have already converted input["change"] into things like
+	// sqlkite.TableAlterDropColumn.
 	// It's possible we have no changes to the table, maybe we only have access
 	// control changes (which we treat separately because they don't have a pure
 	// DDL analog)
-	tableName := conn.UserValue("name").(string)
-
-	alterTable := sql.AlterTable{Name: tableName}
 	if changes := input["changes"]; changes != nil {
 		alterTable.Changes = changes.([]sql.Part)
 	}
 
-	access := mapAccess(input.Object("access"))
+	// tri-state:
+	// keep what we have
+	// delete what we have
+	// replace what we have
+	access := input.Object("access")
+	if sa, ok := access["select"]; !ok {
+		alterTable.SelectAccess = kdr.Keep[*sqlkite.TableAccessSelect]()
+	} else if sa == nil {
+		alterTable.SelectAccess = kdr.Delete[*sqlkite.TableAccessSelect]()
+	} else {
+		alterTable.SelectAccess = kdr.Replace(&sqlkite.TableAccessSelect{CTE: sa.(string)})
+	}
+
+	if ia, ok := access["insert"]; !ok {
+		alterTable.InsertAccess = kdr.Keep[*sqlkite.TableAccessMutate]()
+	} else if ia == nil {
+		alterTable.InsertAccess = kdr.Delete[*sqlkite.TableAccessMutate]()
+	} else {
+		alterTable.InsertAccess = kdr.Replace(createTableAccessMutate(tableName, sqlkite.TABLE_ACCESS_MUTATE_INSERT, typed.Typed(ia.(map[string]any))))
+	}
+
+	if ua, ok := access["update"]; !ok {
+		alterTable.UpdateAccess = kdr.Keep[*sqlkite.TableAccessMutate]()
+	} else if ua == nil {
+		alterTable.UpdateAccess = kdr.Delete[*sqlkite.TableAccessMutate]()
+	} else {
+		alterTable.UpdateAccess = kdr.Replace(createTableAccessMutate(tableName, sqlkite.TABLE_ACCESS_MUTATE_UPDATE, typed.Typed(ua.(map[string]any))))
+	}
+
+	if da, ok := access["delete"]; !ok {
+		alterTable.DeleteAccess = kdr.Keep[*sqlkite.TableAccessMutate]()
+	} else if da == nil {
+		alterTable.DeleteAccess = kdr.Delete[*sqlkite.TableAccessMutate]()
+	} else {
+		alterTable.DeleteAccess = kdr.Replace(createTableAccessMutate(tableName, sqlkite.TABLE_ACCESS_MUTATE_DELETE, typed.Typed(da.(map[string]any))))
+	}
 
 	// The last argument, our sql.Table, only represents part of the data
 	// The existing table will be loaded, and its columns will be used as a base
 	// to apply the alterTable changes to it. That's why the &sql.Table that we're
 	// passing doesn't need the columns.
-	err = env.Project.UpdateTable(env, &sql.Table{
+	err = env.Project.UpdateTable(env, &sqlkite.Table{
 		Name:           tableName,
-		Access:         access,
 		MaxDeleteCount: input.OptionalInt("max_delete_count"),
 		MaxUpdateCount: input.OptionalInt("max_update_count"),
 	}, alterTable)
@@ -92,7 +127,7 @@ func changeValidation(field validation.Field, value typed.Typed, input typed.Typ
 
 func renameValidation(field validation.Field, change typed.Typed, res *validation.Result) any {
 	tableNameValidation.ValidateObjectField(updateChangeToField, change, change, res)
-	return sql.RenameTable{
+	return sqlkite.TableAlterRename{
 		To: change.String("to"),
 	}
 }
@@ -100,31 +135,31 @@ func renameValidation(field validation.Field, change typed.Typed, res *validatio
 func renameColumnValidaiton(field validation.Field, change typed.Typed, res *validation.Result) any {
 	columnNameValidation.ValidateObjectField(updateChangeToField, change, change, res)
 	columnNameValidation.ValidateObjectField(updateChangeColumnNameField, change, change, res)
-	return sql.RenameColumn{
+	return sqlkite.TableAlterRenameColumn{
 		Name: change.String("name"),
 		To:   change.String("to"),
 	}
 }
 
 func addColumnValidation(field validation.Field, change typed.Typed, res *validation.Result) any {
-	updateAddColumnValidator.ValidateObjectField(updateChangeColumnField, change, change, res)
+	updateTableAlterAddColumnValidator.ValidateObjectField(updateChangeColumnField, change, change, res)
 	if !res.IsValid() {
 		return nil
 	}
-	return sql.AddColumn{
+	return sqlkite.TableAlterAddColumn{
 		Column: mapColumn(change.Object("column")),
 	}
 }
 
 func dropColumnValidation(field validation.Field, change typed.Typed, res *validation.Result) any {
 	columnNameValidation.ValidateObjectField(updateChangeColumnNameField, change, change, res)
-	return sql.DropColumn{
+	return sqlkite.TableAlterDropColumn{
 		Name: change.String("name"),
 	}
 }
 
 // Our validation has turned each change map[string]any into
-// a specific sql.{Type} (e.g. sql.RenameTable), which are all sql.Parts.
+// a specific sql.{Type} (e.g. sql.TableAlterRename), which are all sql.Parts.
 // We need to change our array from an []any to an []sql.Part
 func changeMap(changes []any) any {
 	if changes == nil {

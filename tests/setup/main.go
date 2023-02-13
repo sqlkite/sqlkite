@@ -10,7 +10,6 @@ import (
 	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/config"
 	"src.sqlkite.com/sqlkite/data"
-	"src.sqlkite.com/sqlkite/sql"
 	"src.sqlkite.com/sqlkite/super"
 	"src.sqlkite.com/sqlkite/super/pg"
 	superSqlite "src.sqlkite.com/sqlkite/super/sqlite"
@@ -78,14 +77,13 @@ func setupStandardProject() {
 	})
 
 	project := MustGetProject(id)
-	err := project.CreateTable(project.Env(), &sql.Table{
-		Name:     "products",
-		Extended: &sql.TableExtended{},
-		Columns: []sql.Column{
-			sql.Column{Name: "id", Type: sql.COLUMN_TYPE_INT},
-			sql.Column{Name: "name", Type: sql.COLUMN_TYPE_TEXT},
-			sql.Column{Name: "rating", Type: sql.COLUMN_TYPE_REAL, Nullable: true},
-			sql.Column{Name: "image", Type: sql.COLUMN_TYPE_BLOB, Nullable: true},
+	err := project.CreateTable(project.Env(), &sqlkite.Table{
+		Name: "products",
+		Columns: []sqlkite.Column{
+			sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
+			sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
+			sqlkite.Column{Name: "rating", Type: sqlkite.COLUMN_TYPE_REAL, Nullable: true},
+			sqlkite.Column{Name: "image", Type: sqlkite.COLUMN_TYPE_BLOB, Nullable: true},
 		},
 	})
 	if err != nil {
@@ -106,16 +104,15 @@ func setupStandardProject() {
 		)
 	})
 
-	err = project.CreateTable(project.Env(), &sql.Table{
-		Name:     "users",
-		Extended: &sql.TableExtended{},
-		Columns: []sql.Column{
-			sql.Column{Name: "id", Type: sql.COLUMN_TYPE_INT},
-			sql.Column{Name: "name", Type: sql.COLUMN_TYPE_TEXT},
-			sql.Column{Name: "public", Type: sql.COLUMN_TYPE_INT},
+	err = project.CreateTable(project.Env(), &sqlkite.Table{
+		Name: "users",
+		Columns: []sqlkite.Column{
+			sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
+			sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
+			sqlkite.Column{Name: "public", Type: sqlkite.COLUMN_TYPE_INT},
 		},
-		Access: sql.TableAccess{
-			Select: &sql.SelectTableAccess{
+		Access: sqlkite.TableAccess{
+			Select: &sqlkite.TableAccessSelect{
 				Name: "sqlkite_cte_users",
 				CTE:  "select * from users where public = 1",
 			},
@@ -189,16 +186,15 @@ func setupDynamicProject() {
 	})
 
 	project = MustGetProject(id)
-	err := project.CreateTable(project.Env(), &sql.Table{
+	err := project.CreateTable(project.Env(), &sqlkite.Table{
 		Name:           "products",
-		Extended:       &sql.TableExtended{},
 		MaxDeleteCount: optional.Int(5),
 		MaxUpdateCount: optional.Int(6),
-		Columns: []sql.Column{
-			sql.Column{Name: "id", Type: sql.COLUMN_TYPE_INT},
-			sql.Column{Name: "name", Type: sql.COLUMN_TYPE_TEXT},
-			sql.Column{Name: "rating", Type: sql.COLUMN_TYPE_REAL, Nullable: true},
-			sql.Column{Name: "image", Type: sql.COLUMN_TYPE_BLOB, Nullable: true},
+		Columns: []sqlkite.Column{
+			sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
+			sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
+			sqlkite.Column{Name: "rating", Type: sqlkite.COLUMN_TYPE_REAL, Nullable: true},
+			sqlkite.Column{Name: "image", Type: sqlkite.COLUMN_TYPE_BLOB, Nullable: true},
 		},
 	})
 	if err != nil {
@@ -225,12 +221,11 @@ func setupLimitedProject() {
 	})
 
 	project := MustGetProject(id)
-	err := project.CreateTable(project.Env(), &sql.Table{
-		Name:     "t1",
-		Extended: &sql.TableExtended{},
-		Columns: []sql.Column{
-			sql.Column{Name: "id", Type: sql.COLUMN_TYPE_INT},
-			sql.Column{Name: "name", Type: sql.COLUMN_TYPE_TEXT},
+	err := project.CreateTable(project.Env(), &sqlkite.Table{
+		Name: "t1",
+		Columns: []sqlkite.Column{
+			sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
+			sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
 		},
 	})
 	if err != nil {
@@ -238,10 +233,10 @@ func setupLimitedProject() {
 	}
 
 	project = MustGetProject(id)
-	err = project.CreateTable(project.Env(), &sql.Table{
+	err = project.CreateTable(project.Env(), &sqlkite.Table{
 		Name: "t2",
-		Columns: []sql.Column{
-			sql.Column{Name: "id", Type: sql.COLUMN_TYPE_INT},
+		Columns: []sqlkite.Column{
+			sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
 		},
 	})
 	if err != nil {
