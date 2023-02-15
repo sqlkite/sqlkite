@@ -160,6 +160,8 @@ func mainHandler(config config.HTTP, logger log.Logger, envLoader EnvLoader) (fu
 	r.POST("/v1/sql/update", http.Handler("sql_update", envLoader, sql.Update))
 	r.POST("/v1/sql/delete", http.Handler("sql_delete", envLoader, sql.Delete))
 
+	r.POST("/v1/auth/users", http.Handler("auth_users_create", envLoader, auth.UserCreate))
+
 	if config.Admin == "public" {
 		logger.String("admin", "public")
 		attachAdmin(r, envLoader)

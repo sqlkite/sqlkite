@@ -51,6 +51,8 @@ type Project struct {
 	// pool is controlled by the MaxConcurrency value.
 	dbPool *DBPool
 
+	tables map[string]*Table
+
 	Id string
 
 	// When enabled, error response bodies may include additional data. This data
@@ -70,7 +72,6 @@ type Project struct {
 	MaxConditionCount    uint16
 	MaxOrderByCount      uint16
 	MaxTableCount        uint16
-	tables               map[string]*Table
 }
 
 func (p *Project) Shutdown() {
