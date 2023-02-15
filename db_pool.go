@@ -27,13 +27,13 @@ func NewDBPool(count uint16, projectId string, setup func(conn sqlite.Conn) erro
 	for i := uint16(0); i < count; i++ {
 		db, err := OpenDB(projectId, false)
 		if err != nil {
-			p.shutdown()
+			p.fastShutdown()
 			return nil, err
 		}
 		list <- db
 
 		if err := setup(db); err != nil {
-			p.shutdown()
+			p.fastShutdown()
 			return nil, err
 		}
 	}
@@ -87,6 +87,21 @@ func (p *DBPool) shutdown() {
 			db.Close()
 		case <-timeout:
 			log.Error("DBPool.shutdown").Int("i", i).Log()
+			return
+		}
+	}
+}
+
+// Closes whatever connections happen to be in the pool when called, potentially
+// abandoning already-checked out connections. Meant to be used from NewDBPool
+// only (where we're sure no connections have been checked out yet).
+func (p *DBPool) fastShutdown() {
+	list := p.list
+	for {
+		select {
+		case db := <-list:
+			db.Close()
+		default:
 			return
 		}
 	}

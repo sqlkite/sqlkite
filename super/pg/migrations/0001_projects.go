@@ -12,18 +12,7 @@ func Migrate_0001(tx pgx.Tx) error {
 	if _, err := tx.Exec(bg, `
 		create table sqlkite_projects (
 			id uuid not null primary key,
-			max_concurrency int not null,
-			max_sql_length int not null,
-			max_sql_parameter_count int not null,
-			max_database_size int not null,
-			max_select_count int not null,
-			max_result_length int not null,
-			max_from_count int not null,
-			max_select_column_count int not null,
-			max_condition_count int not null,
-			max_order_by_count int not null,
-			max_table_count int not null,
-			debug bool not null,
+			data jsonb not null,
 			created timestamptz not null default now(),
 			updated timestamptz not null default now()
 		)`); err != nil {

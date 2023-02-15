@@ -3,7 +3,6 @@ package pg
 import (
 	"os"
 	"testing"
-	"time"
 
 	"src.goblgobl.com/tests"
 	"src.goblgobl.com/tests/assert"
@@ -67,15 +66,21 @@ func Test_GetProject_Success(t *testing.T) {
 	defer cleanupTempProjects()
 
 	id := uuid.String()
-	db.MustExec(`
-		insert into sqlkite_projects (id,
-			max_concurrency, max_sql_length, max_sql_parameter_count,
-			max_database_size, max_select_count, max_result_length, max_from_count,
-			max_select_column_count, max_condition_count, max_order_by_count,
-			max_table_count, debug
-		)
-		values ($1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, true)
-	`, id)
+	assert.Nil(t, db.CreateProject(data.Project{
+		Id:                   id,
+		MaxConcurrency:       1,
+		MaxSQLLength:         2,
+		MaxSQLParameterCount: 3,
+		MaxDatabaseSize:      4,
+		MaxSelectCount:       5,
+		MaxResultLength:      6,
+		MaxFromCount:         7,
+		MaxSelectColumnCount: 8,
+		MaxConditionCount:    9,
+		MaxOrderByCount:      10,
+		MaxTableCount:        11,
+		Debug:                true,
+	}))
 
 	p, err := db.GetProject(id)
 	assert.Nil(t, err)
@@ -92,54 +97,6 @@ func Test_GetProject_Success(t *testing.T) {
 	assert.Equal(t, p.MaxOrderByCount, 10)
 	assert.Equal(t, p.MaxTableCount, 11)
 	assert.Equal(t, p.Debug, true)
-}
-
-func Test_GetUpdatedProjects_None(t *testing.T) {
-	defer cleanupTempProjects()
-
-	id := uuid.String()
-	db.MustExec(`
-		insert into sqlkite_projects (id, updated,
-			max_concurrency, max_sql_length, max_sql_parameter_count,
-			max_database_size, max_select_count, max_result_length, max_from_count,
-			max_select_column_count, max_condition_count, max_order_by_count,
-			max_table_count, debug
-		)
-		values ($1, now() - interval '1 second', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false)
-	`, id)
-	updated, err := db.GetUpdatedProjects(time.Now())
-	assert.Nil(t, err)
-	assert.Equal(t, len(updated), 0)
-}
-
-func Test_GetUpdatedProjects_Success(t *testing.T) {
-	defer cleanupTempProjects()
-
-	// make it so no other project interferes with our test
-	db.MustExec("update sqlkite_projects set updated = now() - interval '500 seconds'")
-
-	id1, id2, id3, id4 := uuid.String(), uuid.String(), uuid.String(), uuid.String()
-	db.MustExec(`
-		insert into sqlkite_projects (id, updated,
-			max_concurrency, max_sql_length, max_sql_parameter_count,
-			max_database_size, max_select_count, max_result_length, max_from_count,
-			max_select_column_count, max_condition_count, max_order_by_count,
-			max_table_count, debug
-		) values
-		($1, now() - interval '500 second', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false),
-		($2, now() - interval '200 second', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false),
-		($3, now() - interval '100 second', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false),
-		($4, now() - interval '10 second', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false)
-	`, id1, id2, id3, id4)
-	updated, err := db.GetUpdatedProjects(time.Now().Add(time.Second * -105))
-	assert.Nil(t, err)
-	assert.Equal(t, len(updated), 2)
-
-	// order isn't deterministic
-	actual1, actual2 := updated[0].Id, updated[1].Id
-	assert.True(t, actual1 != actual2)
-	assert.True(t, actual1 == id3 || actual1 == id4)
-	assert.True(t, actual2 == id3 || actual2 == id4)
 }
 
 func Test_CreateProject(t *testing.T) {

@@ -5,7 +5,7 @@ type Project struct {
 	Debug                bool   `json:"debug"`
 	MaxConcurrency       uint16 `json:"max_concurrency"`
 	MaxSQLLength         uint32 `json:"max_sql_length"`
-	MaxSQLParameterCount uint16 `json:"max_sql_parameters_count"`
+	MaxSQLParameterCount uint16 `json:"max_sql_parameter_count"`
 	MaxDatabaseSize      uint64 `json:"max_database_size"`
 	MaxResultLength      uint32 `json:"max_result_length"`
 	MaxFromCount         uint16 `json:"max_from_count"`

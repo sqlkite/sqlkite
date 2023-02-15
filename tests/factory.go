@@ -46,22 +46,26 @@ func (_ factory) DynamicId() string {
 func init() {
 	f.DB = super.DB.(f.SQLStorage)
 	Factory.Project = f.NewTable("sqlkite_projects", func(args f.KV) f.KV {
+		id := args.UUID("id", uuid.String())
 		return f.KV{
-			"id":                      args.UUID("id", uuid.String()),
-			"max_concurrency":         args.Int("max_concurrency", 2),
-			"max_sql_length":          args.Int("max_sql_length", 4000),
-			"max_sql_parameter_count": args.Int("max_sql_parameter_count", 100),
-			"max_database_size":       args.Int("max_database_size", 100000),
-			"max_select_count":        args.Int("max_select_count", 100),
-			"max_result_length":       args.Int("max_result_length", 10000),
-			"max_from_count":          args.Int("max_from_count", 10),
-			"max_select_column_count": args.Int("max_select_column_count", 10),
-			"max_condition_count":     args.Int("max_condition_count", 10),
-			"max_order_by_count":      args.Int("max_order_by_count", 5),
-			"max_table_count":         args.Int("max_table_count", 10),
-			"debug":                   args.Bool("debug", false),
-			"created":                 args.Time("created", time.Now()),
-			"updated":                 args.Time("updated", time.Now()),
+			"id": id,
+			"data": f.JSON{
+				"id":                      id,
+				"max_concurrency":         args.Int("max_concurrency", 2),
+				"max_sql_length":          args.Int("max_sql_length", 4000),
+				"max_sql_parameter_count": args.Int("max_sql_parameter_count", 100),
+				"max_database_size":       args.Int("max_database_size", 100000),
+				"max_select_count":        args.Int("max_select_count", 100),
+				"max_result_length":       args.Int("max_result_length", 10000),
+				"max_from_count":          args.Int("max_from_count", 10),
+				"max_select_column_count": args.Int("max_select_column_count", 10),
+				"max_condition_count":     args.Int("max_condition_count", 10),
+				"max_order_by_count":      args.Int("max_order_by_count", 5),
+				"max_table_count":         args.Int("max_table_count", 10),
+				"debug":                   args.Bool("debug", false),
+				"created":                 args.Time("created", time.Now()),
+				"updated":                 args.Time("updated", time.Now()),
+			},
 		}
 	}, "id")
 

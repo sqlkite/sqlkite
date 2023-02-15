@@ -70,13 +70,14 @@ func Test_Create_DefaultInput(t *testing.T) {
 	id := res.String("id")
 	assert.True(t, uuid.IsValid(id))
 
-	row := tests.Row("select * from sqlkite_projects where id = $1", id)
-	assert.Equal(t, row.Int("max_concurrency"), 5)
-	assert.Equal(t, row.Int("max_sql_length"), 4096)
-	assert.Equal(t, row.Int("max_sql_parameter_count"), 100)
-	assert.Equal(t, row.Int("max_database_size"), 104857600)
-	assert.Equal(t, row.Int("max_select_count"), 100)
-	assert.Equal(t, row.Int("max_result_length"), 524288)
+	row := tests.Row("select data from sqlkite_projects where id = $1", id)
+	data := typedProjectData(row["data"])
+	assert.Equal(t, data.Int("max_concurrency"), 5)
+	assert.Equal(t, data.Int("max_sql_length"), 4096)
+	assert.Equal(t, data.Int("max_sql_parameter_count"), 100)
+	assert.Equal(t, data.Int("max_database_size"), 104857600)
+	assert.Equal(t, data.Int("max_select_count"), 100)
+	assert.Equal(t, data.Int("max_result_length"), 524288)
 }
 
 func Test_Create_ExplicitInput(t *testing.T) {
@@ -97,13 +98,14 @@ func Test_Create_ExplicitInput(t *testing.T) {
 	id := res.String("id")
 	assert.True(t, uuid.IsValid(id))
 
-	row := tests.Row("select * from sqlkite_projects where id = $1", id)
-	assert.Equal(t, row.Int("max_concurrency"), 7)
-	assert.Equal(t, row.Int("max_sql_length"), 4098)
-	assert.Equal(t, row.Int("max_sql_parameter_count"), 109)
-	assert.Equal(t, row.Int("max_database_size"), 104857610)
-	assert.Equal(t, row.Int("max_select_count"), 111)
-	assert.Equal(t, row.Int("max_result_length"), 524212)
+	row := tests.Row("select data from sqlkite_projects where id = $1", id)
+	data := typedProjectData(row["data"])
+	assert.Equal(t, data.Int("max_concurrency"), 7)
+	assert.Equal(t, data.Int("max_sql_length"), 4098)
+	assert.Equal(t, data.Int("max_sql_parameter_count"), 109)
+	assert.Equal(t, data.Int("max_database_size"), 104857610)
+	assert.Equal(t, data.Int("max_select_count"), 111)
+	assert.Equal(t, data.Int("max_result_length"), 524212)
 
 	// let's over-test this once, to make sure everything is really
 	// working toget as it should be
