@@ -19,7 +19,7 @@ func Info(conn *fasthttp.RequestCtx) (http.Response, error) {
 		return nil, err
 	}
 
-	return http.Ok(struct {
+	return http.OK(struct {
 		Go     string `json:"go"`
 		Commit string `json:"commit"`
 		Super  any    `json:"super"`

@@ -55,29 +55,13 @@ func Test_NewProject_DBSize(t *testing.T) {
 	defer project.Shutdown()
 
 	var pageSize, pageCount int
-	project.WithDB(func(conn sqlite.Conn) {
+	project.WithDB(func(conn sqlite.Conn) error {
 		conn.Row("pragma page_size").Scan(&pageSize)
 		conn.Row("pragma max_page_count").Scan(&pageCount)
-	})
-
-	assert.Equal(t, pageCount, 40930/pageSize)
-}
-
-func Test_Project_WithDBEnv(t *testing.T) {
-	project := MustGetProject(tests.Factory.StandardId)
-	env := project.Env()
-	env.User = &User{Id: "user-1", Role: "role-a"}
-	defer env.Release()
-
-	var userId, role string
-	project.WithDBEnv(env, func(conn sqlite.Conn) error {
-		err := conn.Row("select sqlkite_user_id(), sqlkite_user_role()").Scan(&userId, &role)
-		assert.Nil(t, err)
 		return nil
 	})
 
-	assert.Equal(t, userId, "user-1")
-	assert.Equal(t, role, "role-a")
+	assert.Equal(t, pageCount, 40930/pageSize)
 }
 
 func Test_Project_NextRequestId(t *testing.T) {
@@ -137,7 +121,7 @@ func Test_Project_CreateTable(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	project = MustGetProject(project.Id)
+	project = mustGetProject(project.Id)
 	err = project.CreateTable(project.Env(), &Table{
 		Name: "tab2",
 		Columns: []Column{
@@ -152,7 +136,7 @@ func Test_Project_CreateTable(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	project = MustGetProject(project.Id)
+	project = mustGetProject(project.Id)
 	table := project.Table("tab1")
 	assert.NotNil(t, table)
 
@@ -214,7 +198,7 @@ func Test_Project_CreateTable(t *testing.T) {
 }
 
 func Test_Project_UpdateTable_UnknownTable(t *testing.T) {
-	project := MustGetProject(tests.Factory.StandardId)
+	project := mustGetProject(tests.Factory.StandardId)
 	env := project.Env()
 	err := project.UpdateTable(env, &Table{}, TableAlter{Name: "tab1"})
 	assert.Nil(t, err)
@@ -223,7 +207,7 @@ func Test_Project_UpdateTable_UnknownTable(t *testing.T) {
 
 func Test_Project_UpdateTable_Success(t *testing.T) {
 	id := tests.Factory.DynamicId()
-	project := MustGetProject(id)
+	project := mustGetProject(id)
 	err := project.CreateTable(project.Env(), &Table{
 		Name: "tab_update",
 		Columns: []Column{
@@ -235,7 +219,7 @@ func Test_Project_UpdateTable_Success(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	project = MustGetProject(id)
+	project = mustGetProject(id)
 	err = project.UpdateTable(project.Env(), &Table{}, TableAlter{
 		Name: "tab_update",
 		Changes: []sql.Part{
@@ -263,7 +247,7 @@ func Test_Project_UpdateTable_Success(t *testing.T) {
 	assert.Equal(t, table.Columns[3].Name, "c4")
 
 	// ok, now let's refetch the project, this should see the update
-	project = MustGetProject(id)
+	project = mustGetProject(id)
 
 	table = project.tables["tab_update_b"]
 	assert.Equal(t, table.Name, "tab_update_b")
@@ -286,7 +270,7 @@ func Test_Project_UpdateTable_Success(t *testing.T) {
 }
 
 func Test_Project_DeleteTable_UnknownTable(t *testing.T) {
-	project := MustGetProject(tests.Factory.StandardId)
+	project := mustGetProject(tests.Factory.StandardId)
 	env := project.Env()
 	err := project.DeleteTable(env, "tab_nope")
 	assert.Nil(t, err)
@@ -295,7 +279,7 @@ func Test_Project_DeleteTable_UnknownTable(t *testing.T) {
 
 func Test_Project_DeleteTable_Success(t *testing.T) {
 	id := tests.Factory.DynamicId()
-	project := MustGetProject(id)
+	project := mustGetProject(id)
 	err := project.CreateTable(project.Env(), &Table{
 		Name: "tab_delete",
 		Columns: []Column{
@@ -304,16 +288,16 @@ func Test_Project_DeleteTable_Success(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	project = MustGetProject(id)
+	project = mustGetProject(id)
 	assert.Nil(t, project.DeleteTable(project.Env(), "tab_delete"))
 
-	project = MustGetProject(id)
+	project = mustGetProject(id)
 	table := project.Table("tab_delete")
 	assert.Nil(t, table)
 }
 
 func dynamicProject() *Project {
-	return MustGetProject(tests.Factory.DynamicId())
+	return mustGetProject(tests.Factory.DynamicId())
 }
 
 func Test_ApplyTableChanges(t *testing.T) {
@@ -390,7 +374,7 @@ func Test_ApplyTableChanges(t *testing.T) {
 	assert.Nil(t, t4.Access.Delete)
 }
 
-func MustGetProject(id string) *Project {
+func mustGetProject(id string) *Project {
 	project, err := Projects.Get(id)
 	if err != nil {
 		panic(err)

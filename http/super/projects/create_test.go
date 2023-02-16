@@ -70,7 +70,7 @@ func Test_Create_DefaultInput(t *testing.T) {
 	id := res.String("id")
 	assert.True(t, uuid.IsValid(id))
 
-	row := tests.Row("select * from sqlkite_projects where id = $1", id)
+	row := tests.Super.Row("select * from sqlkite_projects where id = $1", id)
 	assert.Equal(t, row.Int("max_concurrency"), 5)
 	assert.Equal(t, row.Int("max_sql_length"), 4096)
 	assert.Equal(t, row.Int("max_sql_parameter_count"), 100)
@@ -97,7 +97,7 @@ func Test_Create_ExplicitInput(t *testing.T) {
 	id := res.String("id")
 	assert.True(t, uuid.IsValid(id))
 
-	row := tests.Row("select * from sqlkite_projects where id = $1", id)
+	row := tests.Super.Row("select * from sqlkite_projects where id = $1", id)
 	assert.Equal(t, row.Int("max_concurrency"), 7)
 	assert.Equal(t, row.Int("max_sql_length"), 4098)
 	assert.Equal(t, row.Int("max_sql_parameter_count"), 109)
@@ -116,10 +116,11 @@ func Test_Create_ExplicitInput(t *testing.T) {
 	assert.Equal(t, p.MaxSelectCount, 111)
 	assert.Equal(t, p.MaxResultLength, 524212)
 
-	p.WithDB(func(db sqlite.Conn) {
+	p.WithDB(func(db sqlite.Conn) error {
 		var n int
 		err := db.Row("select 99").Scan(&n)
 		assert.Nil(t, err)
 		assert.Equal(t, n, 99)
+		return nil
 	})
 }

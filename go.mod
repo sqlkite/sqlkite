@@ -14,7 +14,7 @@ require (
 	github.com/jackc/pgx/v5 v5.2.0
 	github.com/valyala/fasthttp v1.44.0
 	src.goblgobl.com/sqlite v0.0.4
-	src.goblgobl.com/tests v0.0.6
+	src.goblgobl.com/tests v0.0.7
 	src.goblgobl.com/utils v0.0.6
 )
 
@@ -31,5 +31,6 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/crypto v0.5.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
+	golang.org/x/sys v0.4.0 // indirect
 	golang.org/x/text v0.6.0 // indirect
 )

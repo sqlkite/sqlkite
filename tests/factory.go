@@ -120,4 +120,8 @@ func resetDatabase(id string) {
 	if err := conn.Exec("delete from products"); err != nil {
 		panic(err)
 	}
+
+	if err := conn.Exec("delete from sqlkite_users"); err != nil {
+		panic(err)
+	}
 }

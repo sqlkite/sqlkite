@@ -29,8 +29,7 @@ const (
 )
 
 var (
-	Projects            concurrent.Map[*Project]
-	CLEAR_SQLKITE_USERS = []byte(sqlite.Terminate("update sqlkite_user set id = '', role = ''"))
+	Projects concurrent.Map[*Project]
 )
 
 func init() {
@@ -91,41 +90,19 @@ func (p *Project) Table(name string) *Table {
 	return p.tables[name]
 }
 
-func (p *Project) WithDB(cb func(sqlite.Conn)) {
+func (p *Project) WithDB(cb func(sqlite.Conn) error) error {
 	pool := p.dbPool
 	conn := pool.Checkout()
 	defer pool.Release(conn)
-	cb(conn)
-}
-
-func (p *Project) WithDBEnv(env *Env, cb func(sqlite.Conn) error) error {
-	pool := p.dbPool
-	conn := pool.Checkout()
-
-	if user := env.User; user != nil {
-		if err := conn.Exec("insert or replace into sqlkite_user (id, user_id, role) values (0, ?1, ?2)", user.Id, user.Role); err != nil {
-			env.Error("WithDBEnv.upsert").String("uid", user.Id).String("role", user.Role).Err(err).Log()
-			return err
-		}
-	}
-
-	defer func() {
-		if err := conn.ExecTerminated(CLEAR_SQLKITE_USERS); err != nil {
-			env.Error("WithDBEnv.clear").Err(err).Log()
-		}
-		pool.Release(conn)
-	}()
-
 	return cb(conn)
 }
 
-func (p *Project) WithTransaction(cb func(sqlite.Conn) error) (err error) {
-	p.WithDB(func(conn sqlite.Conn) {
-		err = conn.Transaction(func() error {
+func (p *Project) WithTransaction(cb func(sqlite.Conn) error) error {
+	return p.WithDB(func(conn sqlite.Conn) error {
+		return conn.Transaction(func() error {
 			return cb(conn)
 		})
 	})
-	return
 }
 
 func (p *Project) CreateTable(env *Env, table *Table) error {
@@ -290,7 +267,11 @@ func (p *Project) UpdateTable(env *Env, table *Table, alter TableAlter) error {
 			}
 		}
 
-		if err := conn.Exec("update sqlkite_tables set name = $1, definition = $2 where name = $3", tableName, definition, existingTableName); err != nil {
+		if err := conn.Exec(`
+			update sqlkite_tables
+			set name = $1, definition = $2, updated = unixepoch()
+			where name = $3
+		`, tableName, definition, existingTableName); err != nil {
 			return log.Err(codes.ERR_UPDATE_SQLKITE_TABLES, err)
 		}
 
@@ -507,7 +488,7 @@ func (p *Project) executeQueryWithoutResult(env *Env, q sql.Query) (*QueryResult
 	}
 
 	affected := 0
-	err = p.WithDBEnv(env, func(conn sqlite.Conn) error {
+	err = env.WithDB(func(conn sqlite.Conn) error {
 		err := conn.ExecBArr(sql, q.Values())
 		if err != nil {
 			return err
@@ -543,7 +524,7 @@ func (p *Project) executeQueryWithResults(env *Env, q sql.Query) (*QueryResult, 
 	// it needs to survive until the response is sent.
 	result := p.ResultBuffer()
 
-	err = p.WithDBEnv(env, func(conn sqlite.Conn) error {
+	err = env.WithDB(func(conn sqlite.Conn) error {
 		rows := conn.RowsBArr(sql, q.Values())
 		defer rows.Close()
 

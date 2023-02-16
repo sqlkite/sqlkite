@@ -170,22 +170,23 @@ func Test_Insert_A_MultipleRows_Returning(t *testing.T) {
 
 func getRow(project *sqlkite.Project, sql string, args ...any) typed.Typed {
 	var t typed.Typed
-	project.WithDB(func(conn sqlite.Conn) {
+	project.WithDB(func(conn sqlite.Conn) error {
 		m, err := conn.RowArr(sql, args).Map()
 		if err != nil {
 			if err == sqlite.ErrNoRows {
-				return
+				return nil
 			}
 			panic(err)
 		}
 		t = typed.Typed(m)
+		return nil
 	})
 	return t
 }
 
 func getRows(project *sqlkite.Project, sql string, args ...any) []typed.Typed {
 	t := make([]typed.Typed, 0, 10)
-	project.WithDB(func(conn sqlite.Conn) {
+	project.WithDB(func(conn sqlite.Conn) error {
 		rows := conn.RowsArr(sql, args)
 		defer rows.Close()
 
@@ -199,6 +200,7 @@ func getRows(project *sqlkite.Project, sql string, args ...any) []typed.Typed {
 		if err := rows.Error(); err != nil {
 			panic(err)
 		}
+		return nil
 	})
 	return t
 }

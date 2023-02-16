@@ -104,7 +104,7 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.Validation(validator), nil
 	}
 
-	return http.Ok(nil), nil
+	return http.OK(nil), nil
 }
 
 func changeValidation(field validation.Field, value typed.Typed, input typed.Typed, res *validation.Result) any {

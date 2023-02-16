@@ -18,5 +18,5 @@ func Delete(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.Validation(validator), nil
 	}
 
-	return http.Ok(nil), nil
+	return http.OK(nil), nil
 }

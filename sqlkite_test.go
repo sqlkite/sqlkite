@@ -10,7 +10,7 @@ import (
 )
 
 func Test_CreateDB(t *testing.T) {
-	id := tests.UUID()
+	id := tests.Generator.UUID()
 	dbPath := path.Join(Config.RootPath, id)
 	defer os.RemoveAll(dbPath)
 
@@ -29,7 +29,9 @@ func Test_CreateDB(t *testing.T) {
 	rows.Scan(&createTableSQL)
 	assert.Equal(t, createTableSQL, `CREATE TABLE sqlkite_tables (
 		name text not null primary key,
-		definition text not null
+		definition text not null,
+		created int not null default(unixepoch()),
+		updated int not null default(unixepoch())
 	)`)
 
 	var journalMode string

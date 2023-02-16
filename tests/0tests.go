@@ -27,7 +27,7 @@ import (
 	"src.sqlkite.com/sqlkite/super/sqlite"
 )
 
-var generator tests.Generator
+var Generator = tests.Generator
 
 func init() {
 	err := log.Configure(log.Config{
@@ -68,24 +68,8 @@ func init() {
 	}
 }
 
-func String(constraints ...int) string {
-	return generator.String(constraints...)
-}
-
 func CaptureLog(fn func()) string {
 	return tests.CaptureLog(fn)
-}
-
-func UUID() string {
-	return generator.UUID()
-}
-
-func Row(sql string, args ...any) typed.Typed {
-	return tests.Row(super.DB.(tests.TestableDB), sql, args...)
-}
-
-func Rows(sql string, args ...any) []typed.Typed {
-	return tests.Rows(super.DB.(tests.TestableDB), sql, args...)
 }
 
 // Some database in tests/database are "static" and created with the
@@ -117,21 +101,25 @@ func TestDBRoot() string {
 }
 
 type ConnProvider interface {
-	WithDB(func(conn sqliteDriver.Conn))
+	WithDB(func(conn sqliteDriver.Conn) error) error
 }
 
-// query sqlite_master
-func SqliteMaster(connProvider ConnProvider, name string, tableName string) string {
-	var sql string
-	connProvider.WithDB(func(conn sqliteDriver.Conn) {
-		query := "select sql from sqlite_master where name = ?1 and tbl_name = ?2"
-		if err := conn.Row(query, name, tableName).Scan(&sql); err != nil {
-			if err != sqliteDriver.ErrNoRows {
-				panic(err)
-			}
-		}
+func Row(connProvider ConnProvider, sql string, args ...any) typed.Typed {
+	var t typed.Typed
+	err := connProvider.WithDB(func(conn sqliteDriver.Conn) error {
+		m, err := conn.Row(sql, args...).Map()
+		t = typed.Typed(m)
+		return err
 	})
-	return sql
+
+	if err != nil {
+		if err == sqlite.ErrNoRows {
+			return nil
+		}
+		panic(err)
+	}
+
+	return t
 }
 
 var sqlNormalizePattern = regexp.MustCompile("\\s+")

@@ -78,7 +78,7 @@ func Test_Update_DefaultInput(t *testing.T) {
 		Put(Update).
 		OK()
 
-	row := tests.Row("select * from sqlkite_projects where id = $1", projectId)
+	row := tests.Super.Row("select * from sqlkite_projects where id = $1", projectId)
 	assert.Equal(t, row.Int("max_concurrency"), 5)
 	assert.Equal(t, row.Int("max_sql_length"), 4096)
 	assert.Equal(t, row.Int("max_sql_parameter_count"), 100)
@@ -104,7 +104,7 @@ func Test_Update_ExplicitInput(t *testing.T) {
 		Put(Update).
 		OK()
 
-	row := tests.Row("select * from sqlkite_projects where id = $1", projectId)
+	row := tests.Super.Row("select * from sqlkite_projects where id = $1", projectId)
 	assert.Equal(t, row.Int("max_concurrency"), 7)
 	assert.Equal(t, row.Int("max_sql_length"), 4098)
 	assert.Equal(t, row.Int("max_sql_parameter_count"), 109)

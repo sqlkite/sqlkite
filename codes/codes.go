@@ -39,6 +39,7 @@ const (
 	VAL_AUTOINCREMENT_COMPOSITE_PK   = 302_036
 	VAL_AUTOINCREMENT_NON_PK         = 302_037
 	VAL_COMMON_PASSWORD              = 302_038
+	VAL_AUTH_EMAIL_IN_USE            = 302_039
 
 	RES_UNKNOWN_ROUTE          = 302_001
 	RES_MISSING_PROJECT_HEADER = 302_002
@@ -73,7 +74,7 @@ const (
 	ERR_DB_CREATE_PATH                         = 303_023
 	ERR_DB_OPEN                                = 303_024
 	ERR_PRAGMA_JOURNAL                         = 303_025
-	ERR_CREATE_SQLITE_TABLES                   = 303_026
+	ERR_CREATE_SQLKITE_TABLES                  = 303_026
 	ERR_SUPER_PG_NEW                           = 303_027
 	ERR_SUPER_PG_PING                          = 303_028
 	ERR_SUPER_PG_GET_PROJECT                   = 303_030
@@ -86,4 +87,5 @@ const (
 	ERR_SUPER_SQLITE_GET_UPDATED_PROJECT       = 303_037
 	ERR_CREATE_ACCESS_TRIGGER                  = 303_038
 	ERR_UPDATE_ACCESS_TRIGGER                  = 303_039
+	ERR_CREATE_SQLKITE_USERS                   = 303_040
 )

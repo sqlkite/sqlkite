@@ -13,6 +13,7 @@ import (
 	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/config"
 	"src.sqlkite.com/sqlkite/http/admin/tables"
+	"src.sqlkite.com/sqlkite/http/auth"
 	"src.sqlkite.com/sqlkite/http/diagnostics"
 	"src.sqlkite.com/sqlkite/http/sql"
 	"src.sqlkite.com/sqlkite/http/super/projects"

@@ -9,6 +9,7 @@ import (
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
 	"src.goblgobl.com/utils/log"
+	"src.sqlkite.com/sqlkite/tests"
 )
 
 func Test_Env_Request(t *testing.T) {
@@ -61,4 +62,21 @@ func assertLogger(t *testing.T, logger log.Logger, expected ...string) {
 	for i := 0; i < len(expected); i += 2 {
 		assert.Equal(t, data[expected[i]], expected[i+1])
 	}
+}
+
+func Test_Env_WithDB(t *testing.T) {
+	project := mustGetProject(tests.Factory.StandardId)
+	env := project.Env()
+	env.User = &User{Id: "user-1", Role: "role-a"}
+	defer env.Release()
+
+	var userId, role string
+	env.WithDB(func(conn sqlite.Conn) error {
+		err := conn.Row("select sqlkite_user_id(), sqlkite_user_role()").Scan(&userId, &role)
+		assert.Nil(t, err)
+		return nil
+	})
+
+	assert.Equal(t, userId, "user-1")
+	assert.Equal(t, role, "role-a")
 }

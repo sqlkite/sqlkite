@@ -92,7 +92,7 @@ func (r *ResultResponse) WriteTo(w io.Writer) (int64, error) {
 func (r *ResultResponse) Write(conn *fasthttp.RequestCtx, logger log.Logger) log.Logger {
 	conn.SetStatusCode(200)
 	conn.SetBodyStream(r, r.len)
-	return logger.Field(http.OkLogData).Int("res", r.len).Int("rows", r.rowCount)
+	return logger.Field(http.OKLogData).Int("res", r.len).Int("rows", r.rowCount)
 }
 
 type AffectedResponse struct {
@@ -105,7 +105,7 @@ func (r AffectedResponse) Write(conn *fasthttp.RequestCtx, logger log.Logger) lo
 
 	conn.SetStatusCode(200)
 	conn.SetBody(body)
-	return logger.Field(http.OkLogData).Int("res", len(body)).Int("affected", affected)
+	return logger.Field(http.OKLogData).Int("res", len(body)).Int("affected", affected)
 }
 
 type EmptyResultResponse struct {
@@ -115,5 +115,5 @@ func (r EmptyResultResponse) Write(conn *fasthttp.RequestCtx, logger log.Logger)
 	conn.SetStatusCode(200)
 	body := []byte(`{"r":[]}`)
 	conn.SetBody(body)
-	return logger.Field(http.OkLogData).Int("res", len(body)).Int("rows", 0)
+	return logger.Field(http.OKLogData).Int("res", len(body)).Int("rows", 0)
 }

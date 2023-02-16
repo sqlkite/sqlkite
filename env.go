@@ -20,9 +20,11 @@ import (
 
 var (
 	sqliteErrorLogData = log.NewField().
-		Int("code", codes.RES_DATABASE_ERROR).
-		Int("status", 500).
-		Finalize()
+				Int("code", codes.RES_DATABASE_ERROR).
+				Int("status", 500).
+				Finalize()
+
+	CLEAR_SQLKITE_USERS = []byte(sqlite.Terminate("update sqlkite_user set id = '', role = ''"))
 )
 
 type Env struct {
@@ -68,6 +70,31 @@ func NewEnv(p *Project, requestId string) *Env {
 		requestId: requestId,
 		Validator: validation.Checkout(),
 	}
+}
+
+func (e *Env) WithDB(cb func(sqlite.Conn) error) error {
+	user := e.User
+	project := e.Project
+	if user == nil {
+		return project.WithDB(cb)
+	}
+
+	pool := project.dbPool
+	conn := pool.Checkout()
+
+	if err := conn.Exec("insert or replace into sqlkite_user (id, user_id, role) values (0, ?1, ?2)", user.Id, user.Role); err != nil {
+		e.Error("Env.WithDB.upsert").String("uid", user.Id).String("role", user.Role).Err(err).Log()
+		return err
+	}
+
+	defer func() {
+		if err := conn.ExecTerminated(CLEAR_SQLKITE_USERS); err != nil {
+			e.Error("Env.WithDB.clear").Err(err).Log()
+		}
+		pool.Release(conn)
+	}()
+
+	return cb(conn)
 }
 
 func (e *Env) RequestId() string {

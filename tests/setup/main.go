@@ -91,7 +91,7 @@ func setupStandardProject() {
 	}
 
 	project = MustGetProject(id)
-	project.WithDB(func(conn sqlite.Conn) {
+	project.WithDB(func(conn sqlite.Conn) error {
 		conn.MustExec(`
 			insert into products (id, name, rating, image) values
 			(?1, ?2, ?3, ?4),
@@ -102,6 +102,7 @@ func setupStandardProject() {
 			2, "Absolute", 4.1, []byte{1, 2, 3, 4},
 			3, "Keemun", 4.0, []byte{5, 6, 7},
 		)
+		return nil
 	})
 
 	err = project.CreateTable(project.Env(), &sqlkite.Table{
@@ -123,7 +124,7 @@ func setupStandardProject() {
 	}
 
 	project = MustGetProject(id)
-	project.WithDB(func(conn sqlite.Conn) {
+	project.WithDB(func(conn sqlite.Conn) error {
 		conn.MustExec(`
 			insert into users (id, name, public) values
 			(?1, ?2, ?3),
@@ -136,6 +137,7 @@ func setupStandardProject() {
 			3, "Duncan", 1,
 			4, "Teg", 1,
 		)
+		return nil
 	})
 }
 
@@ -159,8 +161,8 @@ func setupDynamicProject() {
 
 	project := MustGetProject(id)
 	// clear out all the tables in this "messy" database
-	project.WithDB(func(conn sqlite.Conn) {
-		conn.Transaction(func() error {
+	project.WithDB(func(conn sqlite.Conn) error {
+		return conn.Transaction(func() error {
 			tablesToDeleteSQL := `
 				select name
 				from sqlite_schema

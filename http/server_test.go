@@ -89,7 +89,7 @@ func Test_Server_Env_CallsHandlerWithProject(t *testing.T) {
 	conn := request.Req(t).ProjectId(projectId).Conn()
 	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Equal(t, env.Project.Id, projectId)
-		return http.Ok(map[string]int{"over": 9000}), nil
+		return http.OK(map[string]int{"over": 9000}), nil
 	})(conn)
 
 	res := request.Res(t, conn).OK()
@@ -102,12 +102,12 @@ func Test_Server_Env_RequestId(t *testing.T) {
 	var id1, id2 string
 	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		id1 = env.RequestId()
-		return http.Ok(nil), nil
+		return http.OK(nil), nil
 	})(conn)
 
 	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		id2 = env.RequestId()
-		return http.Ok(nil), nil
+		return http.OK(nil), nil
 	})(conn)
 
 	assert.Equal(t, len(id1), 8)
@@ -198,13 +198,13 @@ func Test_Server_SuperEnv_Ok(t *testing.T) {
 	http.Handler("", loadSuperEnv(loadUserFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Nil(t, env.Project)
 		id1 = env.RequestId()
-		return http.Ok(nil), nil
+		return http.OK(nil), nil
 	})(conn)
 
 	http.Handler("", loadSuperEnv(loadUserFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		assert.Nil(t, env.Project)
 		id2 = env.RequestId()
-		return http.Ok(nil), nil
+		return http.OK(nil), nil
 	})(conn)
 
 	assert.Equal(t, len(id1), 8)
@@ -218,7 +218,7 @@ func Test_Server_Nil_User_FromHeader(t *testing.T) {
 	http.Handler("", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		called = true
 		assert.Nil(t, env.User)
-		return http.Ok(nil), nil
+		return http.OK(nil), nil
 	})(conn)
 	assert.True(t, called)
 }
@@ -230,7 +230,7 @@ func Test_Server_User_NoRole_FromHeader(t *testing.T) {
 		called = true
 		assert.Equal(t, env.User.Id, "user1")
 		assert.Equal(t, env.User.Role, "")
-		return http.Ok(nil), nil
+		return http.OK(nil), nil
 	})(conn)
 	assert.True(t, called)
 }
@@ -242,7 +242,7 @@ func Test_Server_User_WithRole_FromHeader(t *testing.T) {
 		called = true
 		assert.Equal(t, env.User.Id, "user1")
 		assert.Equal(t, env.User.Role, "admin")
-		return http.Ok(nil), nil
+		return http.OK(nil), nil
 	})(conn)
 	assert.True(t, called)
 }
@@ -277,7 +277,7 @@ func Test_Server_RequireRole_ValidRole(t *testing.T) {
 	conn := request.Req(t).ProjectId(projectId).User("id1", "super").Conn()
 	http.Handler("", requireRole("super", createEnvLoader(loadUserFromHeader, loadProjectIdFromHeader)), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		called = true
-		return http.Ok(nil), nil
+		return http.OK(nil), nil
 	})(conn)
 	assert.True(t, called)
 }

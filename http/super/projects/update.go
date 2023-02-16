@@ -52,5 +52,5 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	if !ok {
 		return resNotFound, nil
 	}
-	return http.Ok(nil), err
+	return http.OK(nil), err
 }

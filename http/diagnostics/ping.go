@@ -10,5 +10,5 @@ func Ping(conn *fasthttp.RequestCtx) (http.Response, error) {
 	if err := super.DB.Ping(); err != nil {
 		return nil, err
 	}
-	return http.OkBytes([]byte(`{"ok":true}`)), nil
+	return http.OKBytes([]byte(`{"ok":true}`)), nil
 }

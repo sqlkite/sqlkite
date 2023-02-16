@@ -127,13 +127,14 @@ func Test_Update_SQL_Error(t *testing.T) {
 
 func Test_Update_Success(t *testing.T) {
 	assertTriggerCount := func(project *sqlkite.Project, tableName string, expectedCount int) {
-		project.WithDB(func(conn sqlite.Conn) {
+		project.WithDB(func(conn sqlite.Conn) error {
 			var actual int
 			sql := "select count(*) from sqlite_master where tbl_name = ?1 and type = 'trigger'"
 			if err := conn.Row(sql, tableName).Scan(&actual); err != nil {
 				panic(err)
 			}
 			assert.Equal(t, actual, expectedCount)
+			return nil
 		})
 	}
 
@@ -198,12 +199,12 @@ func Test_Update_Success(t *testing.T) {
 	assert.Equal(t, table.Access.Update.Trigger, "select 11")
 	assert.Equal(t, table.Access.Delete.When, "12=12")
 	assert.Equal(t, table.Access.Delete.Trigger, "select 12")
-	insertAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_update_success_b_i", "test_update_success_b")
-	assert.StringContains(t, insertAccessControl, `select 10`)
-	updateAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_update_success_b_u", "test_update_success_b")
-	assert.StringContains(t, updateAccessControl, `select 11`)
-	deleteAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_update_success_b_d", "test_update_success_b")
-	assert.StringContains(t, deleteAccessControl, `select 12`)
+	insertAccessControl := tests.Row(project, "select sql from sqlite_master where name = 'sqlkite_ra_test_update_success_b_i'")
+	assert.StringContains(t, insertAccessControl.String("sql"), `select 10`)
+	updateAccessControl := tests.Row(project, "select sql from sqlite_master where name = 'sqlkite_ra_test_update_success_b_u'")
+	assert.StringContains(t, updateAccessControl.String("sql"), `select 11`)
+	deleteAccessControl := tests.Row(project, "select sql from sqlite_master where name = 'sqlkite_ra_test_update_success_b_d'")
+	assert.StringContains(t, deleteAccessControl.String("sql"), `select 12`)
 
 	// alter access control
 	request.ReqT(t, project.Env()).
@@ -237,12 +238,12 @@ func Test_Update_Success(t *testing.T) {
 	assert.Equal(t, table.Access.Update.Trigger, "select 21")
 	assert.Equal(t, table.Access.Delete.When, "22=22")
 	assert.Equal(t, table.Access.Delete.Trigger, "select 22")
-	insertAccessControl = tests.SqliteMaster(project, "sqlkite_ra_test_update_success_b_i", "test_update_success_b")
-	assert.StringContains(t, insertAccessControl, `select 20`)
-	updateAccessControl = tests.SqliteMaster(project, "sqlkite_ra_test_update_success_b_u", "test_update_success_b")
-	assert.StringContains(t, updateAccessControl, `select 21`)
-	deleteAccessControl = tests.SqliteMaster(project, "sqlkite_ra_test_update_success_b_d", "test_update_success_b")
-	assert.StringContains(t, deleteAccessControl, `select 22`)
+	insertAccessControl = tests.Row(project, "select sql from sqlite_master where name = 'sqlkite_ra_test_update_success_b_i'")
+	assert.StringContains(t, insertAccessControl.String("sql"), `select 20`)
+	updateAccessControl = tests.Row(project, "select sql from sqlite_master where name = 'sqlkite_ra_test_update_success_b_u'")
+	assert.StringContains(t, updateAccessControl.String("sql"), `select 21`)
+	deleteAccessControl = tests.Row(project, "select sql from sqlite_master where name = 'sqlkite_ra_test_update_success_b_d'")
+	assert.StringContains(t, deleteAccessControl.String("sql"), `select 22`)
 
 	// remove access control
 	request.ReqT(t, project.Env()).

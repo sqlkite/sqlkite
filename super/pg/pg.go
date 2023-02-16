@@ -146,7 +146,8 @@ func (db DB) UpdateProject(data data.Project) (bool, error) {
 		  max_condition_count = $10,
 		  max_order_by_count = $11,
 		  max_table_count = $12,
-		  debug = $13
+		  debug = $13,
+		  updated = now(),
 		where id = $1
 	`,
 		data.Id, data.MaxConcurrency, data.MaxSQLLength, data.MaxSQLParameterCount,

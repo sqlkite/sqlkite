@@ -211,32 +211,32 @@ func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 	assert.Equal(t, table.Access.Delete.When, "3=3")
 	assert.Equal(t, table.Access.Delete.Trigger, "select 3")
 
-	insertAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_create_success_defaults_i", "test_create_success_defaults")
-	assert.Equal(t, insertAccessControl, `CREATE TRIGGER sqlkite_ra_test_create_success_defaults_i
+	insertAccessControl := tests.Row(project, "select sql from sqlite_master where name = 'sqlkite_ra_test_create_success_defaults_i'")
+	assert.Equal(t, insertAccessControl.String("sql"), `CREATE TRIGGER sqlkite_ra_test_create_success_defaults_i
 before insert on test_create_success_defaults for each row
 when (1=1)
 begin
  select 1;
 end`)
 
-	updateAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_create_success_defaults_u", "test_create_success_defaults")
-	assert.Equal(t, updateAccessControl, `CREATE TRIGGER sqlkite_ra_test_create_success_defaults_u
+	updateAccessControl := tests.Row(project, "select sql from sqlite_master where name = 'sqlkite_ra_test_create_success_defaults_u'")
+	assert.Equal(t, updateAccessControl.String("sql"), `CREATE TRIGGER sqlkite_ra_test_create_success_defaults_u
 before update on test_create_success_defaults for each row
 when (2=2)
 begin
  select 2 ;
 end`)
 
-	deleteAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_create_success_defaults_d", "test_create_success_defaults")
-	assert.Equal(t, deleteAccessControl, `CREATE TRIGGER sqlkite_ra_test_create_success_defaults_d
+	deleteAccessControl := tests.Row(project, "select sql from sqlite_master where name = 'sqlkite_ra_test_create_success_defaults_d'")
+	assert.Equal(t, deleteAccessControl.String("sql"), `CREATE TRIGGER sqlkite_ra_test_create_success_defaults_d
 before delete on test_create_success_defaults for each row
 when (3=3)
 begin
  select 3;
 end`)
 
-	createDDL := tests.SqliteMaster(project, "test_create_success_defaults", "test_create_success_defaults")
-	tests.AssertSQL(t, createDDL, `CREATE TABLE test_create_success_defaults(
+	createDDL := tests.Row(project, "select sql from sqlite_master where name = 'test_create_success_defaults'")
+	tests.AssertSQL(t, createDDL.String("sql"), `CREATE TABLE test_create_success_defaults(
 		C1 text null default('a'),
 		c2 int null default(32),
 		C3 real null default(9000.1),
@@ -296,14 +296,14 @@ func Test_Create_Success_NoDefaults_NoAccessControl(t *testing.T) {
 	assert.Nil(t, table.Access.Update)
 	assert.Nil(t, table.Access.Delete)
 
-	insertAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_create_success_defaults_i", "test_create_success_defaults")
-	assert.Equal(t, insertAccessControl, "")
+	insertAccessControl := tests.Row(project, "select sql from sqlite_master where name = 'sqlkite_ra_test_create_success_defaults_i'")
+	assert.Equal(t, insertAccessControl.String("sql"), "")
 
-	updateAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_create_success_defaults_u", "test_create_success_defaults")
-	assert.Equal(t, updateAccessControl, "")
+	updateAccessControl := tests.Row(project, "select sql from sqlite_master where name = 'sqlkite_ra_test_create_success_defaults_u'")
+	assert.Equal(t, updateAccessControl.String("sql"), "")
 
-	deleteAccessControl := tests.SqliteMaster(project, "sqlkite_ra_test_create_success_defaults_d", "test_create_success_defaults")
-	assert.Equal(t, deleteAccessControl, "")
+	deleteAccessControl := tests.Row(project, "select sql from sqlite_master where name = 'sqlkite_ra_test_create_success_defaults_d'")
+	assert.Equal(t, deleteAccessControl.String("sql"), "")
 }
 
 func Test_Create_Success_NullAccessControl(t *testing.T) {
@@ -347,8 +347,8 @@ func Test_Create_Success_Explicit_PK(t *testing.T) {
 		Post(Create).
 		OK()
 
-	createDDL := tests.SqliteMaster(project, "test_create_success_pk_1", "test_create_success_pk_1")
-	tests.AssertSQL(t, createDDL, `CREATE TABLE test_create_success_pk_1(
+	createDDL := tests.Row(project, "select sql from sqlite_master where name = 'test_create_success_pk_1'")
+	tests.AssertSQL(t, createDDL.String("sql"), `CREATE TABLE test_create_success_pk_1(
 		c1 text null,
 		primary key (c1)
 	)`)
@@ -369,8 +369,8 @@ func Test_Create_Success_Composite_PK(t *testing.T) {
 		Post(Create).
 		OK()
 
-	createDDL := tests.SqliteMaster(project, "test_create_success_pk_2", "test_create_success_pk_2")
-	tests.AssertSQL(t, createDDL, `CREATE TABLE test_create_success_pk_2(
+	createDDL := tests.Row(project, "select sql from sqlite_master where name = 'test_create_success_pk_2'")
+	tests.AssertSQL(t, createDDL.String("sql"), `CREATE TABLE test_create_success_pk_2(
 		c1 text null,
 		c2 int null,
 		primary key (c1,c2)
@@ -390,8 +390,8 @@ func Test_Create_Success_AutoIncrement_Reuse(t *testing.T) {
 		Post(Create).
 		OK()
 
-	createDDL := tests.SqliteMaster(project, "test_create_success_pk_air", "test_create_success_pk_air")
-	tests.AssertSQL(t, createDDL, `CREATE TABLE test_create_success_pk_air(
+	createDDL := tests.Row(project, "select sql from sqlite_master where name = 'test_create_success_pk_air'")
+	tests.AssertSQL(t, createDDL.String("sql"), `CREATE TABLE test_create_success_pk_air(
 		id integer primary key null
 	)`)
 }
@@ -409,8 +409,8 @@ func Test_Create_Success_AutoIncrement_Strict(t *testing.T) {
 		Post(Create).
 		OK()
 
-	createDDL := tests.SqliteMaster(project, "test_create_success_pk_ais", "test_create_success_pk_ais")
-	tests.AssertSQL(t, createDDL, `CREATE TABLE test_create_success_pk_ais(
+	createDDL := tests.Row(project, "select sql from sqlite_master where name = 'test_create_success_pk_ais'")
+	tests.AssertSQL(t, createDDL.String("sql"), `CREATE TABLE test_create_success_pk_ais(
 		id integer primary key autoincrement null
 	)`)
 }

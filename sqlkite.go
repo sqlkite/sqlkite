@@ -93,11 +93,28 @@ func CreateDB(projectId string) error {
 
 	err = db.Exec(`create table sqlkite_tables (
 		name text not null primary key,
-		definition text not null
+		definition text not null,
+		created int not null default(unixepoch()),
+		updated int not null default(unixepoch())
 	)`)
 
 	if err != nil {
-		return log.ErrData(codes.ERR_CREATE_SQLITE_TABLES, err, map[string]any{"pid": projectId})
+		return log.ErrData(codes.ERR_CREATE_SQLKITE_TABLES, err, map[string]any{"pid": projectId})
+	}
+
+	err = db.Exec(`create table sqlkite_users (
+		id text not null primary key,
+		email text not null unique,
+		password text not null,
+		status int not null,
+		role text null,
+		created int not null default(unixepoch()),
+		updated int not null default(unixepoch())
+	);
+	`)
+
+	if err != nil {
+		return log.ErrData(codes.ERR_CREATE_SQLKITE_USERS, err, map[string]any{"pid": projectId})
 	}
 
 	return nil

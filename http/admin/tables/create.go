@@ -66,7 +66,7 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.Validation(validator), nil
 	}
 
-	return http.Ok(nil), err
+	return http.OK(nil), err
 }
 
 func mapColumns(input []typed.Typed) []sqlkite.Column {

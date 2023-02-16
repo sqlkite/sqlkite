@@ -51,7 +51,7 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return nil, err
 	}
 
-	return http.Ok(struct {
+	return http.OK(struct {
 		Id string `json:"id"`
 	}{
 		Id: id,

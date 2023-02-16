@@ -18,7 +18,6 @@ var (
 
 	passwordValidation = validation.String().
 				Length(8, 100).
-				Transformer(strings.ToLower).
 				Func(validatePasswordCommon)
 )
 
