@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"testing"
-	"time"
 
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/utils/log"
@@ -48,15 +47,22 @@ func Test_GetProject_Unknown(t *testing.T) {
 
 func Test_GetProject_Success(t *testing.T) {
 	withTestDB(func(conn Conn) {
-		conn.MustExec(`
-			insert into sqlkite_projects (id,
-				max_concurrency, max_sql_length, max_sql_parameter_count,
-				max_database_size, maX_select_count, max_result_length, max_from_count,
-				max_select_column_count, max_condition_count, max_order_by_count,
-				max_table_count, debug
-			)
-			values ('p1', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, true)
-		`)
+		err := conn.CreateProject(data.Project{
+			Id:                   "p1",
+			MaxConcurrency:       1,
+			MaxSQLLength:         2,
+			MaxSQLParameterCount: 3,
+			MaxDatabaseSize:      4,
+			MaxSelectCount:       5,
+			MaxResultLength:      6,
+			MaxFromCount:         7,
+			MaxSelectColumnCount: 8,
+			MaxConditionCount:    9,
+			MaxOrderByCount:      10,
+			Debug:                true,
+		})
+		assert.Nil(t, err)
+
 		p, err := conn.GetProject("p1")
 		assert.Nil(t, err)
 		assert.Equal(t, p.Id, "p1")
@@ -71,49 +77,6 @@ func Test_GetProject_Success(t *testing.T) {
 		assert.Equal(t, p.MaxConditionCount, 9)
 		assert.Equal(t, p.MaxOrderByCount, 10)
 		assert.Equal(t, p.Debug, true)
-	})
-}
-
-func Test_GetUpdatedProjects_None(t *testing.T) {
-	withTestDB(func(conn Conn) {
-		conn.MustExec(`
-			insert into sqlkite_projects (id, updated,
-				max_concurrency, max_sql_length, max_sql_parameter_count,
-				max_database_size, maX_select_count, max_result_length, max_from_count,
-				max_select_column_count, max_condition_count, max_order_by_count,
-				max_table_count, debug
-			)
-			values ('p1', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false)
-		`)
-		updated, err := conn.GetUpdatedProjects(time.Now())
-		assert.Nil(t, err)
-		assert.Equal(t, len(updated), 0)
-	})
-}
-
-func Test_GetUpdatedProjects_Success(t *testing.T) {
-	withTestDB(func(conn Conn) {
-		conn.MustExec(`
-			insert into sqlkite_projects (id, updated,
-				max_concurrency, max_sql_length, max_sql_parameter_count,
-				max_database_size,  maX_select_count, max_result_length, max_from_count,
-				max_select_column_count, max_condition_count, max_order_by_count,
-				max_table_count, debug
-			) values
-			('p1', unixepoch() - 500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false),
-			('p2', unixepoch() - 200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false),
-			('p3', unixepoch() - 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false),
-			('p4', unixepoch() - 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false)
-		`)
-		updated, err := conn.GetUpdatedProjects(time.Now().Add(time.Second * -105))
-		assert.Nil(t, err)
-		assert.Equal(t, len(updated), 2)
-
-		// order isn't deterministic
-		id1, id2 := updated[0].Id, updated[1].Id
-		assert.True(t, id1 != id2)
-		assert.True(t, id1 == "p3" || id1 == "p4")
-		assert.True(t, id2 == "p3" || id2 == "p4")
 	})
 }
 

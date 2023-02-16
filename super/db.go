@@ -1,8 +1,6 @@
 package super
 
 import (
-	"time"
-
 	"src.goblgobl.com/utils/log"
 	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/data"
@@ -23,7 +21,6 @@ type SuperDB interface {
 	EnsureMigrations() error
 
 	GetProject(id string) (*data.Project, error)
-	GetUpdatedProjects(timestamp time.Time) ([]*data.Project, error)
 	CreateProject(data data.Project) error
 	UpdateProject(data data.Project) (bool, error)
 	DeleteProject(id string) error

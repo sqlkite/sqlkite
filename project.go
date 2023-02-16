@@ -580,7 +580,6 @@ func shutdownProject(p *Project) {
 
 func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) {
 	id := projectData.Id
-
 	var logField log.Field
 	if logProjectId {
 		logField = log.NewField().String("pid", id).Finalize()

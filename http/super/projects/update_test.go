@@ -1,11 +1,14 @@
 package projects
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/tests/request"
 	"src.goblgobl.com/utils"
+	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/uuid"
 	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/sql"
@@ -78,13 +81,15 @@ func Test_Update_DefaultInput(t *testing.T) {
 		Put(Update).
 		OK()
 
-	row := tests.Super.Row("select * from sqlkite_projects where id = $1", projectId)
-	assert.Equal(t, row.Int("max_concurrency"), 5)
-	assert.Equal(t, row.Int("max_sql_length"), 4096)
-	assert.Equal(t, row.Int("max_sql_parameter_count"), 100)
-	assert.Equal(t, row.Int("max_database_size"), 104857600)
-	assert.Equal(t, row.Int("max_select_count"), 100)
-	assert.Equal(t, row.Int("max_result_length"), 524288)
+	row := tests.Super.Row("select data from sqlkite_projects where id = $1", projectId)
+	data := typedProjectData(row["data"])
+
+	assert.Equal(t, data.Int("max_concurrency"), 5)
+	assert.Equal(t, data.Int("max_sql_length"), 4096)
+	assert.Equal(t, data.Int("max_sql_parameter_count"), 100)
+	assert.Equal(t, data.Int("max_database_size"), 104857600)
+	assert.Equal(t, data.Int("max_select_count"), 100)
+	assert.Equal(t, data.Int("max_result_length"), 524288)
 }
 
 func Test_Update_ExplicitInput(t *testing.T) {
@@ -105,10 +110,27 @@ func Test_Update_ExplicitInput(t *testing.T) {
 		OK()
 
 	row := tests.Super.Row("select * from sqlkite_projects where id = $1", projectId)
-	assert.Equal(t, row.Int("max_concurrency"), 7)
-	assert.Equal(t, row.Int("max_sql_length"), 4098)
-	assert.Equal(t, row.Int("max_sql_parameter_count"), 109)
-	assert.Equal(t, row.Int("max_database_size"), 104857610)
-	assert.Equal(t, row.Int("max_select_count"), 111)
-	assert.Equal(t, row.Int("max_result_length"), 524212)
+	data := typedProjectData(row["data"])
+	assert.Equal(t, data.Int("max_concurrency"), 7)
+	assert.Equal(t, data.Int("max_sql_length"), 4098)
+	assert.Equal(t, data.Int("max_sql_parameter_count"), 109)
+	assert.Equal(t, data.Int("max_database_size"), 104857610)
+	assert.Equal(t, data.Int("max_select_count"), 111)
+	assert.Equal(t, data.Int("max_result_length"), 524212)
+}
+
+// When we select a json column from the PG, our PG library returns a map[string]any
+// SQLite doesn't have a json column, it just has text, and that's what we get back
+func typedProjectData(data any) typed.Typed {
+	switch d := data.(type) {
+	case map[string]any:
+		return typed.Typed(d)
+	case []byte:
+		var t typed.Typed
+		if err := json.Unmarshal(d, &t); err != nil {
+			panic(err)
+		}
+		return t
+	}
+	panic(fmt.Sprintf("sqlkite_projects.data wrong type: %T", data))
 }
