@@ -48,7 +48,7 @@ func Test_NewProject(t *testing.T) {
 func Test_NewProject_DBSize(t *testing.T) {
 	project, err := NewProject(&data.Project{
 		Id:              tests.Factory.StandardId,
-		MaxDatabaseSize: 40930,
+		MaxDatabaseSize: 65536,
 	}, true)
 
 	assert.Nil(t, err)
@@ -61,7 +61,7 @@ func Test_NewProject_DBSize(t *testing.T) {
 		return nil
 	})
 
-	assert.Equal(t, pageCount, 40930/pageSize)
+	assert.Equal(t, pageCount, 65536/pageSize)
 }
 
 func Test_Project_NextRequestId(t *testing.T) {

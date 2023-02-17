@@ -6,6 +6,7 @@ import (
 
 	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/tests"
+	"src.goblgobl.com/utils/argon"
 	"src.goblgobl.com/utils/optional"
 	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/config"
@@ -16,6 +17,7 @@ import (
 )
 
 func main() {
+	argon.Insecure()
 	os.RemoveAll("tests/databases/")
 	if err := os.MkdirAll("tests/databases/", 0740); err != nil {
 		panic(err)
@@ -106,7 +108,7 @@ func setupStandardProject() {
 	})
 
 	err = project.CreateTable(project.Env(), &sqlkite.Table{
-		Name: "users",
+		Name: "tags",
 		Columns: []sqlkite.Column{
 			sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
 			sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
@@ -114,8 +116,8 @@ func setupStandardProject() {
 		},
 		Access: sqlkite.TableAccess{
 			Select: &sqlkite.TableAccessSelect{
-				Name: "sqlkite_cte_users",
-				CTE:  "select * from users where public = 1",
+				Name: "sqlkite_cte_tags",
+				CTE:  "select * from tags where public = 1",
 			},
 		},
 	})
@@ -126,17 +128,23 @@ func setupStandardProject() {
 	project = MustGetProject(id)
 	project.WithDB(func(conn sqlite.Conn) error {
 		conn.MustExec(`
-			insert into users (id, name, public) values
+			insert into tags (id, name, public) values
 			(?1, ?2, ?3),
 			(?4, ?5, ?6),
 			(?7, ?8, ?9),
 			(?10, ?11, ?12)
 		`,
-			1, "Leto", 0,
-			2, "Ghanima", 0,
-			3, "Duncan", 1,
-			4, "Teg", 1,
+			1, "oss", 0,
+			2, "databases", 0,
+			3, "hardware", 1,
+			4, "algo", 1,
 		)
+
+		conn.MustExec(`
+			insert into sqlkite_users(id, email, password, status, role)
+			values (?1, ?2, ?3, ?4, ?5)
+		`, "00002222-0000-0000-0000-000000000002", "teg@sqlkite.com", argon.MustHash("Roxbrough"), 1, nil)
+
 		return nil
 	})
 }
@@ -163,21 +171,16 @@ func setupDynamicProject() {
 	// clear out all the tables in this "messy" database
 	project.WithDB(func(conn sqlite.Conn) error {
 		return conn.Transaction(func() error {
-			tablesToDeleteSQL := `
-				select name
-				from sqlite_schema
-				where type='table'
-					and name not like 'sqlite_%'
-					and name not like 'sqlkite_%'
-			`
-			rows := conn.Rows(tablesToDeleteSQL)
+			rows := conn.Rows(`select name from sqlite_schema where type='table'`)
 			defer rows.Close()
 
 			for rows.Next() {
 				var name string
 				rows.Scan(&name)
-				if err := conn.Exec("drop table " + name); err != nil {
-					panic(err)
+				if strings.HasPrefix(name, "sqlkite_") {
+					conn.MustExec("delete from " + name)
+				} else if !strings.HasPrefix(name, "sqlite") {
+					conn.MustExec("drop table " + name)
 				}
 			}
 			if err := rows.Error(); err != nil {
@@ -190,8 +193,8 @@ func setupDynamicProject() {
 	project = MustGetProject(id)
 	err := project.CreateTable(project.Env(), &sqlkite.Table{
 		Name:           "products",
-		MaxDeleteCount: optional.Int(5),
-		MaxUpdateCount: optional.Int(6),
+		MaxDeleteCount: optional.NewInt(5),
+		MaxUpdateCount: optional.NewInt(6),
 		Columns: []sqlkite.Column{
 			sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
 			sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
@@ -199,6 +202,7 @@ func setupDynamicProject() {
 			sqlkite.Column{Name: "image", Type: sqlkite.COLUMN_TYPE_BLOB, Nullable: true},
 		},
 	})
+
 	if err != nil {
 		panic(err)
 	}
@@ -211,7 +215,7 @@ func setupLimitedProject() {
 		MaxConcurrency:       1,
 		MaxSQLLength:         100,
 		MaxSQLParameterCount: 2,
-		MaxDatabaseSize:      32784,
+		MaxDatabaseSize:      65568,
 		MaxSelectCount:       2,
 		MaxResultLength:      128,
 		MaxFromCount:         2,

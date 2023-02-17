@@ -101,7 +101,7 @@ func Test_Select_Write_MultipleColumn_MultipleFrom(t *testing.T) {
 			}},
 		},
 		Limit:  3,
-		Offset: optional.Int(4),
+		Offset: optional.NewInt(4),
 		OrderBy: []OrderBy{
 			OrderBy{Field: DataField{Name: "id"}},
 			OrderBy{Field: DataField{Name: "parent_id", Table: "t2"}, Desc: true},

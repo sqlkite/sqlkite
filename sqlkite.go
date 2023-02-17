@@ -110,11 +110,21 @@ func CreateDB(projectId string) error {
 		role text null,
 		created int not null default(unixepoch()),
 		updated int not null default(unixepoch())
-	);
-	`)
+	)`)
 
 	if err != nil {
 		return log.ErrData(codes.ERR_CREATE_SQLKITE_USERS, err, map[string]any{"pid": projectId})
+	}
+
+	err = db.Exec(`create table sqlkite_sessions (
+		id text not null primary key,
+		user_id text not null,
+		role text null,
+		expires int not null,
+		created int not null default(unixepoch())
+	)`)
+	if err != nil {
+		return log.ErrData(codes.ERR_CREATE_SQLKITE_SESSIONS, err, map[string]any{"pid": projectId})
 	}
 
 	return nil

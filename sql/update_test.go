@@ -31,7 +31,7 @@ func Test_Update_WhereAndLimit(t *testing.T) {
 			UpdateSet{Column: "c1", Value: DataField{Name: "?1"}},
 			UpdateSet{Column: "c2", Value: DataField{Name: "?2"}},
 		},
-		Limit: optional.Int(33),
+		Limit: optional.NewInt(33),
 		Where: Condition{
 			Parts: []Part{Predicate{
 				Left:  DataField{Name: "enabled"},
@@ -63,7 +63,7 @@ func Test_Update_From(t *testing.T) {
 				},
 			},
 		},
-		Limit: optional.Int(33),
+		Limit: optional.NewInt(33),
 		Where: Condition{
 			Parts: []Part{Predicate{
 				Left:  DataField{Name: "enabled"},
@@ -90,8 +90,8 @@ func Test_Update_Multiple_Returning_OrderLimitOffset(t *testing.T) {
 		Set: []UpdateSet{
 			UpdateSet{Column: "c1", Value: DataField{Name: "?1"}},
 		},
-		Limit:   optional.Int(2),
-		Offset:  optional.Int(2),
+		Limit:   optional.NewInt(2),
+		Offset:  optional.NewInt(2),
 		OrderBy: []OrderBy{OrderBy{Field: DataField{Name: "id"}}},
 		Returning: []DataField{
 			DataField{Name: "a"},

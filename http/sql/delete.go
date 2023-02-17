@@ -30,7 +30,7 @@ func Delete(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	parameters := extractParameters(input[PARAMETERS_INPUT_NAME], validator, project)
 	returning := parseOptionalColumnResultList(input[RETURNING_INPUT_NAME], returningField, validator, project)
 
-	var limit optional.Value[int]
+	var limit optional.Int
 	if table != nil {
 		limit = mutateParseLimit(input[LIMIT_INPUT_NAME], validator, len(returning) > 0, project.MaxSelectCount, table.MaxDeleteCount)
 	}

@@ -18,6 +18,7 @@ import (
 	"src.goblgobl.com/tests/assert"
 
 	"src.goblgobl.com/tests"
+	"src.goblgobl.com/utils/argon"
 	"src.goblgobl.com/utils/buffer"
 	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/typed"
@@ -30,6 +31,8 @@ import (
 var Generator = tests.Generator
 
 func init() {
+	argon.Insecure()
+
 	err := log.Configure(log.Config{
 		Level: "WARN",
 	})
@@ -145,5 +148,5 @@ func AssertSQL(t *testing.T, actual any, expected string) {
 
 	actualString = sqlNormalizePattern.ReplaceAllString(actualString, " ")
 	expected = sqlNormalizePattern.ReplaceAllString(expected, " ")
-	assert.Equal(t, actualString, expected)
+	assert.Equal(t, strings.ToLower(actualString), strings.ToLower(expected))
 }

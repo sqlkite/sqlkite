@@ -14,7 +14,7 @@ type Select struct {
 	Where      Condition
 	Parameters []any
 	Limit      int
-	Offset     optional.Value[int]
+	Offset     optional.Int
 	OrderBy    []OrderBy
 }
 

@@ -63,7 +63,7 @@ func (r *ResultResponse) Read(p []byte) (int, error) {
 	// we expect WriteTo to always be used
 	// we only implement this to satisfy SetBodyStream which requires
 	// and io.Reader, even though it won't use it.
-	panic(errors.New("select_resonse.read"))
+	panic(errors.New("select_response.read"))
 }
 
 // io.WriterTo

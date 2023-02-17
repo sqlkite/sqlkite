@@ -11,8 +11,8 @@ type Delete struct {
 	From       TableName
 	Where      Condition
 	Parameters []any
-	Limit      optional.Value[int]
-	Offset     optional.Value[int]
+	Limit      optional.Int
+	Offset     optional.Int
 	OrderBy    []OrderBy
 	Returning  []DataField
 }

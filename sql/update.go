@@ -12,8 +12,8 @@ type Update struct {
 	Set        []UpdateSet
 	Froms      []JoinableFrom
 	Where      Condition
-	Limit      optional.Value[int]
-	Offset     optional.Value[int]
+	Limit      optional.Int
+	Offset     optional.Int
 	OrderBy    []OrderBy
 	Parameters []any
 	Returning  []DataField

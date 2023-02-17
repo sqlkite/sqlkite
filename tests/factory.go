@@ -5,6 +5,7 @@ import (
 
 	"src.goblgobl.com/sqlite"
 	f "src.goblgobl.com/tests/factory"
+	"src.goblgobl.com/utils/argon"
 	"src.goblgobl.com/utils/uuid"
 	"src.sqlkite.com/sqlkite/super"
 )
@@ -19,6 +20,7 @@ var (
 type factory struct {
 	Project f.Table
 	Product f.Sqlite
+	User    f.Sqlite
 
 	// See tests/setup/main.go which is run before our tests and gets us into a
 	// known state. This does create a dependency between tests and the setup, and
@@ -75,6 +77,17 @@ func init() {
 			"id":     args.Int("id", 0),
 			"name":   args.String("name", "a-product"),
 			"rating": args.Float("rating", 5.0),
+		}
+	}) // TODO: add ", id" once we support PKs
+
+	Factory.User = f.NewSqlite("sqlkite_users", func(args f.KV) f.KV {
+		random := Generator.String(10)
+		return f.KV{
+			"id":       args.String("id", Generator.UUID()),
+			"email":    args.String("email", random+"@sqlkite"),
+			"password": argon.MustHash(args.String("password", random).(string)),
+			"role":     args.String("role"),
+			"status":   args.Int("status", 0),
 		}
 	}) // TODO: add ", id" once we support PKs
 

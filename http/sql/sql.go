@@ -220,7 +220,7 @@ func parseOrderBy(input any, validator *validation.Result, p *sqlkite.Project) [
 	return fields
 }
 
-func parseOffset(input any, validator *validation.Result) optional.Value[int] {
+func parseOffset(input any, validator *validation.Result) optional.Int {
 	if input == nil {
 		return optional.NullInt
 	}
@@ -231,7 +231,7 @@ func parseOffset(input any, validator *validation.Result) optional.Value[int] {
 		return optional.NullInt
 	}
 
-	return optional.Int(int(offset))
+	return optional.NewInt(int(offset))
 }
 
 // The limit logic for update/delete is different than for select. For select,
@@ -243,7 +243,7 @@ func parseOffset(input any, validator *validation.Result) optional.Value[int] {
 // also be considered (we'll take the Min(MaxUpdateRow, MaxSelectCount))
 // If the table has no MaxUpdateRow (or MaxDeleteRow) and there's no returning
 // the limit is optional
-func mutateParseLimit(input any, validator *validation.Result, hasReturning bool, maxSelect uint16, maxMutate optional.Value[int]) optional.Value[int] {
+func mutateParseLimit(input any, validator *validation.Result, hasReturning bool, maxSelect uint16, maxMutate optional.Int) optional.Int {
 	if input == nil && !hasReturning {
 		// No limit specified, and not returning anything, our max limit is going to
 		// be whatever maxMutate is, which could be nil/infinite.
@@ -256,7 +256,7 @@ func mutateParseLimit(input any, validator *validation.Result, hasReturning bool
 		// there's a returning statement, our max will be the min of maxMutate and maxSelect
 		if !hasMax || int(maxSelect) < max.Value {
 			hasMax = true
-			max = optional.Int(int(maxSelect))
+			max = optional.NewInt(int(maxSelect))
 		}
 	}
 
@@ -276,5 +276,5 @@ func mutateParseLimit(input any, validator *validation.Result, hasReturning bool
 		return optional.NullInt
 	}
 
-	return optional.Int(n)
+	return optional.NewInt(n)
 }

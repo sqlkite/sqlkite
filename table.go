@@ -60,12 +60,12 @@ var (
 )
 
 type Table struct {
-	Name           string              `json:"name"`
-	Columns        []Column            `json:"columns"`
-	Access         TableAccess         `json:"access"`
-	MaxDeleteCount optional.Value[int] `json:"max_delete_count"`
-	MaxUpdateCount optional.Value[int] `json:"max_update_count"`
-	PrimaryKey     []string            `json:"primary_key"`
+	Name           string       `json:"name"`
+	Columns        []Column     `json:"columns"`
+	Access         TableAccess  `json:"access"`
+	MaxDeleteCount optional.Int `json:"max_delete_count"`
+	MaxUpdateCount optional.Int `json:"max_update_count"`
+	PrimaryKey     []string     `json:"primary_key"`
 }
 
 func (t *Table) Column(name string) (Column, bool) {

@@ -162,6 +162,7 @@ func mainHandler(config config.HTTP, logger log.Logger, envLoader EnvLoader) (fu
 	r.POST("/v1/sql/delete", http.Handler("sql_delete", envLoader, sql.Delete))
 
 	r.POST("/v1/auth/users", http.Handler("auth_users_create", envLoader, auth.UserCreate))
+	r.POST("/v1/auth/sessions", http.Handler("auth_session_create", envLoader, auth.SessionCreate))
 
 	if config.Admin == "public" {
 		logger.String("admin", "public")

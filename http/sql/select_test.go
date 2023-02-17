@@ -228,7 +228,7 @@ func Test_Select_AccessControl_NoUser(t *testing.T) {
 	res := request.ReqT(t, p.Env()).
 		Body(map[string]any{
 			"select": []string{"id", "public"},
-			"from":   []string{"users"},
+			"from":   []string{"tags"},
 		}).
 		Post(Select).
 		OK()

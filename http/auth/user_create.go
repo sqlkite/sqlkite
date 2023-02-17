@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	createValidation = validation.Object().
+	userCreateValidation = validation.Object().
 				Field("email", emailValidation.Required()).
 				Field("password", passwordValidation.Required())
 
@@ -27,7 +27,7 @@ func UserCreate(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, err
 	}
 
 	validator := env.Validator
-	if !createValidation.Validate(input, validator) {
+	if !userCreateValidation.Validate(input, validator) {
 		return http.Validation(validator), nil
 	}
 
