@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	sessionCreateValidation = validation.Object().
+	sessionCreateValidation = validation.Object[*sqlkite.Env]().
 				Field("email", emailValidation.Required()).
 				Field("password", passwordValidation.Required())
 
@@ -30,9 +30,9 @@ func SessionCreate(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, 
 		return http.InvalidJSON, nil
 	}
 
-	validator := env.Validator
-	if !sessionCreateValidation.Validate(input, validator) {
-		return http.Validation(validator), nil
+	vc := env.VC
+	if !sessionCreateValidation.ValidateInput(input, vc) {
+		return http.Validation(vc), nil
 	}
 
 	email := input.String("email")

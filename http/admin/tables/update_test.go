@@ -62,7 +62,6 @@ func Test_Update_InvalidData(t *testing.T) {
 			"access": map[string]any{"select": 32, "insert": "no", "update": true, "delete": []any{}},
 		}).
 		Put(Update).
-		Inspect().
 		ExpectValidation(
 			"max_update_count", utils.VAL_INT_MIN,
 			"max_delete_count", utils.VAL_INT_MIN,

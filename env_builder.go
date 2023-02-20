@@ -7,13 +7,11 @@ package sqlkite
 import (
 	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/uuid"
-	"src.goblgobl.com/utils/validation"
 )
 
 type EnvBuilder struct {
-	project   *Project
-	logger    log.Logger
-	validator *validation.Result
+	project *Project
+	logger  log.Logger
 }
 
 func BuildEnv() *EnvBuilder {
@@ -39,14 +37,10 @@ func (eb *EnvBuilder) Env() *Env {
 		logger = log.Noop{}
 	}
 
-	validator := eb.validator
-	if validator == nil {
-		validator = validation.NewResult(25)
+	env := &Env{
+		Logger:  logger,
+		Project: eb.project,
 	}
-
-	return &Env{
-		Logger:    logger,
-		Project:   eb.project,
-		Validator: validator,
-	}
+	env.VC = validationContexts.Checkout(env)
+	return env
 }

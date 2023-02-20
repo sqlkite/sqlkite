@@ -32,7 +32,7 @@ func Test_Create_InvalidData(t *testing.T) {
 			"max_delete_count": "three",
 		}).
 		Post(Create).
-		ExpectValidation("name", utils.VAL_STRING_PATTERN, "columns", utils.VAL_ARRAY_MIN_LENGTH, "access", utils.VAL_OBJECT_TYPE, "max_update_count", utils.VAL_INT_TYPE, "max_delete_count", utils.VAL_INT_TYPE)
+		ExpectValidation("name", utils.VAL_STRING_PATTERN, "columns", utils.VAL_ARRAY_RANGE_LENGTH, "access", utils.VAL_OBJECT_TYPE, "max_update_count", utils.VAL_INT_TYPE, "max_delete_count", utils.VAL_INT_TYPE)
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{

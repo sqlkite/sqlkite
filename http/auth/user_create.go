@@ -13,11 +13,16 @@ import (
 )
 
 var (
-	userCreateValidation = validation.Object().
+	userCreateValidation = validation.Object[*sqlkite.Env]().
 				Field("email", emailValidation.Required()).
 				Field("password", passwordValidation.Required())
 
-	emailField = validation.NewField("email")
+	emailField = validation.BuildField("email")
+
+	valEmailInUse = &validation.Invalid{
+		Code:  codes.VAL_AUTH_EMAIL_IN_USE,
+		Error: "The email is already in use",
+	}
 )
 
 func UserCreate(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
@@ -26,9 +31,9 @@ func UserCreate(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, err
 		return http.InvalidJSON, nil
 	}
 
-	validator := env.Validator
-	if !userCreateValidation.Validate(input, validator) {
-		return http.Validation(validator), nil
+	vc := env.VC
+	if !userCreateValidation.ValidateInput(input, vc) {
+		return http.Validation(vc), nil
 	}
 
 	userId := uuid.String()
@@ -50,11 +55,8 @@ func UserCreate(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, err
 			return nil, err
 		}
 
-		validator.AddInvalidField(emailField, validation.Invalid{
-			Code:  codes.VAL_AUTH_EMAIL_IN_USE,
-			Error: "The email is already in use",
-		})
-		return http.Validation(validator), nil
+		vc.InvalidWithField(valEmailInUse, emailField)
+		return http.Validation(vc), nil
 	}
 
 	return http.OK(struct {

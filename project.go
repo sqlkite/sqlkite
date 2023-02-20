@@ -107,10 +107,10 @@ func (p *Project) WithTransaction(cb func(sqlite.Conn) error) error {
 
 func (p *Project) CreateTable(env *Env, table *Table) error {
 	if max := p.MaxTableCount; len(p.tables) >= int(max) {
-		env.Validator.Add(validation.Invalid{
+		env.VC.Invalid(&validation.Invalid{
 			Code:  codes.VAL_TOO_MANY_TABLES,
 			Error: "Maximum table count reached",
-			Data:  validation.Max(max),
+			Data:  validation.MaxData(int(max)),
 		})
 		return nil
 	}
@@ -199,7 +199,7 @@ func (p *Project) CreateTable(env *Env, table *Table) error {
 func (p *Project) UpdateTable(env *Env, table *Table, alter TableAlter) error {
 	existing := p.tables[alter.Name]
 	if existing == nil {
-		env.Validator.Add(UnknownTable(alter.Name))
+		env.VC.Invalid(UnknownTable(alter.Name))
 		return nil
 	}
 
@@ -289,7 +289,7 @@ func (p *Project) UpdateTable(env *Env, table *Table, alter TableAlter) error {
 
 func (p *Project) DeleteTable(env *Env, tableName string) error {
 	if _, exists := p.tables[tableName]; !exists {
-		env.Validator.Add(UnknownTable(tableName))
+		env.VC.Invalid(UnknownTable(tableName))
 		return nil
 	}
 
@@ -325,7 +325,7 @@ func (p *Project) DeleteTable(env *Env, tableName string) error {
 }
 
 func (p *Project) Select(env *Env, sel sql.Select) (*QueryResult, error) {
-	validator := env.Validator
+	validator := env.VC
 
 	// This is important. We're going to inject our access control into our select
 	// query. We do this by examing every table in the select statement and seeing
@@ -341,7 +341,7 @@ func (p *Project) Select(env *Env, sel sql.Select) (*QueryResult, error) {
 		if table == nil {
 			// while we're looping through these tables, we might as well exit early
 			// (and with a good errorr message) on an unknown table.
-			validator.Add(UnknownTable(tableName))
+			validator.Invalid(UnknownTable(tableName))
 		} else if selectAccess := table.Access.Select; selectAccess != nil {
 			selRef.CTE(i, selectAccess.Name, selectAccess.CTE)
 		}
@@ -458,21 +458,21 @@ func (p *Project) bufferErrorToValidation(env *Env, err error, bufferType Buffer
 		return err
 	}
 
-	var invalid validation.Invalid
+	var invalid *validation.Invalid
 	if bufferType == BUFFER_TYPE_GENERATE_SQL {
-		invalid = validation.Invalid{
+		invalid = &validation.Invalid{
 			Code:  codes.VAL_SQL_TOO_LONG,
 			Error: "Generated SQL query exceeds maximum allowed length",
-			Data:  validation.Max(p.MaxSQLLength),
+			Data:  validation.MaxData(int(p.MaxSQLLength)),
 		}
 	} else {
-		invalid = validation.Invalid{
+		invalid = &validation.Invalid{
 			Code:  codes.VAL_RESULT_TOO_LONG,
 			Error: "Result too large",
-			Data:  validation.Max(p.MaxResultLength),
+			Data:  validation.MaxData(int(p.MaxResultLength)),
 		}
 	}
-	env.Validator.Add(invalid)
+	env.VC.Invalid(invalid)
 	return nil
 }
 
@@ -713,11 +713,11 @@ func ReloadProject(id string) (*Project, error) {
 	return project, nil
 }
 
-func UnknownTable(tableName string) validation.Invalid {
-	return validation.Invalid{
+func UnknownTable(tableName string) *validation.Invalid {
+	return &validation.Invalid{
 		Code:  codes.VAL_UNKNOWN_TABLE,
 		Error: "Unknown table: " + tableName,
-		Data:  validation.Value(tableName),
+		Data:  validation.ValueData(tableName),
 	}
 }
 

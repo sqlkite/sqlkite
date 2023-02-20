@@ -18,31 +18,31 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	}
 
 	project := env.Project
-	validator := env.Validator
+	vc := env.VC
 
-	target := parseRequiredQualifiedTable(input[TARGET_INPUT_NAME], targetField, validator)
+	target := parseRequiredQualifiedTable(input[TARGET_INPUT_NAME], targetField, vc)
 	table := project.Table(target.Name)
 	if table == nil {
-		validator.AddInvalidField(targetField, sqlkite.UnknownTable(target.Name))
+		vc.InvalidWithField(sqlkite.UnknownTable(target.Name), targetField)
 	}
 
-	set := updateParseSet(input[SET_INPUT_NAME], validator)
-	froms := parseFrom(input[FROM_INPUT_NAME], validator, project, false)
-	where := parseWhere(input[WHERE_INPUT_NAME], validator)
-	orderBy := parseOrderBy(input[ORDER_INPUT_NAME], validator, project)
-	offset := parseOffset(input[OFFSET_INPUT_NAME], validator)
-	parameters := extractParameters(input[PARAMETERS_INPUT_NAME], validator, project)
-	returning := parseOptionalColumnResultList(input[RETURNING_INPUT_NAME], returningField, validator, project)
+	set := updateParseSet(input[SET_INPUT_NAME], vc)
+	froms := parseFrom(input[FROM_INPUT_NAME], vc, project, false)
+	where := parseWhere(input[WHERE_INPUT_NAME], vc)
+	orderBy := parseOrderBy(input[ORDER_INPUT_NAME], vc, project)
+	offset := parseOffset(input[OFFSET_INPUT_NAME], vc)
+	parameters := extractParameters(input[PARAMETERS_INPUT_NAME], vc, project)
+	returning := parseOptionalColumnResultList(input[RETURNING_INPUT_NAME], returningField, vc, project)
 
 	var limit optional.Int
 	if table != nil {
-		limit = mutateParseLimit(input[LIMIT_INPUT_NAME], validator, len(returning) > 0, project.MaxSelectCount, table.MaxUpdateCount)
+		limit = mutateParseLimit(input[LIMIT_INPUT_NAME], vc, len(returning) > 0, project.MaxSelectCount, table.MaxUpdateCount)
 	}
 
 	// There's more validation to do, and we do like to return all errors in one
 	// shot, but it's possible trying to go further will just cause more problems.
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
+	if !vc.IsValid() {
+		return http.Validation(vc), nil
 	}
 
 	update := sql.Update{
@@ -62,22 +62,22 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return nil, err
 	}
 
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
+	if !vc.IsValid() {
+		return http.Validation(vc), nil
 	}
 
 	return NewResultResponse(result), nil
 }
 
-func updateParseSet(input any, validator *validation.Result) []sql.UpdateSet {
+func updateParseSet(input any, ctx *validation.Context[*sqlkite.Env]) []sql.UpdateSet {
 	if input == nil {
-		validator.AddInvalidField(setField, valRequired)
+		ctx.InvalidWithField(validation.Required, setField)
 		return nil
 	}
 
 	m, ok := input.(map[string]any)
 	if !ok {
-		validator.AddInvalidField(setField, valObjectType)
+		ctx.InvalidWithField(validation.TypeObject, setField)
 		return nil
 	}
 
@@ -90,11 +90,11 @@ func updateParseSet(input any, validator *validation.Result) []sql.UpdateSet {
 	for key, value := range m {
 		column, err := parser.ColumnString(key)
 		if err != nil {
-			validator.AddInvalidField(validation.BuildField("set."+key), *err)
+			ctx.InvalidWithField(err, validation.BuildField("set."+key))
 		}
 		value, err := parser.DataField(value)
 		if err != nil {
-			validator.AddInvalidField(validation.BuildField("set."+key), *err)
+			ctx.InvalidWithField(err, validation.BuildField("set."+key))
 		}
 		set[i] = sql.UpdateSet{Column: column, Value: value}
 		i += 1

@@ -15,30 +15,30 @@ func Delete(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.InvalidJSON, nil
 	}
 
+	vc := env.VC
 	project := env.Project
-	validator := env.Validator
 
-	from := parseRequiredQualifiedTable(input[FROM_INPUT_NAME], fromField, validator)
+	from := parseRequiredQualifiedTable(input[FROM_INPUT_NAME], fromField, vc)
 	table := project.Table(from.Name)
 	if table == nil {
-		validator.AddInvalidField(fromField, sqlkite.UnknownTable(from.Name))
+		vc.InvalidWithField(sqlkite.UnknownTable(from.Name), fromField)
 	}
 
-	where := parseWhere(input[WHERE_INPUT_NAME], validator)
-	orderBy := parseOrderBy(input[ORDER_INPUT_NAME], validator, project)
-	offset := parseOffset(input[OFFSET_INPUT_NAME], validator)
-	parameters := extractParameters(input[PARAMETERS_INPUT_NAME], validator, project)
-	returning := parseOptionalColumnResultList(input[RETURNING_INPUT_NAME], returningField, validator, project)
+	where := parseWhere(input[WHERE_INPUT_NAME], vc)
+	orderBy := parseOrderBy(input[ORDER_INPUT_NAME], vc, project)
+	offset := parseOffset(input[OFFSET_INPUT_NAME], vc)
+	parameters := extractParameters(input[PARAMETERS_INPUT_NAME], vc, project)
+	returning := parseOptionalColumnResultList(input[RETURNING_INPUT_NAME], returningField, vc, project)
 
 	var limit optional.Int
 	if table != nil {
-		limit = mutateParseLimit(input[LIMIT_INPUT_NAME], validator, len(returning) > 0, project.MaxSelectCount, table.MaxDeleteCount)
+		limit = mutateParseLimit(input[LIMIT_INPUT_NAME], vc, len(returning) > 0, project.MaxSelectCount, table.MaxDeleteCount)
 	}
 
 	// There's more validation to do, and we do like to return all errors in one
 	// shot, but it's possible trying to go further will just cause more problems.
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
+	if !vc.IsValid() {
+		return http.Validation(vc), nil
 	}
 
 	del := sql.Delete{
@@ -56,8 +56,8 @@ func Delete(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return nil, err
 	}
 
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
+	if !vc.IsValid() {
+		return http.Validation(vc), nil
 	}
 
 	return NewResultResponse(result), nil

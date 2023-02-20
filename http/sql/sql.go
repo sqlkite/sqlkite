@@ -31,203 +31,197 @@ const (
 // field (and sometimes part-by-part) basis as part of parsing. Or, to
 // say it differently, we validate as part of parsing.
 var (
-	valRequired   = validation.Required()
-	valIntType    = validation.InvalidIntType()
-	valArrayType  = validation.InvalidArrayType()
-	valObjectType = validation.InvalidObjectType()
-	valStringType = validation.InvalidStringType()
-
-	fromField       = validation.NewIndexedField(FROM_INPUT_NAME)
-	whereField      = validation.NewIndexedField(WHERE_INPUT_NAME)
-	orderField      = validation.NewIndexedField(ORDER_INPUT_NAME)
-	limitField      = validation.NewIndexedField(LIMIT_INPUT_NAME)
-	offsetField     = validation.NewIndexedField(OFFSET_INPUT_NAME)
-	selectField     = validation.NewIndexedField(SELECT_INPUT_NAME)
-	parametersField = validation.NewIndexedField(PARAMETERS_INPUT_NAME)
-	setField        = validation.NewIndexedField(SET_INPUT_NAME)
-	intoField       = validation.NewField(INTO_INPUT_NAME)
-	targetField     = validation.NewField(TARGET_INPUT_NAME)
-	columnsField    = validation.NewIndexedField(COLUMNS_INPUT_NAME)
-	returningField  = validation.NewIndexedField(RETURNING_INPUT_NAME)
+	fromField       = validation.BuildField(FROM_INPUT_NAME + ".#")
+	whereField      = validation.BuildField(WHERE_INPUT_NAME + ".#")
+	orderField      = validation.BuildField(ORDER_INPUT_NAME + ".#")
+	limitField      = validation.BuildField(LIMIT_INPUT_NAME + ".#")
+	offsetField     = validation.BuildField(OFFSET_INPUT_NAME + ".#")
+	selectField     = validation.BuildField(SELECT_INPUT_NAME + ".#")
+	parametersField = validation.BuildField(PARAMETERS_INPUT_NAME + ".#")
+	setField        = validation.BuildField(SET_INPUT_NAME + ".#")
+	intoField       = validation.BuildField(INTO_INPUT_NAME)
+	targetField     = validation.BuildField(TARGET_INPUT_NAME)
+	columnsField    = validation.BuildField(COLUMNS_INPUT_NAME + ".#")
+	returningField  = validation.BuildField(RETURNING_INPUT_NAME + ".#")
 )
 
-func extractParameters(input any, validator *validation.Result, p *sqlkite.Project) []any {
+func extractParameters(input any, ctx *validation.Context[*sqlkite.Env], p *sqlkite.Project) []any {
 	if input == nil {
 		return nil
 	}
 
 	values, ok := input.([]any)
 	if !ok {
-		validator.AddInvalidField(parametersField, valArrayType)
+		ctx.InvalidWithField(validation.TypeArray, parametersField)
 	}
 
 	max := int(p.MaxSQLParameterCount)
 	if len(values) > max {
-		validator.AddInvalidField(parametersField, validation.Invalid{
+		ctx.InvalidWithField(&validation.Invalid{
 			Code:  codes.VAL_SQL_TOO_MANY_PARAMETERS,
 			Error: fmt.Sprintf("must have no more than %d values", max),
-			Data:  validation.Max(max),
-		})
+			Data:  validation.MaxData(max),
+		}, parametersField)
 	}
 
 	return values
 }
 
-func parseOptionalColumnResultList(input any, field validation.Field, validator *validation.Result, p *sqlkite.Project) []sql.DataField {
+func parseOptionalColumnResultList(input any, field *validation.Field, ctx *validation.Context[*sqlkite.Env], p *sqlkite.Project) []sql.DataField {
 	if input == nil {
 		return nil
 	}
-	return parseColumnResultList(input, field, validator, p)
+	return parseColumnResultList(input, field, ctx, p)
 }
 
-func parseColumnResultList(input any, field validation.Field, validator *validation.Result, p *sqlkite.Project) []sql.DataField {
+func parseColumnResultList(input any, field *validation.Field, ctx *validation.Context[*sqlkite.Env], p *sqlkite.Project) []sql.DataField {
 	rawColumns, ok := input.([]any)
 	if !ok {
-		validator.AddInvalidField(field, valArrayType)
+		ctx.InvalidWithField(validation.TypeArray, field)
 		return nil
 	}
 
 	max := int(p.MaxSelectColumnCount)
 	if len(rawColumns) > max {
-		validator.AddInvalidField(field, validation.Invalid{
+		ctx.InvalidWithField(&validation.Invalid{
 			Code:  codes.VAL_SQL_TOO_MANY_SELECT,
 			Error: fmt.Sprintf("must return no more than %d columns", max),
-			Data:  validation.Max(max),
-		})
+			Data:  validation.MaxData(max),
+		}, field)
 		return nil
 	}
 
-	validator.BeginArray()
+	ctx.StartArray()
 	columns := make([]sql.DataField, len(rawColumns))
 	for i, rawColumn := range rawColumns {
 		column, err := parser.DataField(rawColumn)
 		if err != nil {
-			validator.ArrayIndex(i)
-			validator.AddInvalidField(field, *err)
+			ctx.ArrayIndex(i)
+			ctx.InvalidWithField(err, field)
 		} else {
 			columns[i] = column
 		}
 	}
-	validator.EndArray()
+	ctx.EndArray()
 
 	return columns
 }
 
-func parseRequiredQualifiedTable(input any, field validation.Field, validator *validation.Result) sql.TableName {
+func parseRequiredQualifiedTable(input any, field *validation.Field, ctx *validation.Context[*sqlkite.Env]) sql.TableName {
 	if input == nil {
-		validator.AddInvalidField(field, valRequired)
+		ctx.InvalidWithField(validation.Required, field)
 		return sql.TableName{}
 	}
 
 	table, err := parser.QualifiedTableName(input)
 	if err != nil {
-		validator.AddInvalidField(field, *err)
+		ctx.InvalidWithField(err, field)
 		return sql.TableName{}
 	}
 	return table
 }
 
-func parseFrom(input any, validator *validation.Result, p *sqlkite.Project, required bool) []sql.JoinableFrom {
+func parseFrom(input any, ctx *validation.Context[*sqlkite.Env], p *sqlkite.Project, required bool) []sql.JoinableFrom {
 	if input == nil {
 		if required {
-			validator.AddInvalidField(fromField, valRequired)
+			ctx.InvalidWithField(validation.Required, fromField)
 		}
 		return nil
 	}
 
 	rawFroms, ok := input.([]any)
 	if !ok {
-		validator.AddInvalidField(fromField, valArrayType)
+		ctx.InvalidWithField(validation.TypeArray, fromField)
 		return nil
 	}
 
 	max := int(p.MaxFromCount)
 	if len(rawFroms) > max {
-		validator.AddInvalidField(fromField, validation.Invalid{
+		ctx.InvalidWithField(&validation.Invalid{
 			Code:  codes.VAL_TOO_MANY_FROMS,
 			Error: fmt.Sprintf("must have no more than %d froms", max),
-			Data:  validation.Max(max),
-		})
+			Data:  validation.MaxData(max),
+		}, fromField)
 		return nil
 	}
 
-	validator.BeginArray()
+	ctx.StartArray()
 	froms := make([]sql.JoinableFrom, len(rawFroms))
 	for i, rawFrom := range rawFroms {
 		from, err := parser.JoinableFrom(rawFrom)
 		if err != nil {
-			validator.ArrayIndex(i)
-			validator.AddInvalidField(fromField, *err)
+			ctx.ArrayIndex(i)
+			ctx.InvalidWithField(err, fromField)
 		} else {
 			froms[i] = from
 		}
 	}
-	validator.EndArray()
+	ctx.EndArray()
 	return froms
 }
 
-func parseWhere(input any, validator *validation.Result) sql.Condition {
+func parseWhere(input any, ctx *validation.Context[*sqlkite.Env]) sql.Condition {
 	if input == nil {
 		return sql.EmptyCondition
 	}
 
 	rawWhere, ok := input.([]any)
 	if !ok {
-		validator.AddInvalidField(whereField, valArrayType)
+		ctx.InvalidWithField(validation.TypeArray, whereField)
 		return sql.EmptyCondition
 	}
 
 	condition, err := parser.Condition(rawWhere, 0)
 	if err != nil {
-		validator.AddInvalidField(whereField, *err)
+		ctx.InvalidWithField(err, whereField)
 	}
 	return condition
 }
 
-func parseOrderBy(input any, validator *validation.Result, p *sqlkite.Project) []sql.OrderBy {
+func parseOrderBy(input any, ctx *validation.Context[*sqlkite.Env], p *sqlkite.Project) []sql.OrderBy {
 	if input == nil {
 		return nil
 	}
 
 	rawOrderBy, ok := input.([]any)
 	if !ok {
-		validator.AddInvalidField(orderField, valArrayType)
+		ctx.InvalidWithField(validation.TypeArray, orderField)
 		return nil
 	}
 
 	max := int(p.MaxOrderByCount)
 	if len(rawOrderBy) > max {
-		validator.AddInvalidField(orderField, validation.Invalid{
+		ctx.InvalidWithField(&validation.Invalid{
 			Code:  codes.VAL_SQL_TOO_MANY_ORDER_BY,
 			Error: fmt.Sprintf("must have no more than %d ordering columns", max),
-			Data:  validation.Max(max),
-		})
+			Data:  validation.MaxData(max),
+		}, orderField)
 		return nil
 	}
 
-	validator.BeginArray()
+	ctx.StartArray()
 	fields := make([]sql.OrderBy, len(rawOrderBy))
 	for i, rawOrderBy := range rawOrderBy {
 		orderBy, err := parser.OrderBy(rawOrderBy)
 		if err != nil {
-			validator.ArrayIndex(i)
-			validator.AddInvalidField(orderField, *err)
+			ctx.ArrayIndex(i)
+			ctx.InvalidWithField(err, orderField)
 		} else {
 			fields[i] = orderBy
 		}
 	}
-	validator.EndArray()
+	ctx.EndArray()
 	return fields
 }
 
-func parseOffset(input any, validator *validation.Result) optional.Int {
+func parseOffset(input any, ctx *validation.Context[*sqlkite.Env]) optional.Int {
 	if input == nil {
 		return optional.NullInt
 	}
 
 	offset, ok := input.(float64)
 	if !ok {
-		validator.AddInvalidField(offsetField, valIntType)
+		ctx.InvalidWithField(validation.TypeInt, offsetField)
 		return optional.NullInt
 	}
 
@@ -243,7 +237,7 @@ func parseOffset(input any, validator *validation.Result) optional.Int {
 // also be considered (we'll take the Min(MaxUpdateRow, MaxSelectCount))
 // If the table has no MaxUpdateRow (or MaxDeleteRow) and there's no returning
 // the limit is optional
-func mutateParseLimit(input any, validator *validation.Result, hasReturning bool, maxSelect uint16, maxMutate optional.Int) optional.Int {
+func mutateParseLimit(input any, ctx *validation.Context[*sqlkite.Env], hasReturning bool, maxSelect uint16, maxMutate optional.Int) optional.Int {
 	if input == nil && !hasReturning {
 		// No limit specified, and not returning anything, our max limit is going to
 		// be whatever maxMutate is, which could be nil/infinite.
@@ -262,17 +256,17 @@ func mutateParseLimit(input any, validator *validation.Result, hasReturning bool
 
 	limit, ok := input.(float64)
 	if !ok {
-		validator.AddInvalidField(limitField, valIntType)
+		ctx.InvalidWithField(validation.TypeInt, limitField)
 		return optional.NullInt
 	}
 
 	n := int(limit)
 	if maxValue := max.Value; hasMax && n > maxValue {
-		validator.AddInvalidField(limitField, validation.Invalid{
+		ctx.InvalidWithField(&validation.Invalid{
 			Code:  codes.VAL_SQL_LIMIT_TOO_HIGH,
 			Error: fmt.Sprintf("limit cannot exceed %d", maxValue),
-			Data:  validation.Max(max),
-		})
+			Data:  validation.MaxData(maxValue),
+		}, limitField)
 		return optional.NullInt
 	}
 

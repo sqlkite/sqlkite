@@ -3,30 +3,32 @@ package auth
 import (
 	"strings"
 
-	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
+	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/codes"
 )
 
 var (
 	emailFieldPattern = "^\\S+@\\S+\\.\\S+$"
 	emailFieldError   = "not a valid email address"
-	emailValidation   = validation.String().
+	emailValidation   = validation.String[*sqlkite.Env]().
 				Length(1, 100).
-				Transformer(strings.ToLower).
+				Transform(strings.ToLower).
 				Pattern(emailFieldPattern, emailFieldError)
 
-	passwordValidation = validation.String().
+	passwordValidation = validation.String[*sqlkite.Env]().
 				Length(8, 100).
 				Func(validatePasswordCommon)
+
+	valCommonPassword = &validation.Invalid{
+		Code:  codes.VAL_COMMON_PASSWORD,
+		Error: "The password is too common and easily guessable",
+	}
 )
 
-func validatePasswordCommon(field validation.Field, value string, object typed.Typed, input typed.Typed, res *validation.Result) string {
+func validatePasswordCommon(value string, ctx *validation.Context[*sqlkite.Env]) any {
 	if _, exists := commonPasswords[value]; exists {
-		res.AddInvalidField(field, validation.Invalid{
-			Code:  codes.VAL_COMMON_PASSWORD,
-			Error: "The password is too common and easily guessable",
-		})
+		ctx.InvalidField(valCommonPassword)
 	}
 	return value
 }

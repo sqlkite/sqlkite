@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	createValidation = validation.Object().
+	createValidation = validation.Object[*sqlkite.Env]().
 		Field("name", tableNameValidation).
 		Field("columns", columnsValidation).
 		Field("access", accessValidation).
@@ -25,9 +25,9 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.InvalidJSON, nil
 	}
 
-	validator := env.Validator
-	if !createValidation.Validate(input, validator) {
-		return http.Validation(validator), nil
+	vc := env.VC
+	if !createValidation.ValidateInput(input, vc) {
+		return http.Validation(vc), nil
 	}
 
 	tableName := input.String("name")
@@ -62,8 +62,8 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	})
 
 	// possible that CreateTable added validation errors
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
+	if !vc.IsValid() {
+		return http.Validation(vc), nil
 	}
 
 	return http.OK(nil), err

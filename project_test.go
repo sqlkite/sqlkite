@@ -202,7 +202,7 @@ func Test_Project_UpdateTable_UnknownTable(t *testing.T) {
 	env := project.Env()
 	err := project.UpdateTable(env, &Table{}, TableAlter{Name: "tab1"})
 	assert.Nil(t, err)
-	assert.Validation(t, env.Validator).Field("", codes.VAL_UNKNOWN_TABLE, map[string]any{"value": "tab1"})
+	assert.Validation(t, env.VC).Field("", codes.VAL_UNKNOWN_TABLE, map[string]any{"value": "tab1"})
 }
 
 func Test_Project_UpdateTable_Success(t *testing.T) {
@@ -274,7 +274,7 @@ func Test_Project_DeleteTable_UnknownTable(t *testing.T) {
 	env := project.Env()
 	err := project.DeleteTable(env, "tab_nope")
 	assert.Nil(t, err)
-	assert.Validation(t, env.Validator).Field("", codes.VAL_UNKNOWN_TABLE, map[string]any{"value": "tab_nope"})
+	assert.Validation(t, env.VC).Field("", codes.VAL_UNKNOWN_TABLE, map[string]any{"value": "tab_nope"})
 }
 
 func Test_Project_DeleteTable_Success(t *testing.T) {

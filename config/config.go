@@ -7,20 +7,24 @@ import (
 	"src.goblgobl.com/utils/buffer"
 	"src.goblgobl.com/utils/json"
 	"src.goblgobl.com/utils/log"
-	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/super"
 )
 
 type Config struct {
-	InstanceId uint8             `json:"instance_id"`
-	Migrations *bool             `json:"migrations"`
-	RootPath   string            `json:"root_path"`
-	HTTP       HTTP              `json:"http"`
-	Log        log.Config        `json:"log"`
-	Super      super.Config      `json:"super"`
-	Buffer     *buffer.Config    `json:"buffer"`
-	Validation validation.Config `json:"validation"`
+	InstanceId uint8          `json:"instance_id"`
+	Migrations *bool          `json:"migrations"`
+	RootPath   string         `json:"root_path"`
+	HTTP       HTTP           `json:"http"`
+	Log        log.Config     `json:"log"`
+	Super      super.Config   `json:"super"`
+	Buffer     *buffer.Config `json:"buffer"`
+	Validation Validation     `json:"validation"`
+}
+
+type Validation struct {
+	PoolSize  uint16 `json:"pool_size"`
+	MaxErrors uint16 `json:"max_errors"`
 }
 
 type Buffer struct {
@@ -78,10 +82,6 @@ func Configure(filePath string) (Config, error) {
 			Min:   32768,   // 32K
 			Max:   1048576, // 1MB
 		}
-	}
-
-	if err := validation.Configure(config.Validation); err != nil {
-		return config, err
 	}
 
 	if err := super.Configure(config.Super); err != nil {

@@ -25,20 +25,20 @@ func Select(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	}
 
 	project := env.Project
-	validator := env.Validator
+	vc := env.VC
 
-	columns := selectParseColumns(input[SELECT_INPUT_NAME], validator, project)
-	froms := parseFrom(input[FROM_INPUT_NAME], validator, project, true)
-	where := parseWhere(input[WHERE_INPUT_NAME], validator)
-	orderBy := parseOrderBy(input[ORDER_INPUT_NAME], validator, project)
-	limit := parseSelectLimit(input[LIMIT_INPUT_NAME], validator, project)
-	offset := parseOffset(input[OFFSET_INPUT_NAME], validator)
-	parameters := extractParameters(input[PARAMETERS_INPUT_NAME], validator, project)
+	columns := selectParseColumns(input[SELECT_INPUT_NAME], vc, project)
+	froms := parseFrom(input[FROM_INPUT_NAME], vc, project, true)
+	where := parseWhere(input[WHERE_INPUT_NAME], vc)
+	orderBy := parseOrderBy(input[ORDER_INPUT_NAME], vc, project)
+	limit := parseSelectLimit(input[LIMIT_INPUT_NAME], vc, project)
+	offset := parseOffset(input[OFFSET_INPUT_NAME], vc)
+	parameters := extractParameters(input[PARAMETERS_INPUT_NAME], vc, project)
 
 	// There's more validation to do, and we do like to return all errors in one
 	// shot, but it's possible trying to go further will just cause more problems.
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
+	if !vc.IsValid() {
+		return http.Validation(vc), nil
 	}
 
 	sel := sql.Select{
@@ -56,23 +56,23 @@ func Select(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return nil, err
 	}
 
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
+	if !vc.IsValid() {
+		return http.Validation(vc), nil
 	}
 
 	return NewResultResponse(result), nil
 }
 
-func selectParseColumns(input any, validator *validation.Result, p *sqlkite.Project) []sql.DataField {
+func selectParseColumns(input any, ctx *validation.Context[*sqlkite.Env], p *sqlkite.Project) []sql.DataField {
 	if input == nil {
-		validator.AddInvalidField(selectField, valRequired)
+		ctx.InvalidWithField(validation.Required, selectField)
 		return nil
 	}
 
-	return parseColumnResultList(input, selectField, validator, p)
+	return parseColumnResultList(input, selectField, ctx, p)
 }
 
-func parseSelectLimit(input any, validator *validation.Result, p *sqlkite.Project) int {
+func parseSelectLimit(input any, ctx *validation.Context[*sqlkite.Env], p *sqlkite.Project) int {
 	max := int(p.MaxSelectCount)
 	if input == nil {
 		return max
@@ -80,17 +80,17 @@ func parseSelectLimit(input any, validator *validation.Result, p *sqlkite.Projec
 
 	limit, ok := input.(float64)
 	if !ok {
-		validator.AddInvalidField(limitField, valIntType)
+		ctx.InvalidWithField(validation.TypeInt, limitField)
 		return 0
 	}
 
 	n := int(limit)
 	if n > max {
-		validator.AddInvalidField(limitField, validation.Invalid{
+		ctx.InvalidWithField(&validation.Invalid{
 			Code:  codes.VAL_SQL_LIMIT_TOO_HIGH,
 			Error: fmt.Sprintf("limit cannot exceed %d", max),
-			Data:  validation.Max(max),
-		})
+			Data:  validation.MaxData(max),
+		}, limitField)
 		return 0
 	}
 

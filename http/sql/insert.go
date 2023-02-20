@@ -16,23 +16,23 @@ func Insert(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.InvalidJSON, nil
 	}
 
+	vc := env.VC
 	project := env.Project
-	validator := env.Validator
 
-	into := parseRequiredQualifiedTable(input[INTO_INPUT_NAME], intoField, validator)
+	into := parseRequiredQualifiedTable(input[INTO_INPUT_NAME], intoField, vc)
 	table := project.Table(into.Name)
 	if table == nil {
-		validator.AddInvalidField(intoField, sqlkite.UnknownTable(into.Name))
+		vc.InvalidWithField(sqlkite.UnknownTable(into.Name), intoField)
 	}
 
-	columns := insertParseColumns(input[COLUMNS_INPUT_NAME], validator)
-	parameters := extractParameters(input[PARAMETERS_INPUT_NAME], validator, project)
-	returning := parseOptionalColumnResultList(input[RETURNING_INPUT_NAME], returningField, validator, project)
+	columns := insertParseColumns(input[COLUMNS_INPUT_NAME], vc)
+	parameters := extractParameters(input[PARAMETERS_INPUT_NAME], vc, project)
+	returning := parseOptionalColumnResultList(input[RETURNING_INPUT_NAME], returningField, vc, project)
 
 	// There's more validation to do, and we do like to return all errors in one
 	// shot, but it's possible trying to go further will just cause more problems.
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
+	if !vc.IsValid() {
+		return http.Validation(vc), nil
 	}
 
 	insert := sql.Insert{
@@ -47,39 +47,39 @@ func Insert(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return nil, err
 	}
 
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
+	if !vc.IsValid() {
+		return http.Validation(vc), nil
 	}
 
 	return NewResultResponse(result), nil
 }
 
-func insertParseColumns(input any, validator *validation.Result) []string {
+func insertParseColumns(input any, ctx *validation.Context[*sqlkite.Env]) []string {
 	if input == nil {
-		validator.AddInvalidField(columnsField, valRequired)
+		ctx.InvalidWithField(validation.Required, columnsField)
 		return nil
 	}
 
 	rawColumns, ok := input.([]any)
 	if !ok {
-		validator.AddInvalidField(columnsField, valArrayType)
+		ctx.InvalidWithField(validation.TypeArray, columnsField)
 		return nil
 	}
 
 	// TODO: validate that len(rawColumns) <= len(table.Columns)
 
-	validator.BeginArray()
+	ctx.StartArray()
 	columns := make([]string, len(rawColumns))
 	for i, rawColumn := range rawColumns {
 		column, err := parser.Column(rawColumn)
 		if err != nil {
-			validator.ArrayIndex(i)
-			validator.AddInvalidField(columnsField, *err)
+			ctx.ArrayIndex(i)
+			ctx.InvalidWithField(err, columnsField)
 		} else {
 			columns[i] = column
 		}
 	}
-	validator.EndArray()
+	ctx.EndArray()
 
 	return columns
 }

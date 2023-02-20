@@ -50,8 +50,8 @@ type Env struct {
 	// of the request)
 	requestLogger log.Logger
 
-	// records validation errors
-	Validator *validation.Result
+	// Validation context
+	VC *validation.Context[*Env]
 
 	// can most certainly be nil
 	User *User
@@ -64,12 +64,13 @@ func NewEnv(p *Project, requestId string) *Env {
 	}
 	logger.String("rid", requestId).MultiUse()
 
-	return &Env{
+	env := &Env{
 		Project:   p,
 		Logger:    logger,
 		requestId: requestId,
-		Validator: validation.Checkout(),
 	}
+	env.VC = validationContexts.Checkout(env)
+	return env
 }
 
 func (e *Env) WithDB(cb func(sqlite.Conn) error) error {
@@ -132,8 +133,8 @@ func (e *Env) Request(route string) log.Logger {
 }
 
 func (e *Env) Release() {
+	e.VC.Release()
 	e.Logger.Release()
-	e.Validator.Release()
 }
 
 // In a perfect world, we'd have distinct error codes and messages for

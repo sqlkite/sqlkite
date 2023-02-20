@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	updateValidation = validation.Object().
-				Field("changes", validation.Array().Validator(validation.Object().Func(changeValidation)).Transformer(changeMap)).
+	changeValidator  = validation.Object[*sqlkite.Env]().Func(changeValidation)
+	updateValidation = validation.Object[*sqlkite.Env]().
+				Field("changes", validation.Array[*sqlkite.Env]().Validator(changeValidator).Func(changeMap)).
 				Field("access", accessValidation).
 				Field("max_delete_count", maxMutateCountValidation).
 				Field("max_update_count", maxMutateCountValidation)
@@ -22,7 +23,9 @@ var (
 	updateChangeTypeField              = validation.BuildField("changes.#.type")
 	updateChangeColumnNameField        = validation.BuildField("changes.#.name")
 	updateChangeColumnField            = validation.BuildField("changes.#.column")
-	updateTableAlterAddColumnValidator = columnValidation.AddField(updateChangeColumnField)
+	updateTableAlterAddColumnValidator = columnValidation.ForceField(updateChangeColumnField)
+
+	valChangeTypeChoice = validation.InvalidStringChoice([]string{"rename", "rename column", "add column", "drop column"})
 )
 
 func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
@@ -31,9 +34,9 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.InvalidJSON, nil
 	}
 
-	validator := env.Validator
-	if !updateValidation.Validate(input, validator) {
-		return http.Validation(validator), nil
+	vc := env.VC
+	if !updateValidation.ValidateInput(input, vc) {
+		return http.Validation(vc), nil
 	}
 
 	tableName := conn.UserValue("name").(string)
@@ -100,68 +103,76 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	}
 
 	// possible that UpdateTable added validation errors
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
+	if !vc.IsValid() {
+		return http.Validation(vc), nil
 	}
 
 	return http.OK(nil), nil
 }
 
-func changeValidation(field validation.Field, value typed.Typed, input typed.Typed, res *validation.Result) any {
-	switch ascii.Lowercase(value.String("type")) {
+func changeValidation(m map[string]any, ctx *validation.Context[*sqlkite.Env]) any {
+	change := typed.Typed(m)
+	switch ascii.Lowercase(change.String("type")) {
 	case "rename":
-		return renameValidation(field, value, res)
+		return renameValidation(change, ctx)
 	case "rename column":
-		return renameColumnValidaiton(field, value, res)
+		return renameColumnValidaiton(change, ctx)
 	case "add column":
-		return addColumnValidation(field, value, res)
+		return addColumnValidation(change, ctx)
 	case "drop column":
-		return dropColumnValidation(field, value, res)
+		return dropColumnValidation(change, ctx)
 	case "":
-		res.AddInvalidField(updateChangeTypeField, validation.Required())
+		ctx.InvalidWithField(validation.Required, updateChangeTypeField)
 	default:
-		res.AddInvalidField(updateChangeTypeField, validation.InvalidStringChoice([]string{"rename", "rename column", "add column", "drop column"}))
+		ctx.InvalidWithField(valChangeTypeChoice, updateChangeTypeField)
 	}
 	return nil
 }
 
-func renameValidation(field validation.Field, change typed.Typed, res *validation.Result) any {
-	tableNameValidation.ValidateObjectField(updateChangeToField, change, change, res)
-	return sqlkite.TableAlterRename{
-		To: change.String("to"),
+func renameValidation(change typed.Typed, ctx *validation.Context[*sqlkite.Env]) any {
+	to, ok := ctx.Validate(updateChangeToField, change[updateChangeToField.Name], tableNameValidation)
+	if !ok {
+		return sqlkite.TableAlterRename{}
 	}
+	return sqlkite.TableAlterRename{To: to.(string)}
+
 }
 
-func renameColumnValidaiton(field validation.Field, change typed.Typed, res *validation.Result) any {
-	columnNameValidation.ValidateObjectField(updateChangeToField, change, change, res)
-	columnNameValidation.ValidateObjectField(updateChangeColumnNameField, change, change, res)
-	return sqlkite.TableAlterRenameColumn{
-		Name: change.String("name"),
-		To:   change.String("to"),
+func renameColumnValidaiton(change typed.Typed, ctx *validation.Context[*sqlkite.Env]) any {
+	to, ok1 := ctx.Validate(updateChangeToField, change[updateChangeToField.Name], columnNameValidation)
+	name, ok2 := ctx.Validate(updateChangeColumnNameField, change[updateChangeColumnNameField.Name], columnNameValidation)
+	if !ok1 || !ok2 {
+		return sqlkite.TableAlterRenameColumn{}
 	}
+
+	return sqlkite.TableAlterRenameColumn{Name: name.(string), To: to.(string)}
 }
 
-func addColumnValidation(field validation.Field, change typed.Typed, res *validation.Result) any {
-	updateTableAlterAddColumnValidator.ValidateObjectField(updateChangeColumnField, change, change, res)
-	if !res.IsValid() {
-		return nil
+func addColumnValidation(change typed.Typed, ctx *validation.Context[*sqlkite.Env]) any {
+	column, ok := ctx.Validate(updateChangeColumnField, change["column"], updateTableAlterAddColumnValidator)
+	if !ok {
+		return sqlkite.TableAlterAddColumn{}
 	}
+
 	return sqlkite.TableAlterAddColumn{
-		Column: mapColumn(change.Object("column")),
+		Column: mapColumn(typed.Typed(column.(map[string]any))),
 	}
 }
 
-func dropColumnValidation(field validation.Field, change typed.Typed, res *validation.Result) any {
-	columnNameValidation.ValidateObjectField(updateChangeColumnNameField, change, change, res)
-	return sqlkite.TableAlterDropColumn{
-		Name: change.String("name"),
+func dropColumnValidation(change typed.Typed, ctx *validation.Context[*sqlkite.Env]) any {
+	name, ok := ctx.Validate(updateChangeColumnNameField, change[updateChangeColumnNameField.Name], columnNameValidation)
+
+	if !ok {
+		return sqlkite.TableAlterDropColumn{}
 	}
+
+	return sqlkite.TableAlterDropColumn{Name: name.(string)}
 }
 
 // Our validation has turned each change map[string]any into
 // a specific sql.{Type} (e.g. sql.TableAlterRename), which are all sql.Parts.
 // We need to change our array from an []any to an []sql.Part
-func changeMap(changes []any) any {
+func changeMap(changes []any, ctx *validation.Context[*sqlkite.Env]) any {
 	if changes == nil {
 		return nil
 	}

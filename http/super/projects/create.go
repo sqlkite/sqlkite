@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	createValidation = validation.Object().
+	createValidation = validation.Object[*sqlkite.Env]().
 		Field("max_concurrency", maxConcurrencyValidation).
 		Field("max_sql_length", maxSQLLengthValidation).
 		Field("max_sql_parameter_count", maxSQLParameterCountValidation).
@@ -28,9 +28,9 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return http.InvalidJSON, nil
 	}
 
-	validator := env.Validator
-	if !createValidation.Validate(input, validator) {
-		return http.Validation(validator), nil
+	vc := env.VC
+	if !createValidation.ValidateInput(input, vc) {
+		return http.Validation(vc), nil
 	}
 
 	id := uuid.String()

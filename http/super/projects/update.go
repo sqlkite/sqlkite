@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	updateValidation = validation.Object().
+	updateValidation = validation.Object[*sqlkite.Env]().
 		Field("id", idValidation).
 		Field("max_concurrency", maxConcurrencyValidation).
 		Field("max_sql_length", maxSQLLengthValidation).
@@ -31,9 +31,9 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	id := conn.UserValue("id").(string)
 
 	input["id"] = id
-	validator := env.Validator
-	if !updateValidation.Validate(input, validator) {
-		return http.Validation(validator), nil
+	vc := env.VC
+	if !updateValidation.ValidateInput(input, vc) {
+		return http.Validation(vc), nil
 	}
 
 	ok, err := super.DB.UpdateProject(data.Project{

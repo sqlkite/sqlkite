@@ -12,6 +12,7 @@ import (
 	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/utils/buffer"
 	"src.goblgobl.com/utils/log"
+	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/config"
 	"src.sqlkite.com/sqlkite/data"
@@ -19,6 +20,7 @@ import (
 
 var Config config.Config
 var Buffer *buffer.Pool
+var validationContexts *validation.Pool[*Env]
 
 func init() {
 	// This is a hack, but I really dislike go's lack of circular
@@ -27,8 +29,13 @@ func init() {
 	if strings.HasSuffix(os.Args[0], ".test") {
 		Buffer = buffer.NewPool(2, 2048, 4096)
 
+		// poolSize = 2
+		// maxErrors = 20
+		validationContexts = validation.NewPool[*Env](2, 50)
+
 		_, b, _, _ := runtime.Caller(0)
 		Config.RootPath = filepath.Dir(b) + "/tests/databases/"
+
 	}
 
 	// In non-test, Config is set by the call to Init which
@@ -37,6 +44,7 @@ func init() {
 
 func Init(config config.Config) error {
 	Buffer = buffer.NewPoolFromConfig(*config.Buffer)
+	validationContexts = validation.NewPool[*Env](config.Validation.PoolSize, config.Validation.MaxErrors)
 
 	Config = config
 	return nil

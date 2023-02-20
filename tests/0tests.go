@@ -22,7 +22,6 @@ import (
 	"src.goblgobl.com/utils/buffer"
 	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/typed"
-	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite/super"
 	"src.sqlkite.com/sqlkite/super/pg"
 	"src.sqlkite.com/sqlkite/super/sqlite"
@@ -35,15 +34,6 @@ func init() {
 
 	err := log.Configure(log.Config{
 		Level: "WARN",
-	})
-
-	if err != nil {
-		panic(err)
-	}
-
-	err = validation.Configure(validation.Config{
-		PoolSize:  1,
-		MaxErrors: 10,
 	})
 
 	if err != nil {

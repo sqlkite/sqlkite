@@ -12,10 +12,10 @@ func Delete(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 		return nil, err
 	}
 
-	validator := env.Validator
 	// possible that DeleteTable added validation errors
-	if !validator.IsValid() {
-		return http.Validation(validator), nil
+	vc := env.VC
+	if !vc.IsValid() {
+		return http.Validation(vc), nil
 	}
 
 	return http.OK(nil), nil
