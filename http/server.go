@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/utils"
 	"src.goblgobl.com/utils/http"
 	"src.goblgobl.com/utils/uuid"
@@ -25,14 +26,19 @@ import (
 )
 
 type EnvLoader func(conn *fasthttp.RequestCtx) (*sqlkite.Env, http.Response, error)
-type UserLoader func(conn *fasthttp.RequestCtx) (*sqlkite.User, http.Response)
+type UserLoader func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (*sqlkite.User, http.Response, error)
 type ProjectIdLoader func(conn *fasthttp.RequestCtx) (string, http.Response)
 
 var (
 	resNotFoundPath         = http.StaticNotFound(codes.RES_UNKNOWN_ROUTE)
 	resMissingProjectHeader = http.StaticError(400, codes.RES_MISSING_PROJECT_HEADER, "Project header required")
 	resMissingSubdomain     = http.StaticError(400, codes.RES_MISSING_SUBDOMAIN, "Project id could not be loaded from subdomain")
-	resProjectNotFound      = http.StaticError(400, codes.RES_PROJECT_NOT_FOUND, "unknown project id")
+	resProjectNotFound      = http.StaticError(400, codes.RES_PROJECT_NOT_FOUND, "Unknown project id")
+	resAuthPrefix           = http.StaticError(401, codes.RES_AUTH_PREFIX, "Invalid authorization token type")
+	resAuthEmpty            = http.StaticError(401, codes.RES_AUTH_EMPTY, "Empty authorization token")
+	resAuthInvalid          = http.StaticError(401, codes.RES_AUTH_INVALID, "The authorization token is not valid")
+	resAuthTrustPrefix      = http.StaticError(401, codes.RES_AUTH_TRUST_PREFIX, "Invalid authorization token type")
+	resAuthTrustEmpty       = http.StaticError(401, codes.RES_AUTH_TRUST_EMPTY, "Empty authorization token")
 
 	resUnauthorized = http.StaticError(401, codes.RES_INVALID_CREDENTIALS, "Invalid or missing credentials")
 	resAccessDenied = http.StaticError(403, codes.RES_ACCESS_DENIED, "Access denied")
@@ -56,11 +62,14 @@ func Listen() {
 	case "":
 		logger.String("auth", "disabled")
 		userLoader = loadUserDisabled
-	case "header":
-		logger.String("auth", "header")
-		userLoader = loadUserFromHeader
+	case "trust-header":
+		logger.String("auth", "trust-header")
+		userLoader = loadUserFromTrustedHeader
+	case "sqlkite":
+		logger.String("auth", "sqlkite")
+		userLoader = loadUserFromSqlkite
 	default:
-		err := log.Errf(codes.ERR_CONFIG_HTTP_AUTHENTICATION_TYPE, "http.authentication.type must be one of: 'header' or '' (empty)")
+		err := log.Errf(codes.ERR_CONFIG_HTTP_AUTHENTICATION_TYPE, "http.authentication.type must be one of: 'sqlkite', 'trust-header' or '' (empty)")
 		log.Fatal("server_auth_config").Err(err).Log()
 		return
 	}
@@ -163,6 +172,7 @@ func mainHandler(config config.HTTP, logger log.Logger, envLoader EnvLoader) (fu
 
 	r.POST("/v1/auth/users", http.Handler("auth_users_create", envLoader, auth.UserCreate))
 	r.POST("/v1/auth/sessions", http.Handler("auth_session_create", envLoader, auth.SessionCreate))
+	r.GET("/v1/auth/logout", http.Handler("auth_logout", envLoader, auth.Logout))
 
 	if config.Admin == "public" {
 		logger.String("admin", "public")
@@ -223,10 +233,12 @@ func loadSuperEnv(userLoader UserLoader) func(conn *fasthttp.RequestCtx) (*sqlki
 	return func(conn *fasthttp.RequestCtx) (*sqlkite.Env, http.Response, error) {
 		nextId := atomic.AddUint32(&globalRequestId, 1)
 		requestId := utils.EncodeRequestId(nextId, sqlkite.Config.InstanceId)
-		user, res := userLoader(conn)
 
-		if res != nil {
-			return nil, res, nil
+		env := sqlkite.NewEnv(nil, requestId)
+		user, res, err := userLoader(conn, env)
+
+		if res != nil || err != nil {
+			return nil, res, err
 		}
 		if user == nil {
 			return nil, resUnauthorized, nil
@@ -234,7 +246,7 @@ func loadSuperEnv(userLoader UserLoader) func(conn *fasthttp.RequestCtx) (*sqlki
 		if user.Role != "super" {
 			return nil, resAccessDenied, nil
 		}
-		env := sqlkite.NewEnv(nil, requestId)
+
 		env.User = user
 		return env, nil, nil
 	}
@@ -261,11 +273,12 @@ func createEnvLoader(userLoader UserLoader, projectIdLoader ProjectIdLoader) Env
 		if project == nil {
 			return nil, resProjectNotFound, nil
 		}
-		user, res := userLoader(conn)
-		if res != nil {
-			return nil, res, nil
-		}
 		env := project.Env()
+		user, res, err := userLoader(conn, env)
+		if res != nil || err != nil {
+			env.Release()
+			return nil, res, err
+		}
 		env.User = user
 		return env, nil, nil
 	}
@@ -291,28 +304,76 @@ func loadProjectIdFromSubdomain(conn *fasthttp.RequestCtx) (string, http.Respons
 	return utils.B2S(host[:si]), nil
 }
 
-func loadUserFromHeader(conn *fasthttp.RequestCtx) (*sqlkite.User, http.Response) {
+func loadUserFromTrustedHeader(conn *fasthttp.RequestCtx, env *sqlkite.Env) (*sqlkite.User, http.Response, error) {
 	header := &conn.Request.Header
-	userId := header.PeekBytes([]byte("User"))
-	if userId == nil {
-		return nil, nil
+	authHeader := header.PeekBytes([]byte("Authorization"))
+	if authHeader == nil {
+		return nil, nil, nil
 	}
 
-	var role string
-	if r := header.PeekBytes([]byte("Role")); r != nil {
-		role = utils.B2S(r)
+	if !bytes.HasPrefix(authHeader, []byte("sqlkite-trust ")) {
+		return nil, resAuthTrustPrefix, nil
 	}
+
+	authHeader = bytes.TrimSpace(authHeader[14:])
+	if len(authHeader) == 0 {
+		return nil, resAuthTrustEmpty, nil
+	}
+
+	parts := bytes.SplitN(authHeader, []byte{','}, 2)
 
 	// fasthttp says headers are valid until the connection is discarded, and
 	// we know this won't outlive the connection
+	userId := utils.B2S(parts[0])
+
+	var role string
+	if len(parts) == 2 {
+		role = utils.B2S(parts[1])
+	}
+
 	return &sqlkite.User{
-		Id:   utils.B2S(userId),
+		Id:   userId,
 		Role: role,
-	}, nil
+	}, nil, nil
 }
 
-func loadUserDisabled(conn *fasthttp.RequestCtx) (*sqlkite.User, http.Response) {
-	return nil, nil
+func loadUserFromSqlkite(conn *fasthttp.RequestCtx, env *sqlkite.Env) (*sqlkite.User, http.Response, error) {
+	header := &conn.Request.Header
+	authHeader := header.PeekBytes([]byte("Authorization"))
+	if authHeader == nil {
+		return nil, nil, nil
+	}
+
+	if !bytes.HasPrefix(authHeader, []byte("sqlkite ")) {
+		return nil, resAuthPrefix, nil
+	}
+
+	sessionId := utils.B2S(bytes.TrimSpace(authHeader[8:]))
+	if len(sessionId) == 0 {
+		return nil, resAuthEmpty, nil
+	}
+
+	var userId, role string
+	err := env.Project.WithDB(func(conn sqlite.Conn) error {
+		row := conn.Row("select user_id, role from sqlkite_sessions where id = ?1 and expires > unixepoch()", sessionId)
+		return row.Scan(&userId, &role)
+	})
+
+	if err != nil {
+		if err == sqlite.ErrNoRows {
+			return nil, resAuthInvalid, nil
+		}
+		return nil, nil, err
+	}
+
+	return &sqlkite.User{
+		Id:   userId,
+		Role: role,
+	}, nil, nil
+}
+
+func loadUserDisabled(conn *fasthttp.RequestCtx, env *sqlkite.Env) (*sqlkite.User, http.Response, error) {
+	return nil, nil, nil
 }
 
 func requireRole(role string, envLoader EnvLoader) func(conn *fasthttp.RequestCtx) (*sqlkite.Env, http.Response, error) {

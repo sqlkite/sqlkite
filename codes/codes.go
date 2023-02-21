@@ -49,6 +49,11 @@ const (
 	RES_INVALID_CREDENTIALS         = 302_006
 	RES_ACCESS_DENIED               = 302_007
 	RES_SESSION_INVALID_CREDENTIALS = 302_008
+	RES_AUTH_PREFIX                 = 302_009
+	RES_AUTH_EMPTY                  = 302_010
+	RES_AUTH_INVALID                = 302_011
+	RES_AUTH_TRUST_PREFIX           = 302_012
+	RES_AUTH_TRUST_EMPTY            = 302_013
 
 	ERR_READ_CONFIG                     = 303_001
 	ERR_PARSE_CONFIG                    = 303_002
