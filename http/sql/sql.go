@@ -55,7 +55,7 @@ func extractParameters(input any, ctx *validation.Context[*sqlkite.Env], p *sqlk
 		ctx.InvalidWithField(validation.TypeArray, parametersField)
 	}
 
-	max := int(p.MaxSQLParameterCount)
+	max := int(p.Limits.MaxSQLParameterCount)
 	if len(values) > max {
 		ctx.InvalidWithField(&validation.Invalid{
 			Code:  codes.VAL_SQL_TOO_MANY_PARAMETERS,
@@ -81,7 +81,7 @@ func parseColumnResultList(input any, field *validation.Field, ctx *validation.C
 		return nil
 	}
 
-	max := int(p.MaxSelectColumnCount)
+	max := int(p.Limits.MaxSelectColumnCount)
 	if len(rawColumns) > max {
 		ctx.InvalidWithField(&validation.Invalid{
 			Code:  codes.VAL_SQL_TOO_MANY_SELECT,
@@ -135,7 +135,7 @@ func parseFrom(input any, ctx *validation.Context[*sqlkite.Env], p *sqlkite.Proj
 		return nil
 	}
 
-	max := int(p.MaxFromCount)
+	max := int(p.Limits.MaxFromCount)
 	if len(rawFroms) > max {
 		ctx.InvalidWithField(&validation.Invalid{
 			Code:  codes.VAL_TOO_MANY_FROMS,
@@ -189,7 +189,7 @@ func parseOrderBy(input any, ctx *validation.Context[*sqlkite.Env], p *sqlkite.P
 		return nil
 	}
 
-	max := int(p.MaxOrderByCount)
+	max := int(p.Limits.MaxOrderByCount)
 	if len(rawOrderBy) > max {
 		ctx.InvalidWithField(&validation.Invalid{
 			Code:  codes.VAL_SQL_TOO_MANY_ORDER_BY,
@@ -229,11 +229,11 @@ func parseOffset(input any, ctx *validation.Context[*sqlkite.Env]) optional.Int 
 }
 
 // The limit logic for update/delete is different than for select. For select,
-// the's _always_ an enforced limit (project.MaxSelectCount). For update/delete,
+// the's _always_ an enforced limit (project.Limits.MaxSelectCount). For update/delete,
 // the logic is a bit more complicated.
 // Every table has an optional MaxUpdateRow or MaxDeleteRow setting which
 // (this is TODO, but definitely something we'll add ASAP). Furthermore, if
-// the statement includes a returning clause, then (project.MaxSelectCount) must
+// the statement includes a returning clause, then (project.Limits.MaxSelectCount) must
 // also be considered (we'll take the Min(MaxUpdateRow, MaxSelectCount))
 // If the table has no MaxUpdateRow (or MaxDeleteRow) and there's no returning
 // the limit is optional

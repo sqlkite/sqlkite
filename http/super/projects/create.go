@@ -39,13 +39,15 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	}
 
 	err = super.DB.CreateProject(data.Project{
-		Id:                   id,
-		MaxConcurrency:       uint16(input.Int("max_concurrency")),
-		MaxSQLLength:         uint32(input.Int("max_sql_length")),
-		MaxSQLParameterCount: uint16(input.Int("max_sql_parameter_count")),
-		MaxDatabaseSize:      uint64(input.Int("max_database_size")),
-		MaxSelectCount:       uint16(input.Int("max_select_count")),
-		MaxResultLength:      uint32(input.Int("max_result_length")),
+		Id: id,
+		Limits: data.Limits{
+			MaxConcurrency:       uint16(input.Int("max_concurrency")),
+			MaxSQLLength:         uint32(input.Int("max_sql_length")),
+			MaxSQLParameterCount: uint16(input.Int("max_sql_parameter_count")),
+			MaxDatabaseSize:      uint64(input.Int("max_database_size")),
+			MaxSelectCount:       uint16(input.Int("max_select_count")),
+			MaxResultLength:      uint32(input.Int("max_result_length")),
+		},
 	})
 	if err != nil {
 		return nil, err

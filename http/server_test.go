@@ -19,18 +19,31 @@ import (
 )
 
 var (
-	projectId string
 	project   *sqlkite.Project
+	projectId string
+
+	projectAuthDisabled   *sqlkite.Project
+	projectAuthDisabledId string
 )
 
 func TestMain(m *testing.M) {
+	var err error
 	projectId = tests.Factory.Project.Insert().String("id")
 	if err := sqlkite.CreateDB(projectId); err != nil {
 		panic(err)
 	}
-	project, _ = sqlkite.Projects.Get(projectId)
-	if project == nil {
-		panic("test project is nil")
+	project, err = sqlkite.Projects.Get(projectId)
+	if err != nil {
+		panic(err)
+	}
+
+	projectAuthDisabledId = tests.Factory.Project.Insert("auth.disabled", true).String("id")
+	if err := sqlkite.CreateDB(projectAuthDisabledId); err != nil {
+		panic(err)
+	}
+	projectAuthDisabled, err = sqlkite.Projects.Get(projectAuthDisabledId)
+	if err != nil {
+		panic(err)
 	}
 
 	code := m.Run()
@@ -286,7 +299,7 @@ func Test_Server_TrustHeader_User_WithRole(t *testing.T) {
 func Test_Server_SqlkiteHeader_Nil_User(t *testing.T) {
 	called := false
 	conn := request.Req(t).ProjectId(projectId).Conn()
-	http.Handler("", createEnvLoader(loadUserFromSqlkite, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", createEnvLoader(loadUserFromSession, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		called = true
 		assert.Nil(t, env.User)
 		return http.OK(nil), nil
@@ -299,7 +312,7 @@ func Test_Server_SqlkiteHeader_User_Invalid_Prefix(t *testing.T) {
 		called := false
 		conn := request.Req(t).ProjectId(projectId).Conn()
 		conn.Request.Header.Set("Authorization", value)
-		http.Handler("", createEnvLoader(loadUserFromSqlkite, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		http.Handler("", createEnvLoader(loadUserFromSession, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 			called = true
 			return http.OK(nil), nil
 		})(conn)
@@ -312,7 +325,7 @@ func Test_Server_SqlkiteHeader_User_Empty(t *testing.T) {
 	called := false
 	conn := request.Req(t).ProjectId(projectId).Conn()
 	conn.Request.Header.Set("Authorization", "sqlkite  ")
-	http.Handler("", createEnvLoader(loadUserFromSqlkite, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	http.Handler("", createEnvLoader(loadUserFromSession, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		called = true
 		return http.OK(nil), nil
 	})(conn)
@@ -322,8 +335,8 @@ func Test_Server_SqlkiteHeader_User_Empty(t *testing.T) {
 
 func Test_Server_SqlkiteHeader_UnknownToken(t *testing.T) {
 	called := false
-	conn := sqlkiteAuth(request.Req(t).ProjectId(projectId).Conn(), "unknown")
-	http.Handler("", createEnvLoader(loadUserFromSqlkite, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	conn := sessionAuth(request.Req(t).ProjectId(projectId).Conn(), "unknown")
+	http.Handler("", createEnvLoader(loadUserFromSession, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		called = true
 		return http.OK(nil), nil
 	})(conn)
@@ -339,8 +352,8 @@ func Test_Server_SqlkiteHeader_ExpiresSession(t *testing.T) {
 	})
 
 	called := false
-	conn := sqlkiteAuth(request.Req(t).ProjectId(projectId).Conn(), sessionId)
-	http.Handler("", createEnvLoader(loadUserFromSqlkite, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	conn := sessionAuth(request.Req(t).ProjectId(projectId).Conn(), sessionId)
+	http.Handler("", createEnvLoader(loadUserFromSession, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		called = true
 		return http.OK(nil), nil
 	})(conn)
@@ -356,8 +369,8 @@ func Test_Server_SqlkiteHeader_User_NoRole(t *testing.T) {
 	})
 
 	called := false
-	conn := sqlkiteAuth(request.Req(t).ProjectId(projectId).Conn(), sessionId)
-	http.Handler("", createEnvLoader(loadUserFromSqlkite, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	conn := sessionAuth(request.Req(t).ProjectId(projectId).Conn(), sessionId)
+	http.Handler("", createEnvLoader(loadUserFromSession, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		called = true
 		assert.Equal(t, env.User.Id, "user1x")
 		assert.Equal(t, env.User.Role, "")
@@ -374,11 +387,28 @@ func Test_Server_SqlkiteHeader_User_WithRole(t *testing.T) {
 	})
 
 	called := false
-	conn := sqlkiteAuth(request.Req(t).ProjectId(projectId).Conn(), sessionId)
-	http.Handler("", createEnvLoader(loadUserFromSqlkite, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	conn := sessionAuth(request.Req(t).ProjectId(projectId).Conn(), sessionId)
+	http.Handler("", createEnvLoader(loadUserFromSession, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 		called = true
 		assert.Equal(t, env.User.Id, "user1x")
 		assert.Equal(t, env.User.Role, "rx")
+		return http.OK(nil), nil
+	})(conn)
+	assert.True(t, called)
+}
+
+func Test_Server_SqlkiteHeader_Project_Auth_Disabled(t *testing.T) {
+	sessionId := tests.Generator.UUID()
+	projectAuthDisabled.WithDB(func(conn sqlite.Conn) error {
+		conn.MustExec("insert into sqlkite_sessions (id, user_id, role, expires) values (?1, ?2, ?3, ?4)", sessionId, "user1x", "rx", time.Now().Add(time.Second*2))
+		return nil
+	})
+
+	called := false
+	conn := sessionAuth(request.Req(t).ProjectId(projectAuthDisabledId).Conn(), sessionId)
+	http.Handler("", createEnvLoader(loadUserFromSession, loadProjectIdFromHeader), func(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+		called = true
+		assert.Nil(t, env.User)
 		return http.OK(nil), nil
 	})(conn)
 	assert.True(t, called)
@@ -428,7 +458,7 @@ func trustAuth(conn *fasthttp.RequestCtx, userId string, role ...string) *fastht
 	return conn
 }
 
-func sqlkiteAuth(conn *fasthttp.RequestCtx, sessionId string) *fasthttp.RequestCtx {
+func sessionAuth(conn *fasthttp.RequestCtx, sessionId string) *fasthttp.RequestCtx {
 	headerValue := "sqlkite " + sessionId
 	conn.Request.Header.Set("Authorization", headerValue)
 	return conn

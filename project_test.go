@@ -15,40 +15,42 @@ import (
 
 func Test_NewProject(t *testing.T) {
 	project, err := NewProject(&data.Project{
-		Id:                   tests.Factory.StandardId,
-		MaxSQLLength:         200,
-		MaxResultLength:      2000,
-		MaxDatabaseSize:      40930,
-		MaxConcurrency:       10,
-		MaxSQLParameterCount: 11,
-		MaxSelectCount:       12,
-		MaxFromCount:         13,
-		MaxSelectColumnCount: 14,
-		MaxConditionCount:    15,
-		MaxOrderByCount:      16,
-		MaxTableCount:        17,
+		Id: tests.Factory.StandardId,
+		Limits: data.Limits{
+			MaxSQLLength:         200,
+			MaxResultLength:      2000,
+			MaxDatabaseSize:      40930,
+			MaxConcurrency:       10,
+			MaxSQLParameterCount: 11,
+			MaxSelectCount:       12,
+			MaxFromCount:         13,
+			MaxSelectColumnCount: 14,
+			MaxConditionCount:    15,
+			MaxOrderByCount:      16,
+			MaxTableCount:        17,
+		},
 	}, true)
 
 	assert.Nil(t, err)
 	defer project.Shutdown()
 	assert.Equal(t, project.Id, tests.Factory.StandardId)
-	assert.Equal(t, project.MaxConcurrency, 10)
-	assert.Equal(t, project.MaxDatabaseSize, 40930)
-	assert.Equal(t, project.MaxSQLLength, 200)
-	assert.Equal(t, project.MaxSQLParameterCount, 11)
-	assert.Equal(t, project.MaxSelectCount, 12)
-	assert.Equal(t, project.MaxResultLength, 2000)
-	assert.Equal(t, project.MaxFromCount, 13)
-	assert.Equal(t, project.MaxSelectColumnCount, 14)
-	assert.Equal(t, project.MaxConditionCount, 15)
-	assert.Equal(t, project.MaxOrderByCount, 16)
-	assert.Equal(t, project.MaxTableCount, 17)
+	assert.Equal(t, project.Limits.MaxConcurrency, 10)
+	assert.Equal(t, project.Limits.MaxDatabaseSize, 40930)
+	assert.Equal(t, project.Limits.MaxSQLLength, 200)
+	assert.Equal(t, project.Limits.MaxSQLParameterCount, 11)
+	assert.Equal(t, project.Limits.MaxSelectCount, 12)
+	assert.Equal(t, project.Limits.MaxResultLength, 2000)
+	assert.Equal(t, project.Limits.MaxFromCount, 13)
+	assert.Equal(t, project.Limits.MaxSelectColumnCount, 14)
+	assert.Equal(t, project.Limits.MaxConditionCount, 15)
+	assert.Equal(t, project.Limits.MaxOrderByCount, 16)
+	assert.Equal(t, project.Limits.MaxTableCount, 17)
 }
 
 func Test_NewProject_DBSize(t *testing.T) {
 	project, err := NewProject(&data.Project{
-		Id:              tests.Factory.StandardId,
-		MaxDatabaseSize: 65536,
+		Id:     tests.Factory.StandardId,
+		Limits: data.Limits{MaxDatabaseSize: 65536},
 	}, true)
 
 	assert.Nil(t, err)

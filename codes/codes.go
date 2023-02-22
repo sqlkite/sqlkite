@@ -54,6 +54,7 @@ const (
 	RES_AUTH_INVALID                = 302_011
 	RES_AUTH_TRUST_PREFIX           = 302_012
 	RES_AUTH_TRUST_EMPTY            = 302_013
+	RES_AUTH_DISABLED               = 302_014
 
 	ERR_READ_CONFIG                     = 303_001
 	ERR_PARSE_CONFIG                    = 303_002

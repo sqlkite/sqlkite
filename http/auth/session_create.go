@@ -16,6 +16,10 @@ import (
 	"src.sqlkite.com/sqlkite/codes"
 )
 
+const (
+	NO_TTL = time.Duration(43830) * time.Hour
+)
+
 var (
 	sessionCreateValidation = validation.Object[*sqlkite.Env]().
 				Field("email", emailValidation.Required()).
@@ -25,6 +29,11 @@ var (
 )
 
 func SessionCreate(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	projectAuth := env.Project.Auth
+	if projectAuth.Disabled {
+		return resAuthDisabled, nil
+	}
+
 	input, err := typed.Json(conn.PostBody())
 	if err != nil {
 		return http.InvalidJSON, nil
@@ -87,8 +96,16 @@ func createSession(env *sqlkite.Env, userId string, role *string) (string, error
 		return "", err
 	}
 
-	expires := time.Now().Add(time.Hour * 168) // TODO: TTL should be a project variable
-	err = env.WithDB(func(conn sqlite.Conn) error {
+	project := env.Project
+	var sessionTTL time.Duration
+	if ttl := project.Auth.Session.SessionTTL; ttl != 0 {
+		sessionTTL = time.Duration(ttl) * time.Minute
+	} else {
+		sessionTTL = NO_TTL
+	}
+
+	expires := time.Now().Add(sessionTTL)
+	err = project.WithDB(func(conn sqlite.Conn) error {
 		return conn.Exec(`
 			insert into sqlkite_sessions (id, user_id, role, expires)
 			values (?1, ?2, ?3, ?4)

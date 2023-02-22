@@ -83,13 +83,13 @@ func Test_Update_DefaultInput(t *testing.T) {
 
 	row := tests.Super.Row("select data from sqlkite_projects where id = $1", projectId)
 	data := typedProjectData(row["data"])
-
-	assert.Equal(t, data.Int("max_concurrency"), 5)
-	assert.Equal(t, data.Int("max_sql_length"), 4096)
-	assert.Equal(t, data.Int("max_sql_parameter_count"), 100)
-	assert.Equal(t, data.Int("max_database_size"), 104857600)
-	assert.Equal(t, data.Int("max_select_count"), 100)
-	assert.Equal(t, data.Int("max_result_length"), 524288)
+	limits := data.Object("limits")
+	assert.Equal(t, limits.Int("max_concurrency"), 5)
+	assert.Equal(t, limits.Int("max_sql_length"), 4096)
+	assert.Equal(t, limits.Int("max_sql_parameter_count"), 100)
+	assert.Equal(t, limits.Int("max_database_size"), 104857600)
+	assert.Equal(t, limits.Int("max_select_count"), 100)
+	assert.Equal(t, limits.Int("max_result_length"), 524288)
 }
 
 func Test_Update_ExplicitInput(t *testing.T) {
@@ -111,12 +111,13 @@ func Test_Update_ExplicitInput(t *testing.T) {
 
 	row := tests.Super.Row("select * from sqlkite_projects where id = $1", projectId)
 	data := typedProjectData(row["data"])
-	assert.Equal(t, data.Int("max_concurrency"), 7)
-	assert.Equal(t, data.Int("max_sql_length"), 4098)
-	assert.Equal(t, data.Int("max_sql_parameter_count"), 109)
-	assert.Equal(t, data.Int("max_database_size"), 104857610)
-	assert.Equal(t, data.Int("max_select_count"), 111)
-	assert.Equal(t, data.Int("max_result_length"), 524212)
+	limits := data.Object("limits")
+	assert.Equal(t, limits.Int("max_concurrency"), 7)
+	assert.Equal(t, limits.Int("max_sql_length"), 4098)
+	assert.Equal(t, limits.Int("max_sql_parameter_count"), 109)
+	assert.Equal(t, limits.Int("max_database_size"), 104857610)
+	assert.Equal(t, limits.Int("max_select_count"), 111)
+	assert.Equal(t, limits.Int("max_result_length"), 524212)
 }
 
 // When we select a json column from the PG, our PG library returns a map[string]any

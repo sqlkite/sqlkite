@@ -85,7 +85,7 @@ func Test_SessionCreate_InvalidPassword(t *testing.T) {
 		ExpectNotFound(codes.RES_SESSION_INVALID_CREDENTIALS)
 }
 
-func Test_SessionCreate_Success(t *testing.T) {
+func Test_SessionCreate_Success_No_SessionTTL(t *testing.T) {
 	project := mustGetProject(tests.Factory.DynamicId())
 
 	userId := tests.Generator.UUID()
@@ -106,5 +106,37 @@ func Test_SessionCreate_Success(t *testing.T) {
 	assert.Nil(t, row["role"])
 	assert.Equal(t, row.String("user_id"), userId)
 	assert.Nowish(t, row.Time("created"))
-	assert.Timeish(t, row.Time("expires"), time.Now().Add(time.Hour*168))
+	assert.Timeish(t, row.Time("expires"), time.Now().Add(time.Duration(43830)*time.Hour))
+}
+
+func Test_SessionCreate_Success_Project_SessionTTL(t *testing.T) {
+	userId := tests.Generator.UUID()
+	tests.Factory.User.Insert(projectAuthSpecial, "id", userId, "email", "teg@sqlkite.com", "password", "Roxbrough")
+
+	res := request.ReqT(t, projectAuthSpecial.Env()).
+		Body(map[string]any{
+			"email":    "teg@sqlkite.com",
+			"password": "Roxbrough",
+		}).
+		Post(SessionCreate).
+		OK().JSON()
+
+	assert.Nil(t, res["role"])
+	assert.Equal(t, res.String("user_id"), userId)
+
+	row := tests.Row(projectAuthSpecial, "select * from sqlkite_sessions where id = ?1", res.String("id"))
+	assert.Nil(t, row["role"])
+	assert.Equal(t, row.String("user_id"), userId)
+	assert.Nowish(t, row.Time("created"))
+	assert.Timeish(t, row.Time("expires"), time.Now().Add(time.Duration(30)*time.Minute))
+}
+
+func Test_SessionCreate_Project_Disabled_Aute(t *testing.T) {
+	request.ReqT(t, projectAuthDisabled.Env()).
+		Body(map[string]any{
+			"email":    "u1@SQLkite.com",
+			"password": "ghanima1",
+		}).
+		Post(SessionCreate).
+		ExpectInvalid(codes.RES_AUTH_DISABLED)
 }

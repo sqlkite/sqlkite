@@ -53,24 +53,14 @@ type Project struct {
 	tables map[string]*Table
 
 	Id string
-
 	// When enabled, error response bodies may include additional data. This data
 	// could leak internal implementation details (e.g. table schemas). But having
 	// more data available in the response, without having to check a console or
 	// central log system, is pretty valuable.
 	Debug bool
 
-	MaxConcurrency       uint16
-	MaxSQLLength         uint32
-	MaxSQLParameterCount uint16
-	MaxDatabaseSize      uint64
-	MaxSelectCount       uint16
-	MaxResultLength      uint32
-	MaxFromCount         uint16
-	MaxSelectColumnCount uint16
-	MaxConditionCount    uint16
-	MaxOrderByCount      uint16
-	MaxTableCount        uint16
+	Auth   data.Auth
+	Limits data.Limits
 }
 
 func (p *Project) Shutdown() {
@@ -106,7 +96,7 @@ func (p *Project) WithTransaction(cb func(sqlite.Conn) error) error {
 }
 
 func (p *Project) CreateTable(env *Env, table *Table) error {
-	if max := p.MaxTableCount; len(p.tables) >= int(max) {
+	if max := p.Limits.MaxTableCount; len(p.tables) >= int(max) {
 		env.VC.Invalid(&validation.Invalid{
 			Code:  codes.VAL_TOO_MANY_TABLES,
 			Error: "Maximum table count reached",
@@ -384,12 +374,12 @@ func (p *Project) SQLBuffer() *buffer.Buffer {
 	// more memory efficient), while letting us specifying a per-project max sql length
 
 	// caller must release this!
-	return Buffer.CheckoutMax(p.MaxSQLLength)
+	return Buffer.CheckoutMax(p.Limits.MaxSQLLength)
 }
 
 func (p *Project) ResultBuffer() *buffer.Buffer {
 	// see SQLBuffer
-	return Buffer.CheckoutMax(p.MaxResultLength)
+	return Buffer.CheckoutMax(p.Limits.MaxResultLength)
 }
 
 func (p *Project) buildAccessTrigger(access *TableAccessMutate) ([]byte, utils.Releasable, error) {
@@ -463,13 +453,13 @@ func (p *Project) bufferErrorToValidation(env *Env, err error, bufferType Buffer
 		invalid = &validation.Invalid{
 			Code:  codes.VAL_SQL_TOO_LONG,
 			Error: "Generated SQL query exceeds maximum allowed length",
-			Data:  validation.MaxData(int(p.MaxSQLLength)),
+			Data:  validation.MaxData(int(p.Limits.MaxSQLLength)),
 		}
 	} else {
 		invalid = &validation.Invalid{
 			Code:  codes.VAL_RESULT_TOO_LONG,
 			Error: "Result too large",
-			Data:  validation.MaxData(int(p.MaxResultLength)),
+			Data:  validation.MaxData(int(p.Limits.MaxResultLength)),
 		}
 	}
 	env.VC.Invalid(invalid)
@@ -589,10 +579,9 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 	pageSize := 0
 	maxPageCountSQL := ""
 
-	maxConcurrency := projectData.MaxConcurrency
-	maxDatabaseSize := projectData.MaxDatabaseSize
+	limits := projectData.Limits
 
-	dbPool, err := NewDBPool(maxConcurrency, id, func(conn sqlite.Conn) error {
+	dbPool, err := NewDBPool(limits.MaxConcurrency, id, func(conn sqlite.Conn) error {
 		// On the first connection, we'll query sqlite for the configured page_size
 		// and get our max_age_count pragma ready
 		if pageSize == 0 {
@@ -600,7 +589,7 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 				return log.ErrData(codes.ERR_GET_PAGE_SIZE, err, map[string]any{"pid": id})
 			}
 			// could pageSize still be 0 here???
-			maxPageCount := maxDatabaseSize / uint64(pageSize)
+			maxPageCount := limits.MaxDatabaseSize / uint64(pageSize)
 			maxPageCountSQL = fmt.Sprintf("pragma max_page_count=%d", maxPageCount)
 		}
 
@@ -682,20 +671,10 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 		tables:   tables,
 		logField: logField,
 
-		Id:    id,
-		Debug: projectData.Debug,
-
-		MaxConcurrency:       maxConcurrency,
-		MaxDatabaseSize:      maxDatabaseSize,
-		MaxSQLLength:         projectData.MaxSQLLength,
-		MaxSQLParameterCount: projectData.MaxSQLParameterCount,
-		MaxSelectCount:       projectData.MaxSelectCount,
-		MaxResultLength:      projectData.MaxResultLength,
-		MaxFromCount:         projectData.MaxFromCount,
-		MaxSelectColumnCount: projectData.MaxSelectColumnCount,
-		MaxConditionCount:    projectData.MaxConditionCount,
-		MaxOrderByCount:      projectData.MaxOrderByCount,
-		MaxTableCount:        projectData.MaxTableCount,
+		Id:     id,
+		Limits: limits,
+		Auth:   projectData.Auth,
+		Debug:  projectData.Debug,
 
 		// If we let this start at 0, then restarts are likely to produce duplicates.
 		// While we make no guarantees about the uniqueness of the requestId, there's

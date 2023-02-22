@@ -26,6 +26,10 @@ var (
 )
 
 func UserCreate(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
+	if env.Project.Auth.Disabled {
+		return resAuthDisabled, nil
+	}
+
 	input, err := typed.Json(conn.PostBody())
 	if err != nil {
 		return http.InvalidJSON, nil

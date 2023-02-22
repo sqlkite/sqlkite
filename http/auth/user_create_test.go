@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"os"
 	"testing"
 
 	"src.goblgobl.com/tests/assert"
@@ -11,6 +12,39 @@ import (
 	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/tests"
 )
+
+var (
+	projectAuthDisabled *sqlkite.Project
+
+	// try to fit every special case in this 1 project
+	projectAuthSpecial *sqlkite.Project
+)
+
+func TestMain(m *testing.M) {
+	var err error
+
+	projectAuthDisabledId := tests.Factory.Project.Insert("auth.disabled", true).String("id")
+	if err := sqlkite.CreateDB(projectAuthDisabledId); err != nil {
+		panic(err)
+	}
+	projectAuthDisabled, err = sqlkite.Projects.Get(projectAuthDisabledId)
+	if err != nil {
+		panic(err)
+	}
+
+	projectAuthSpecialId := tests.Factory.Project.Insert("auth.session.session_ttl", 30).String("id")
+	if err := sqlkite.CreateDB(projectAuthSpecialId); err != nil {
+		panic(err)
+	}
+	projectAuthSpecial, err = sqlkite.Projects.Get(projectAuthSpecialId)
+	if err != nil {
+		panic(err)
+	}
+
+	code := m.Run()
+	tests.RemoveTempDBs()
+	os.Exit(code)
+}
 
 func Test_UserCreate_InvalidBody(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
@@ -92,6 +126,16 @@ func Test_UserCreate_DuplicateEmail(t *testing.T) {
 		}).
 		Post(UserCreate).
 		ExpectValidation("email", codes.VAL_AUTH_EMAIL_IN_USE)
+}
+
+func Test_UserCreate_Project_Disabled_Aute(t *testing.T) {
+	request.ReqT(t, projectAuthDisabled.Env()).
+		Body(map[string]any{
+			"email":    "u1@SQLkite.com",
+			"password": "ghanima1",
+		}).
+		Post(UserCreate).
+		ExpectInvalid(codes.RES_AUTH_DISABLED)
 }
 
 func mustGetProject(id string) *sqlkite.Project {

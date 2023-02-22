@@ -1,8 +1,18 @@
 package data
 
 type Project struct {
-	Id                   string `json:"id"`
-	Debug                bool   `json:"debug"`
+	Id    string `json:"id"`
+	Debug bool   `json:"debug"`
+
+	// Tables can have their own value which will be <= this
+	// They can also have a MaxDeleteCount and MaxUpdateCount which can interact
+	// with MaxSelectCount in the case where the update or delete has a "returning"
+	Limits Limits `json:"limits"`
+	Auth   Auth   `json:"auth"`
+}
+
+type Limits struct {
+	MaxSelectCount       uint16 `json:"max_select_count"`
 	MaxConcurrency       uint16 `json:"max_concurrency"`
 	MaxSQLLength         uint32 `json:"max_sql_length"`
 	MaxSQLParameterCount uint16 `json:"max_sql_parameter_count"`
@@ -13,9 +23,13 @@ type Project struct {
 	MaxConditionCount    uint16 `json:"max_condition_count"`
 	MaxOrderByCount      uint16 `json:"max_order_by_count"`
 	MaxTableCount        uint16 `json:"max_table_count"`
+}
 
-	// Tables can have their own value which will be <= this
-	// They can also have a MaxDeleteCount and MaxUpdateCount which can interact
-	// with MaxSelectCount in the case where the update or delete has a "returning"
-	MaxSelectCount uint16 `json:"max_select_count"`
+type Auth struct {
+	Disabled bool        `json:"disabled"`
+	Session  AuthSession `json:"session"`
+}
+
+type AuthSession struct {
+	SessionTTL int `json:"session_ttl"`
 }

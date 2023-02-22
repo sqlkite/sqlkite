@@ -3,6 +3,7 @@ package auth
 import (
 	"strings"
 
+	"src.goblgobl.com/utils/http"
 	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite"
 	"src.sqlkite.com/sqlkite/codes"
@@ -24,6 +25,8 @@ var (
 		Code:  codes.VAL_COMMON_PASSWORD,
 		Error: "The password is too common and easily guessable",
 	}
+
+	resAuthDisabled = http.StaticError(400, codes.RES_AUTH_DISABLED, "Authentication feature is disabled")
 )
 
 func validatePasswordCommon(value string, ctx *validation.Context[*sqlkite.Env]) any {

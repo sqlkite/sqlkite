@@ -72,12 +72,13 @@ func Test_Create_DefaultInput(t *testing.T) {
 
 	row := tests.Super.Row("select data from sqlkite_projects where id = $1", id)
 	data := typedProjectData(row["data"])
-	assert.Equal(t, data.Int("max_concurrency"), 5)
-	assert.Equal(t, data.Int("max_sql_length"), 4096)
-	assert.Equal(t, data.Int("max_sql_parameter_count"), 100)
-	assert.Equal(t, data.Int("max_database_size"), 104857600)
-	assert.Equal(t, data.Int("max_select_count"), 100)
-	assert.Equal(t, data.Int("max_result_length"), 524288)
+	limits := data.Object("limits")
+	assert.Equal(t, limits.Int("max_concurrency"), 5)
+	assert.Equal(t, limits.Int("max_sql_length"), 4096)
+	assert.Equal(t, limits.Int("max_sql_parameter_count"), 100)
+	assert.Equal(t, limits.Int("max_database_size"), 104857600)
+	assert.Equal(t, limits.Int("max_select_count"), 100)
+	assert.Equal(t, limits.Int("max_result_length"), 524288)
 }
 
 func Test_Create_ExplicitInput(t *testing.T) {
@@ -100,23 +101,24 @@ func Test_Create_ExplicitInput(t *testing.T) {
 
 	row := tests.Super.Row("select data from sqlkite_projects where id = $1", id)
 	data := typedProjectData(row["data"])
-	assert.Equal(t, data.Int("max_concurrency"), 7)
-	assert.Equal(t, data.Int("max_sql_length"), 4098)
-	assert.Equal(t, data.Int("max_sql_parameter_count"), 109)
-	assert.Equal(t, data.Int("max_database_size"), 104857610)
-	assert.Equal(t, data.Int("max_select_count"), 111)
-	assert.Equal(t, data.Int("max_result_length"), 524212)
+	limits := data.Object("limits")
+	assert.Equal(t, limits.Int("max_concurrency"), 7)
+	assert.Equal(t, limits.Int("max_sql_length"), 4098)
+	assert.Equal(t, limits.Int("max_sql_parameter_count"), 109)
+	assert.Equal(t, limits.Int("max_database_size"), 104857610)
+	assert.Equal(t, limits.Int("max_select_count"), 111)
+	assert.Equal(t, limits.Int("max_result_length"), 524212)
 
 	// let's over-test this once, to make sure everything is really
 	// working toget as it should be
 	p, err := sqlkite.Projects.Get(id)
 	assert.Nil(t, err)
-	assert.Equal(t, p.MaxConcurrency, 7)
-	assert.Equal(t, p.MaxSQLLength, 4098)
-	assert.Equal(t, p.MaxSQLParameterCount, 109)
-	assert.Equal(t, p.MaxDatabaseSize, 104857610)
-	assert.Equal(t, p.MaxSelectCount, 111)
-	assert.Equal(t, p.MaxResultLength, 524212)
+	assert.Equal(t, p.Limits.MaxConcurrency, 7)
+	assert.Equal(t, p.Limits.MaxSQLLength, 4098)
+	assert.Equal(t, p.Limits.MaxSQLParameterCount, 109)
+	assert.Equal(t, p.Limits.MaxDatabaseSize, 104857610)
+	assert.Equal(t, p.Limits.MaxSelectCount, 111)
+	assert.Equal(t, p.Limits.MaxResultLength, 524212)
 
 	p.WithDB(func(db sqlite.Conn) error {
 		var n int

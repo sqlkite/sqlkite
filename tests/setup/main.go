@@ -63,19 +63,21 @@ func main() {
 func setupStandardProject() {
 	id := "00001111-0000-0000-0000-000000000001"
 	createProjectDatabase(data.Project{
-		Id:                   id,
-		MaxConcurrency:       10,
-		MaxSQLLength:         2048,
-		MaxSQLParameterCount: 10,
-		MaxDatabaseSize:      10485763,
-		MaxSelectCount:       20,
-		MaxResultLength:      524300,
-		MaxFromCount:         10,
-		MaxSelectColumnCount: 10,
-		MaxConditionCount:    10,
-		MaxOrderByCount:      5,
-		MaxTableCount:        10,
-		Debug:                true,
+		Id:    id,
+		Debug: true,
+		Limits: data.Limits{
+			MaxConcurrency:       10,
+			MaxSQLLength:         2048,
+			MaxSQLParameterCount: 10,
+			MaxDatabaseSize:      10485763,
+			MaxSelectCount:       20,
+			MaxResultLength:      524300,
+			MaxFromCount:         10,
+			MaxSelectColumnCount: 10,
+			MaxConditionCount:    10,
+			MaxOrderByCount:      5,
+			MaxTableCount:        10,
+		},
 	})
 
 	project := MustGetProject(id)
@@ -152,19 +154,21 @@ func setupStandardProject() {
 func setupDynamicProject() {
 	id := "00001111-0000-0000-0000-000000000002"
 	createProjectDatabase(data.Project{
-		Id:                   id,
-		MaxConcurrency:       10,
-		MaxSQLLength:         2048,
-		MaxSQLParameterCount: 10,
-		MaxDatabaseSize:      10485763,
-		MaxSelectCount:       20,
-		MaxResultLength:      524300,
-		MaxFromCount:         10,
-		MaxSelectColumnCount: 10,
-		MaxConditionCount:    10,
-		MaxOrderByCount:      5,
-		MaxTableCount:        10,
-		Debug:                false,
+		Id:    id,
+		Debug: false,
+		Limits: data.Limits{
+			MaxConcurrency:       10,
+			MaxSQLLength:         2048,
+			MaxSQLParameterCount: 10,
+			MaxDatabaseSize:      10485763,
+			MaxSelectCount:       20,
+			MaxResultLength:      524300,
+			MaxFromCount:         10,
+			MaxSelectColumnCount: 10,
+			MaxConditionCount:    10,
+			MaxOrderByCount:      5,
+			MaxTableCount:        10,
+		},
 	})
 
 	project := MustGetProject(id)
@@ -211,19 +215,21 @@ func setupDynamicProject() {
 func setupLimitedProject() {
 	id := "00001111-0000-0000-0000-000000000003"
 	createProjectDatabase(data.Project{
-		Id:                   id,
-		MaxConcurrency:       1,
-		MaxSQLLength:         100,
-		MaxSQLParameterCount: 2,
-		MaxDatabaseSize:      65568,
-		MaxSelectCount:       2,
-		MaxResultLength:      128,
-		MaxFromCount:         2,
-		MaxSelectColumnCount: 2,
-		MaxConditionCount:    2,
-		MaxOrderByCount:      2,
-		MaxTableCount:        2,
-		Debug:                false,
+		Id:    id,
+		Debug: false,
+		Limits: data.Limits{
+			MaxConcurrency:       1,
+			MaxSQLLength:         100,
+			MaxSQLParameterCount: 2,
+			MaxDatabaseSize:      65568,
+			MaxSelectCount:       2,
+			MaxResultLength:      128,
+			MaxFromCount:         2,
+			MaxSelectColumnCount: 2,
+			MaxConditionCount:    2,
+			MaxOrderByCount:      2,
+			MaxTableCount:        2,
+		},
 	})
 
 	project := MustGetProject(id)

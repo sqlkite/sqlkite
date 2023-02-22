@@ -36,7 +36,7 @@ func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 
 	var limit optional.Int
 	if table != nil {
-		limit = mutateParseLimit(input[LIMIT_INPUT_NAME], vc, len(returning) > 0, project.MaxSelectCount, table.MaxUpdateCount)
+		limit = mutateParseLimit(input[LIMIT_INPUT_NAME], vc, len(returning) > 0, project.Limits.MaxSelectCount, table.MaxUpdateCount)
 	}
 
 	// There's more validation to do, and we do like to return all errors in one

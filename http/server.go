@@ -65,11 +65,11 @@ func Listen() {
 	case "trust-header":
 		logger.String("auth", "trust-header")
 		userLoader = loadUserFromTrustedHeader
-	case "sqlkite":
-		logger.String("auth", "sqlkite")
-		userLoader = loadUserFromSqlkite
+	case "session":
+		logger.String("auth", "session")
+		userLoader = loadUserFromSession
 	default:
-		err := log.Errf(codes.ERR_CONFIG_HTTP_AUTHENTICATION_TYPE, "http.authentication.type must be one of: 'sqlkite', 'trust-header' or '' (empty)")
+		err := log.Errf(codes.ERR_CONFIG_HTTP_AUTHENTICATION_TYPE, "http.authentication.type must be one of: 'session', 'trust-header' or '' (empty)")
 		log.Fatal("server_auth_config").Err(err).Log()
 		return
 	}
@@ -337,7 +337,19 @@ func loadUserFromTrustedHeader(conn *fasthttp.RequestCtx, env *sqlkite.Env) (*sq
 	}, nil, nil
 }
 
-func loadUserFromSqlkite(conn *fasthttp.RequestCtx, env *sqlkite.Env) (*sqlkite.User, http.Response, error) {
+func loadUserFromSession(conn *fasthttp.RequestCtx, env *sqlkite.Env) (*sqlkite.User, http.Response, error) {
+	project := env.Project
+
+	// env.Project will be nil for "super" requests (e.g. adding a project)
+	if project == nil {
+		return nil, nil, nil
+	}
+
+	projectAuth := project.Auth
+	if projectAuth.Disabled {
+		return nil, nil, nil
+	}
+
 	header := &conn.Request.Header
 	authHeader := header.PeekBytes([]byte("Authorization"))
 	if authHeader == nil {
