@@ -11,10 +11,10 @@ type Delete struct {
 	From       TableName
 	Where      Condition
 	Parameters []any
-	Limit      optional.Int
-	Offset     optional.Int
 	OrderBy    []OrderBy
 	Returning  []DataField
+	Limit      optional.Int
+	Offset     optional.Int
 }
 
 func (d Delete) Values() []any {

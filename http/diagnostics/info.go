@@ -20,9 +20,9 @@ func Info(conn *fasthttp.RequestCtx) (http.Response, error) {
 	}
 
 	return http.OK(struct {
+		Super  any    `json:"super"`
 		Go     string `json:"go"`
 		Commit string `json:"commit"`
-		Super  any    `json:"super"`
 	}{
 		Commit: commit,
 		Go:     runtime.Version(),

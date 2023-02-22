@@ -80,12 +80,12 @@ func SessionCreate(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, 
 	}
 
 	return http.Created(struct {
+		Role   *string `json:"role"`
 		Id     string  `json:"id"`
 		UserId string  `json:"user_id"`
-		Role   *string `json:"role"`
 	}{
-		Id:     sessionId,
 		Role:   role,
+		Id:     sessionId,
 		UserId: userId,
 	}), nil
 }

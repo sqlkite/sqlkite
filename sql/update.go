@@ -11,12 +11,12 @@ type Update struct {
 	Target     TableName
 	Set        []UpdateSet
 	Froms      []JoinableFrom
-	Where      Condition
-	Limit      optional.Int
-	Offset     optional.Int
 	OrderBy    []OrderBy
 	Parameters []any
 	Returning  []DataField
+	Where      Condition
+	Limit      optional.Int
+	Offset     optional.Int
 }
 
 func (u Update) Values() []any {

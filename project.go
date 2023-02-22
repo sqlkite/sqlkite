@@ -39,13 +39,6 @@ func init() {
 // A project instance isn't updated. If the project is changed,
 // a new instance is created.
 type Project struct {
-	// Project-specific counter for generating the RequestId
-	requestId uint32
-
-	// Any log entry generate for this project should include
-	// the pid=$id field
-	logField log.Field
-
 	// The pool of SQLite connections to this database. The size of this
 	// pool is controlled by the MaxConcurrency value.
 	dbPool *DBPool
@@ -53,14 +46,22 @@ type Project struct {
 	tables map[string]*Table
 
 	Id string
+
+	// Any log entry generate for this project should include
+	// the pid=$id field
+	logField log.Field
+
+	Auth   data.Auth
+	Limits data.Limits
+
+	// Project-specific counter for generating the RequestId
+	requestId uint32
+
 	// When enabled, error response bodies may include additional data. This data
 	// could leak internal implementation details (e.g. table schemas). But having
 	// more data available in the response, without having to check a console or
 	// central log system, is pretty valuable.
 	Debug bool
-
-	Auth   data.Auth
-	Limits data.Limits
 }
 
 func (p *Project) Shutdown() {

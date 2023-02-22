@@ -12,14 +12,14 @@ import (
 )
 
 type Config struct {
-	InstanceId uint8          `json:"instance_id"`
 	Migrations *bool          `json:"migrations"`
+	Buffer     *buffer.Config `json:"buffer"`
+	Super      super.Config   `json:"super"`
 	RootPath   string         `json:"root_path"`
 	HTTP       HTTP           `json:"http"`
 	Log        log.Config     `json:"log"`
-	Super      super.Config   `json:"super"`
-	Buffer     *buffer.Config `json:"buffer"`
 	Validation Validation     `json:"validation"`
+	InstanceId uint8          `json:"instance_id"`
 }
 
 type Validation struct {

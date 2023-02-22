@@ -53,8 +53,8 @@ func (a *Alias) Write(b *buffer.Buffer) {
 }
 
 type TableName struct {
-	Name  string `json:"name"`
 	Alias *Alias `json:"alias",omitempty`
+	Name  string `json:"name"`
 }
 
 func (t TableName) Write(b *buffer.Buffer) {
@@ -75,10 +75,10 @@ While placeholders are more rare in a select column list, the
 column-or-placeholder duality is apparent in where conditions.
 */
 type DataField struct {
-	Type  DataFieldType `json:"type"`
 	Alias *Alias        `json:"as",omitempty`    // can be empty
 	Table string        `json:"table",omitempty` // either the full table name, or the table alias, or empty
 	Name  string        `json:"name"`            // the column name or placeholder
+	Type  DataFieldType `json:"type"`
 }
 
 func (df DataField) Write(b *buffer.Buffer) {
@@ -128,9 +128,9 @@ func (cte CTE) Write(b *buffer.Buffer) {
 }
 
 type JoinableFrom struct {
-	Join  JoinType   `json:"join",omitempty`
-	Table TableName  `json:"table"`
 	On    *Condition `json:"on",omitempty`
+	Table TableName  `json:"table"`
+	Join  JoinType   `json:"join",omitempty`
 }
 
 func (f JoinableFrom) TableName() string {

@@ -9,20 +9,20 @@ import (
 
 func Test_Delete_NoWhere_NoLimit(t *testing.T) {
 	tests.AssertSQL(t, Delete{
-		From: TableName{"table1", nil},
+		From: TableName{nil, "table1"},
 	}, "delete from table1")
 }
 
 func Test_Delete_NoWhere(t *testing.T) {
 	tests.AssertSQL(t, Delete{
-		From:  TableName{"table1", nil},
+		From:  TableName{nil, "table1"},
 		Limit: optional.NewInt(32),
 	}, "delete from table1 limit 32")
 }
 
 func Test_Delete_NoLimit(t *testing.T) {
 	tests.AssertSQL(t, Delete{
-		From: TableName{"table1", &Alias{"t1"}},
+		From: TableName{&Alias{"t1"}, "table1"},
 		Where: Condition{
 			Parts: []Part{Predicate{
 				Left:  DataField{Name: "enabled"},
@@ -35,7 +35,7 @@ func Test_Delete_NoLimit(t *testing.T) {
 
 func Test_Delete_With_Where_And_Limit(t *testing.T) {
 	tests.AssertSQL(t, Delete{
-		From:  TableName{"table1", nil},
+		From:  TableName{nil, "table1"},
 		Limit: optional.NewInt(1),
 		Where: Condition{
 			Parts: []Part{Predicate{
@@ -49,14 +49,14 @@ func Test_Delete_With_Where_And_Limit(t *testing.T) {
 
 func Test_Delete_Single_Returning(t *testing.T) {
 	tests.AssertSQL(t, Delete{
-		From:      TableName{"tab1", nil},
+		From:      TableName{nil, "tab1"},
 		Returning: []DataField{DataField{Name: "a"}},
 	}, "delete from tab1 returning json_object('a', a)")
 }
 
 func Test_Delete_Multiple_Returning_OrderLimitOffset(t *testing.T) {
 	tests.AssertSQL(t, Delete{
-		From:    TableName{"tab1", nil},
+		From:    TableName{nil, "tab1"},
 		Limit:   optional.NewInt(4),
 		Offset:  optional.NewInt(5),
 		OrderBy: []OrderBy{OrderBy{Field: DataField{Name: "id"}}},

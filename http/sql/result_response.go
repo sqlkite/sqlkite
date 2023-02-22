@@ -35,19 +35,19 @@ func NewResultResponse(result *sqlkite.QueryResult) http.Response {
 }
 
 type ResultResponse struct {
+	// the buffer containing the result data, we need to hold on to this
+	// since we now own it and are responsible for releasing it.
+	buffer *buffer.Buffer
+
+	// buffer.Bytes()
+	data []byte
+
 	// how much of the buffer we've read
 	read int
 
 	// total length of the response we plan on sending out
 	// this is len(data) + json envelope
 	len int
-
-	// buffer.Bytes()
-	data []byte
-
-	// the buffer containing the result data, we need to hold on to this
-	// since we now own it and are responsible for releasing it.
-	buffer *buffer.Buffer
 
 	rowCount int
 }

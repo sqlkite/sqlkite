@@ -28,12 +28,6 @@ var (
 )
 
 type Env struct {
-	// Every time we get an env, we assign it a RequestId. This is essentially
-	// a per-project incrementing integer. It can wrap and we can have duplicates
-	// but generally, over a reasonable window, it should be unique per project.
-	// Mostly just used with the logger, but exposed in case we need it.
-	requestId string
-
 	// Reference to the project.
 	// This can be null, but only in very specific cases. Specifically, some high
 	// level requests aren't made within a project-context, such as when we create a
@@ -41,20 +35,26 @@ type Env struct {
 
 	Project *Project
 
+	// can most certainly be nil
+	User *User
+
 	// Anything logged with this logger will automatically have the pid (project id)
 	// and rid (request id) fields
 	Logger log.Logger
+
+	// Validation context
+	VC *validation.Context[*Env]
 
 	// The logger that's used to generate the HTTP request log. The Log() method
 	// should not be called on this (it'll automatically be called at the end
 	// of the request)
 	requestLogger log.Logger
 
-	// Validation context
-	VC *validation.Context[*Env]
-
-	// can most certainly be nil
-	User *User
+	// Every time we get an env, we assign it a RequestId. This is essentially
+	// a per-project incrementing integer. It can wrap and we can have duplicates
+	// but generally, over a reasonable window, it should be unique per project.
+	// Mostly just used with the logger, but exposed in case we need it.
+	requestId string
 }
 
 func NewEnv(p *Project, requestId string) *Env {
@@ -168,15 +168,15 @@ func (e *Env) ServerError(err error, conn *fasthttp.RequestCtx) http.Response {
 	}
 
 	data := struct {
-		Code    int    `json:"code"`
-		Inner   int    `json:"icode"`
 		Error   string `json:"error"`
 		ErrorId string `json:"error_id"`
+		Code    int    `json:"code"`
+		Inner   int    `json:"icode"`
 	}{
-		ErrorId: errorId,
-		Inner:   innerCode,
 		Error:   errorMessage,
+		ErrorId: errorId,
 		Code:    codes.RES_DATABASE_ERROR,
+		Inner:   innerCode,
 	}
 	body, _ := json.Marshal(data)
 

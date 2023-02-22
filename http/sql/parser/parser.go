@@ -27,11 +27,11 @@ any code that's trying to group multiple tokens must advance beyond any
 space before trying to parse an individual token.
 */
 
-var EmptyParser = &parser{0, ""}
+var EmptyParser = &parser{"", 0}
 
 type parser struct {
-	pos   int
 	input string
+	pos   int
 }
 
 // A column name with no table prefix or alias. The column list of an insert
@@ -45,7 +45,7 @@ func Column(raw any) (string, *validation.Invalid) {
 }
 
 func ColumnString(input string) (string, *validation.Invalid) {
-	p := &parser{0, input}
+	p := &parser{input, 0}
 	p.skipSpaces()
 
 	name, err := p.requiredObjectName(invalidColumn)
@@ -74,7 +74,7 @@ func DataField(raw any) (sql.DataField, *validation.Invalid) {
 		return sql.DataField{}, invalidColumnType()
 	}
 
-	p := &parser{0, input}
+	p := &parser{input, 0}
 	p.skipSpaces()
 
 	field, err := p.dataField(invalidColumn)
@@ -176,7 +176,7 @@ func QualifiedTableName(raw any) (sql.TableName, *validation.Invalid) {
 }
 
 func QualifiedTableNameString(input string) (sql.TableName, *validation.Invalid) {
-	p := &parser{0, input}
+	p := &parser{input, 0}
 	p.skipSpaces()
 
 	name, err := p.requiredObjectName(invalidTable)
@@ -275,7 +275,7 @@ func OrderBy(raw any) (sql.OrderBy, *validation.Invalid) {
 	}
 
 	var desc bool
-	p := &parser{0, input}
+	p := &parser{input, 0}
 	p.skipSpaces()
 	if p.peek() == '-' {
 		desc = true
@@ -486,7 +486,7 @@ func predicate(input any, depth int) (sql.Part, *validation.Invalid) {
 
 	// at this point, we're treating this like a predicate
 
-	p := &parser{0, leftInput}
+	p := &parser{leftInput, 0}
 	p.skipSpaces()
 	left, err := p.dataField(invalidPredicateLeft)
 	if err != nil {
@@ -497,7 +497,7 @@ func predicate(input any, depth int) (sql.Part, *validation.Invalid) {
 		return sql.Predicate{}, invalidPredicateLeft(p)
 	}
 
-	p = &parser{0, rightInput}
+	p = &parser{rightInput, 0}
 	p.skipSpaces()
 	right, err := p.dataField(invalidPredicateRight)
 	if err != nil {

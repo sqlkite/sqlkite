@@ -11,11 +11,11 @@ type Select struct {
 	CTEs       []CTE
 	Columns    []DataField
 	Froms      []JoinableFrom
-	Where      Condition
 	Parameters []any
-	Limit      int
-	Offset     optional.Int
 	OrderBy    []OrderBy
+	Where      Condition
+	Offset     optional.Int
+	Limit      int
 }
 
 func (s Select) Values() []any {

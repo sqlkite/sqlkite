@@ -22,6 +22,7 @@ package sqlkite
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -29,6 +30,7 @@ import (
 	"src.goblgobl.com/utils/buffer"
 	"src.goblgobl.com/utils/kdr"
 	"src.goblgobl.com/utils/optional"
+	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite/sql"
 )
 
@@ -61,11 +63,11 @@ var (
 
 type Table struct {
 	Name           string       `json:"name"`
-	Columns        []Column     `json:"columns"`
+	PrimaryKey     []string     `json:"primary_key"`
 	Access         TableAccess  `json:"access"`
+	Columns        []Column     `json:"columns"`
 	MaxDeleteCount optional.Int `json:"max_delete_count"`
 	MaxUpdateCount optional.Int `json:"max_update_count"`
-	PrimaryKey     []string     `json:"primary_key"`
 }
 
 func (t *Table) Column(name string) (Column, bool) {
@@ -128,12 +130,15 @@ func (t *Table) hasAutoIncrement(pk []string) bool {
 }
 
 type Column struct {
-	Name     string          `json:"name"`
-	Type     ColumnType      `json:"type"`
-	Default  any             `json:"default"`
-	Nullable bool            `json:"nullable"`
-	Unique   bool            `json:"unique"`
-	Extended *ColumnExtended `json:"-"`
+	Default    any             `json:"dflt"`
+	Validation any             `json:"val",omitempty`
+	Extended   *ColumnExtended `json:"-"`
+	Name       string          `json:"name"`
+	Type       ColumnType      `json:"type"`
+	Nullable   bool            `json:"null"`
+	Unique     bool            `json:"uniq"`
+	DenyInsert bool            `json:"xi"`
+	DenyUpdate bool            `json:"xu"`
 }
 
 func (c *Column) Write(b *buffer.Buffer) {
@@ -195,6 +200,53 @@ func (c *Column) Write(b *buffer.Buffer) {
 	}
 }
 
+// If there's a better way to do this, please tell me. The column validator
+// is polymorphic, and we need to know the column.Type in order to know what
+// to deserialize it into. The part that's obviously awful about this is having
+// to repeat the entire struct (including the json field names) for our temp
+// struct.
+func (c *Column) UnmarshalJSON(data []byte) error {
+	var t = struct {
+		Default    any             `json:"dflt"`
+		Extended   *ColumnExtended `json:"-"`
+		Name       string          `json:"name"`
+		Validation json.RawMessage `json:"val"`
+		Type       ColumnType      `json:"type"`
+		Nullable   bool            `json:"null"`
+		Unique     bool            `json:"uniq"`
+		DenyInsert bool            `json:"xi"`
+		DenyUpdate bool            `json:"xu"`
+	}{}
+
+	if err := json.Unmarshal(data, &t); err != nil {
+		return err
+	}
+
+	var validation any
+	switch t.Type {
+	case COLUMN_TYPE_INT:
+		validation = new(IntValidation)
+	case COLUMN_TYPE_REAL:
+		validation = new(FloatValidation)
+	case COLUMN_TYPE_TEXT:
+		validation = new(StringValidation)
+	case COLUMN_TYPE_BLOB:
+		validation = new(StringValidation)
+	}
+
+	if err := json.Unmarshal(t.Validation, &validation); err != nil {
+		return err
+	}
+
+	c.Name = t.Name
+	c.Type = t.Type
+	c.Default = t.Default
+	c.Nullable = t.Nullable
+	c.Unique = t.Unique
+	c.Validation = validation
+	return nil
+}
+
 type ColumnExtended struct {
 	AutoIncrement optional.Value[AutoIncrementType] `json:"autoincrement`
 }
@@ -221,9 +273,9 @@ type TableAccessSelect struct {
 // begin ${triger} end
 type TableAccessMutate struct {
 	Name    string                `json:"name"`
-	Type    TableAccessMutateType `json:"type"`
 	When    string                `json:"when",omitempty`
 	Trigger string                `json:"trigger"`
+	Type    TableAccessMutateType `json:"type"`
 }
 
 func NewTableAccessMutate(table string, tpe TableAccessMutateType, trigger string, when string) *TableAccessMutate {
@@ -290,12 +342,12 @@ func (m *TableAccessMutate) Clone(tableName string) *TableAccessMutate {
 }
 
 type TableAlter struct {
-	Name         string     `json:"name"`
-	Changes      []sql.Part `json:"changes"`
+	Name         string `json:"name"`
 	SelectAccess kdr.Value[*TableAccessSelect]
 	InsertAccess kdr.Value[*TableAccessMutate]
 	UpdateAccess kdr.Value[*TableAccessMutate]
 	DeleteAccess kdr.Value[*TableAccessMutate]
+	Changes      []sql.Part `json:"changes"`
 }
 
 func (a *TableAlter) Write(b *buffer.Buffer) {
@@ -348,33 +400,22 @@ func (r TableAlterRenameColumn) Write(b *buffer.Buffer) {
 	b.WriteUnsafe(r.To)
 }
 
-// yes, we need to sub-select in order to ensure json_group_array aggregates
-// in the correct order
+type IntValidation struct {
+	validator *validation.IntValidator[*Env] `json:"-""`
+	min       optional.Int                   `json:"min"`
+	max       optional.Int                   `json:"max"`
+}
 
-// select i.name, i."unique", i.partial, i.origin, m.sql, (
-//   select json_group_array(json_object('c', name, 'd', desc))
-//   from (
-//     select name, desc
-//     from pragma_index_xinfo(i.name)
-//     where key = 1
-//     order by seqno
-//   )
-// )
-// from pragma_index_list('x') as i
-//   left join sqlite_master m on i.name = m.name
-// where (m.tbl_name = 'x' or m.tbl_name is null)
+type FloatValidation struct {
+	validator *validation.FloatValidator[*Env] `json:"-""`
+	min       optional.Float                   `json:"min"`
+	max       optional.Float                   `json:"max"`
+}
 
-// index [unique] (columns [desc|asc])+ [where ...]
-// primary key [X]
-// primary key [X]
-
-// int primary key
-// autoincrement monotonically  <- include "autoincrement"
-// autoincrement re-use <- don't include "autoincrement"
-// either way: autoincrement cannot be used on a composite key
-
-// Index
-// Name text
-// Unique bool
-// Condition ...
-// Columns [Name + order]
+type StringValidation struct {
+	pattern   string                            `json:"pattern",omitempty`
+	validator *validation.StringValidator[*Env] `json:"-""`
+	choices   []string                          `json:"choices",omitempty`
+	min       optional.Int                      `json:"min"`
+	max       optional.Int                      `json:"max"`
+}

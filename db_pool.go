@@ -10,8 +10,8 @@ import (
 
 // Every project will have 1 DBPool with a configurable size
 type DBPool struct {
-	depleted uint64
 	list     chan sqlite.Conn
+	depleted uint64
 }
 
 func NewDBPool(count uint16, projectId string, setup func(conn sqlite.Conn) error) (*DBPool, error) {
