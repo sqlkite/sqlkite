@@ -19,6 +19,7 @@ func BuildColumn() *ColumnBuilder {
 		column: &Column{
 			Name:     uuid.String(),
 			Nullable: true,
+			Unique:   false,
 			Type:     COLUMN_TYPE_TEXT,
 		},
 	}
@@ -52,6 +53,11 @@ func (cb *ColumnBuilder) NotNullable() *ColumnBuilder {
 
 func (cb *ColumnBuilder) Nullable() *ColumnBuilder {
 	cb.column.Nullable = true
+	return cb
+}
+
+func (cb *ColumnBuilder) Unique() *ColumnBuilder {
+	cb.column.Unique = true
 	return cb
 }
 

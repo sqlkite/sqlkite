@@ -132,6 +132,7 @@ type Column struct {
 	Type     ColumnType      `json:"type"`
 	Default  any             `json:"default"`
 	Nullable bool            `json:"nullable"`
+	Unique   bool            `json:"unique"`
 	Extended *ColumnExtended `json:"-"`
 }
 
@@ -187,6 +188,10 @@ func (c *Column) Write(b *buffer.Buffer) {
 			b.WriteByte('\'')
 		}
 		b.WriteByte(')')
+	}
+
+	if c.Unique {
+		b.Write([]byte(" unique"))
 	}
 }
 

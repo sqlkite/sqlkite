@@ -80,6 +80,7 @@ func mapColumns(input []typed.Typed) []sqlkite.Column {
 func mapColumn(input typed.Typed) sqlkite.Column {
 	c := sqlkite.Column{
 		Name:     input.String("name"),
+		Unique:   input.Bool("unique"),
 		Nullable: input.Bool("nullable"),
 		Default:  input["default"],
 		Type:     input["type"].(sqlkite.ColumnType),

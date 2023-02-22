@@ -32,6 +32,7 @@ var (
 				Field("type", validation.String[*sqlkite.Env]().Required().Choice("text", "int", "real", "blob").Func(columnTypeConverter)).
 				Field("nullable", validation.Bool[*sqlkite.Env]().Required()).
 				Field("default", validation.Any[*sqlkite.Env]().Func(validateDefault)).
+				Field("unique", validation.Bool[*sqlkite.Env]().Default(false)).
 				Field("autoincrement", validation.String[*sqlkite.Env]().Choice("strict", "reuse").Func(autoIncrementValidation))
 
 	columnsValidation = validation.Array[*sqlkite.Env]().Min(1).Max(100).Required().Validator(columnValidation)

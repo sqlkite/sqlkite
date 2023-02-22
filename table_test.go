@@ -39,18 +39,18 @@ func Test_CreateTable_Without_Defaults(t *testing.T) {
 	table := &Table{
 		Name: "tab1",
 		Columns: []Column{
-			Column{Name: "c1", Type: COLUMN_TYPE_TEXT, Nullable: true},
+			Column{Name: "c1", Type: COLUMN_TYPE_TEXT, Nullable: true, Unique: true},
 			Column{Name: "c2", Type: COLUMN_TYPE_INT, Nullable: false},
 			Column{Name: "c3", Type: COLUMN_TYPE_REAL, Nullable: false},
-			Column{Name: "c4", Type: COLUMN_TYPE_BLOB, Nullable: true},
+			Column{Name: "c4", Type: COLUMN_TYPE_BLOB, Nullable: true, Unique: true},
 		},
 	}
 
 	tests.AssertSQL(t, table, `create table tab1(
-	c1 text null,
+	c1 text null unique,
 	c2 int not null,
 	c3 real not null,
-	c4 blob null
+	c4 blob null unique
 )`)
 }
 
@@ -60,16 +60,16 @@ func Test_CreateTable_With_Defaults(t *testing.T) {
 		PrimaryKey: []string{"c1"},
 		Columns: []Column{
 			Column{Name: "c1", Type: COLUMN_TYPE_TEXT, Nullable: false, Default: "def-1"},
-			Column{Name: "c2", Type: COLUMN_TYPE_INT, Nullable: true, Default: 2},
-			Column{Name: "c3", Type: COLUMN_TYPE_REAL, Nullable: true, Default: 9000.1},
+			Column{Name: "c2", Type: COLUMN_TYPE_INT, Nullable: true, Default: 2, Unique: true},
+			Column{Name: "c3", Type: COLUMN_TYPE_REAL, Nullable: true, Default: 9000.1, Unique: true},
 			Column{Name: "c4", Type: COLUMN_TYPE_BLOB, Nullable: false, Default: []byte("xyz123")},
 		},
 	}
 
 	tests.AssertSQL(t, table, `create table tab1(
 	c1 text not null default('def-1'),
-	c2 int null default(2),
-	c3 real null default(9000.1),
+	c2 int null default(2) unique,
+	c3 real null default(9000.1) unique,
 	c4 blob not null default(x'78797a313233'),
 	primary key (c1)
 )`)

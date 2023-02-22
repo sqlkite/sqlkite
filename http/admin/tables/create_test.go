@@ -158,7 +158,7 @@ func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 			"name": "test_create_success_defaults",
 			"columns": []any{
 				map[string]any{"name": "C1", "type": "text", "nullable": true, "default": "a"},
-				map[string]any{"name": "c2", "type": "int", "nullable": true, "default": 32},
+				map[string]any{"name": "c2", "type": "int", "nullable": true, "default": 32, "unique": true},
 				map[string]any{"name": "C3", "type": "real", "nullable": true, "default": 9000.1},
 				map[string]any{"name": "c4", "type": "blob", "nullable": true, "default": "b3ZlcjkwMDA="},
 			},
@@ -183,21 +183,25 @@ func Test_Create_Success_Defaults_WithAccessControl(t *testing.T) {
 
 	assert.Equal(t, table.Columns[0].Name, "C1")
 	assert.Equal(t, table.Columns[0].Default.(string), "a")
+	assert.Equal(t, table.Columns[0].Unique, false)
 	assert.Equal(t, table.Columns[0].Nullable, true)
 	assert.Equal(t, table.Columns[0].Type, sqlkite.COLUMN_TYPE_TEXT)
 
 	assert.Equal(t, table.Columns[1].Name, "c2")
 	assert.Equal(t, table.Columns[1].Default.(float64), 32)
+	assert.Equal(t, table.Columns[1].Unique, true)
 	assert.Equal(t, table.Columns[1].Nullable, true)
 	assert.Equal(t, table.Columns[1].Type, sqlkite.COLUMN_TYPE_INT)
 
 	assert.Equal(t, table.Columns[2].Name, "C3")
 	assert.Equal(t, table.Columns[2].Default.(float64), 9000.1)
+	assert.Equal(t, table.Columns[2].Unique, false)
 	assert.Equal(t, table.Columns[2].Nullable, true)
 	assert.Equal(t, table.Columns[2].Type, sqlkite.COLUMN_TYPE_REAL)
 
 	assert.Equal(t, table.Columns[3].Name, "c4")
 	assert.Equal(t, string(table.Columns[3].Default.([]byte)), "over9000")
+	assert.Equal(t, table.Columns[3].Unique, false)
 	assert.Equal(t, table.Columns[3].Nullable, true)
 	assert.Equal(t, table.Columns[3].Type, sqlkite.COLUMN_TYPE_BLOB)
 
@@ -238,7 +242,7 @@ end`)
 	createDDL := tests.Row(project, "select sql from sqlite_master where name = 'test_create_success_defaults'")
 	tests.AssertSQL(t, createDDL.String("sql"), `CREATE TABLE test_create_success_defaults(
 		C1 text null default('a'),
-		c2 int null default(32),
+		c2 int null default(32) unique,
 		C3 real null default(9000.1),
 		c4 blob null default(x'6f76657239303030')
 	)`)
