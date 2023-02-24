@@ -594,7 +594,7 @@ func NewProject(projectData *data.Project, logProjectId bool) (*Project, error) 
 			maxPageCountSQL = fmt.Sprintf("pragma max_page_count=%d", maxPageCount)
 		}
 
-		conn.BusyTimeout(5 * time.Second)
+		conn.BusyTimeout(10 * time.Second)
 		if err := conn.Exec(maxPageCountSQL); err != nil {
 			return log.ErrData(codes.ERR_MAX_PAGE_COUNT, err, map[string]any{"pid": id, "sql": maxPageCountSQL})
 		}

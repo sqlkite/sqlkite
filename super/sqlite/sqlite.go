@@ -1,6 +1,8 @@
 package sqlite
 
 import (
+	"time"
+
 	"src.goblgobl.com/utils/json"
 
 	"src.goblgobl.com/utils/log"
@@ -25,6 +27,7 @@ func New(config Config) (Conn, error) {
 	if err != nil {
 		return Conn{}, log.Err(codes.ERR_SUPER_SQLITE_NEW, err)
 	}
+	conn.BusyTimeout(10 * time.Second)
 	return Conn{conn}, nil
 }
 

@@ -14,7 +14,7 @@ t_sqlite:
 	@go run tests/setup/main.go sqlite
 
 	@printf "\nrunning tests\n"
-	@GOBL_TEST_STORAGE=sqlite go test -count=1 ./... -run "${F}" \
+	@GOBL_TEST_STORAGE=sqlite go test -race -count=1 ./... -run "${F}" \
 		| grep -v "no tests to run" \
 		| grep -v "no test files"
 

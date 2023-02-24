@@ -24,7 +24,7 @@ var (
 				Int("status", 500).
 				Finalize()
 
-	CLEAR_SQLKITE_USERS = []byte(sqlite.Terminate("update sqlkite_user set id = '', role = ''"))
+	CLEAR_SQLKITE_USERS = []byte(sqlite.Terminate("update sqlkite_user set user_id = '', role = ''"))
 )
 
 type Env struct {
