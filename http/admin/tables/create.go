@@ -69,27 +69,54 @@ func Create(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) 
 	return http.OK(nil), err
 }
 
-func mapColumns(input []typed.Typed) []sqlkite.Column {
-	columns := make([]sqlkite.Column, len(input))
+func mapColumns(input []typed.Typed) []*sqlkite.Column {
+	columns := make([]*sqlkite.Column, len(input))
 	for i, ci := range input {
 		columns[i] = mapColumn(ci)
 	}
 	return columns
 }
 
-func mapColumn(input typed.Typed) sqlkite.Column {
-	c := sqlkite.Column{
+func mapColumn(input typed.Typed) *sqlkite.Column {
+	c := &sqlkite.Column{
 		Name:     input.String("name"),
 		Unique:   input.Bool("unique"),
 		Nullable: input.Bool("nullable"),
 		Default:  input["default"],
 		Type:     input["type"].(sqlkite.ColumnType),
-		Extended: new(sqlkite.ColumnExtended),
 	}
 
-	if ai, ok := input["autoincrement"].(sqlkite.AutoIncrementType); ok {
-		c.Extended.AutoIncrement = optional.New(ai)
+	switch c.Type {
+	case sqlkite.COLUMN_TYPE_INT:
+		c.Extension = mapColumnIntExtension(input)
+	case sqlkite.COLUMN_TYPE_REAL:
+		c.Extension = mapColumnFloatExtension(input)
+	case sqlkite.COLUMN_TYPE_TEXT:
+		c.Extension = mapColumnTextExtension(input)
+	case sqlkite.COLUMN_TYPE_BLOB:
+		c.Extension = mapColumnBlobExtension(input)
 	}
 
 	return c
+}
+
+func mapColumnIntExtension(input typed.Typed) *sqlkite.ColumnIntExtension {
+	if ai, ok := input["autoincrement"].(sqlkite.AutoIncrementType); ok {
+		return &sqlkite.ColumnIntExtension{
+			AutoIncrement: optional.New(ai),
+		}
+	}
+	return nil
+}
+
+func mapColumnFloatExtension(input typed.Typed) *sqlkite.ColumnFloatExtension {
+	return nil
+}
+
+func mapColumnTextExtension(input typed.Typed) *sqlkite.ColumnTextExtension {
+	return nil
+}
+
+func mapColumnBlobExtension(input typed.Typed) *sqlkite.ColumnBlobExtension {
+	return nil
 }

@@ -1,48 +1,42 @@
 package sqlkite
 
 import (
+	"encoding/json"
 	"testing"
 
 	"src.goblgobl.com/tests/assert"
 	"src.goblgobl.com/utils/buffer"
 	"src.goblgobl.com/utils/optional"
+	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite/sql"
 	"src.sqlkite.com/sqlkite/tests"
 )
 
 func Test_Table_Column(t *testing.T) {
 	table := Table{
-		Columns: []Column{
-			Column{Name: "c1"},
-			Column{Name: "c2"},
+		Columns: []*Column{
+			&Column{Name: "c1"},
+			&Column{Name: "c2"},
 		},
 	}
 
-	c, ok := table.Column("c1")
-	assert.True(t, ok)
-	assert.Equal(t, c.Name, "c1")
-
-	c, ok = table.Column("c2")
-	assert.True(t, ok)
-	assert.Equal(t, c.Name, "c2")
+	assert.Equal(t, table.Column("c1").Name, "c1")
+	assert.Equal(t, table.Column("c2").Name, "c2")
 
 	// SQLite isn't case sensitive, but we are. That's "ok", because we expect
 	// input to be lowercased in our http handlers.
-	_, ok = table.Column("C1")
-	assert.False(t, ok)
-
-	_, ok = table.Column("c3")
-	assert.False(t, ok)
+	assert.Nil(t, table.Column("C1"))
+	assert.Nil(t, table.Column("c3"))
 }
 
 func Test_CreateTable_Without_Defaults(t *testing.T) {
 	table := &Table{
 		Name: "tab1",
-		Columns: []Column{
-			Column{Name: "c1", Type: COLUMN_TYPE_TEXT, Nullable: true, Unique: true},
-			Column{Name: "c2", Type: COLUMN_TYPE_INT, Nullable: false},
-			Column{Name: "c3", Type: COLUMN_TYPE_REAL, Nullable: false},
-			Column{Name: "c4", Type: COLUMN_TYPE_BLOB, Nullable: true, Unique: true},
+		Columns: []*Column{
+			&Column{Name: "c1", Type: COLUMN_TYPE_TEXT, Nullable: true, Unique: true},
+			&Column{Name: "c2", Type: COLUMN_TYPE_INT, Nullable: false},
+			&Column{Name: "c3", Type: COLUMN_TYPE_REAL, Nullable: false},
+			&Column{Name: "c4", Type: COLUMN_TYPE_BLOB, Nullable: true, Unique: true},
 		},
 	}
 
@@ -58,11 +52,11 @@ func Test_CreateTable_With_Defaults(t *testing.T) {
 	table := &Table{
 		Name:       "tab1",
 		PrimaryKey: []string{"c1"},
-		Columns: []Column{
-			Column{Name: "c1", Type: COLUMN_TYPE_TEXT, Nullable: false, Default: "def-1"},
-			Column{Name: "c2", Type: COLUMN_TYPE_INT, Nullable: true, Default: 2, Unique: true},
-			Column{Name: "c3", Type: COLUMN_TYPE_REAL, Nullable: true, Default: 9000.1, Unique: true},
-			Column{Name: "c4", Type: COLUMN_TYPE_BLOB, Nullable: false, Default: []byte("xyz123")},
+		Columns: []*Column{
+			&Column{Name: "c1", Type: COLUMN_TYPE_TEXT, Nullable: false, Default: "def-1"},
+			&Column{Name: "c2", Type: COLUMN_TYPE_INT, Nullable: true, Default: 2, Unique: true},
+			&Column{Name: "c3", Type: COLUMN_TYPE_REAL, Nullable: true, Default: 9000.1, Unique: true},
+			&Column{Name: "c4", Type: COLUMN_TYPE_BLOB, Nullable: false, Default: []byte("xyz123")},
 		},
 	}
 
@@ -90,9 +84,9 @@ func Test_CreateTable_AutoIncrement_Strict(t *testing.T) {
 	table := &Table{
 		Name:       "tab1",
 		PrimaryKey: []string{"id"},
-		Columns: []Column{
-			Column{Name: "id", Type: COLUMN_TYPE_INT, Extended: &ColumnExtended{AutoIncrement: optional.New(AUTO_INCREMENT_TYPE_STRICT)}},
-			Column{Name: "name", Type: COLUMN_TYPE_TEXT},
+		Columns: []*Column{
+			&Column{Name: "id", Type: COLUMN_TYPE_INT, Extension: &ColumnIntExtension{AutoIncrement: optional.New(AUTO_INCREMENT_TYPE_STRICT)}},
+			&Column{Name: "name", Type: COLUMN_TYPE_TEXT},
 		},
 	}
 
@@ -106,9 +100,9 @@ func Test_CreateTable_AutoIncrement_Reuse(t *testing.T) {
 	table := &Table{
 		Name:       "tab1",
 		PrimaryKey: []string{"id"},
-		Columns: []Column{
-			Column{Name: "id", Type: COLUMN_TYPE_INT, Extended: &ColumnExtended{AutoIncrement: optional.New(AUTO_INCREMENT_TYPE_REUSE)}},
-			Column{Name: "name", Type: COLUMN_TYPE_TEXT},
+		Columns: []*Column{
+			&Column{Name: "id", Type: COLUMN_TYPE_INT, Extension: &ColumnIntExtension{AutoIncrement: optional.New(AUTO_INCREMENT_TYPE_REUSE)}},
+			&Column{Name: "name", Type: COLUMN_TYPE_TEXT},
 		},
 	}
 
@@ -154,7 +148,7 @@ func Test_TableAlter(t *testing.T) {
 		Changes: []sql.Part{
 			TableAlterDropColumn{Name: "col1"},
 			TableAlterRenameColumn{Name: "col1", To: "col2"},
-			TableAlterAddColumn{Column: Column{Name: "c3", Type: COLUMN_TYPE_TEXT, Nullable: false, Default: "def-1"}},
+			TableAlterAddColumn{Column: &Column{Name: "c3", Type: COLUMN_TYPE_TEXT, Nullable: false, Default: "def-1"}},
 			TableAlterRename{To: "test2"},
 		},
 	}
@@ -163,4 +157,53 @@ alter table test1 rename column col1 to col2;
 alter table test1 add column c3 text not null default('def-1');
 alter table test1 rename to test2;
 `)
+}
+
+func Test_Column_Validation_Int(t *testing.T) {
+	column := testColumnJsonTrip(BuildColumn().Type("int").Name("cx").Min(3).Max(5).Column())
+	testValidateColumn(t, column, "a").Field("cx", validation.TypeInt)
+	testValidateColumn(t, column, 2).Field("cx", validation.InvalidIntRange(optional.New(3), optional.New(5)))
+	testValidateColumn(t, column, 4).FieldsHaveNoErrors("cx")
+}
+
+func Test_Column_Validation_Real(t *testing.T) {
+	column := testColumnJsonTrip(BuildColumn().Type("real").Name("cx").Min(3.1).Max(5.2).Column())
+	testValidateColumn(t, column, "a").Field("cx", validation.TypeFloat)
+	testValidateColumn(t, column, 3).Field("cx", validation.InvalidFloatRange(optional.New(3.1), optional.New(5.2)))
+	testValidateColumn(t, column, 5.2).FieldsHaveNoErrors("cx")
+}
+
+func Test_Column_Validation_Text(t *testing.T) {
+	column := testColumnJsonTrip(BuildColumn().Type("text").Name("cx").Min(2).Max(6).Pattern("^\\d+$").Choices("123", "456").Column())
+	testValidateColumn(t, column, 1).Field("cx", validation.TypeString)
+	testValidateColumn(t, column, "a").Field("cx", validation.InvalidStringLength(2, 6))
+	testValidateColumn(t, column, "a34").Field("cx", validation.StringPattern)
+	testValidateColumn(t, column, "555").Field("cx", validation.InvalidStringChoice([]string{"123", "456"}))
+	testValidateColumn(t, column, "456").FieldsHaveNoErrors("cx")
+}
+
+func Test_Column_Validation_Blob(t *testing.T) {
+	column := testColumnJsonTrip(BuildColumn().Type("blob").Name("cz").Min(2).Max(6).Column())
+	testValidateColumn(t, column, 1).Field("cz", validation.TypeString)
+	testValidateColumn(t, column, "a").Field("cz", validation.InvalidStringLength(2, 6))
+}
+
+func testColumnJsonTrip(column *Column) *Column {
+	data, err := json.Marshal(column)
+	if err != nil {
+		panic(err)
+	}
+
+	var out *Column
+	if err := json.Unmarshal(data, &out); err != nil {
+		panic(err)
+	}
+	return out
+}
+
+func testValidateColumn(t *testing.T, column *Column, value any) *assert.V {
+	ctx := validation.NewContext[*Env](4)
+	ctx.Field = column.Field
+	column.Validate(value, ctx)
+	return assert.Validation(t, ctx)
 }

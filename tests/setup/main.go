@@ -83,11 +83,11 @@ func setupStandardProject() {
 	project := MustGetProject(id)
 	err := project.CreateTable(project.Env(), &sqlkite.Table{
 		Name: "products",
-		Columns: []sqlkite.Column{
-			sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
-			sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
-			sqlkite.Column{Name: "rating", Type: sqlkite.COLUMN_TYPE_REAL, Nullable: true},
-			sqlkite.Column{Name: "image", Type: sqlkite.COLUMN_TYPE_BLOB, Nullable: true},
+		Columns: []*sqlkite.Column{
+			&sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
+			&sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
+			&sqlkite.Column{Name: "rating", Type: sqlkite.COLUMN_TYPE_REAL, Nullable: true},
+			&sqlkite.Column{Name: "image", Type: sqlkite.COLUMN_TYPE_BLOB, Nullable: true},
 		},
 	})
 	if err != nil {
@@ -111,10 +111,10 @@ func setupStandardProject() {
 
 	err = project.CreateTable(project.Env(), &sqlkite.Table{
 		Name: "tags",
-		Columns: []sqlkite.Column{
-			sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
-			sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
-			sqlkite.Column{Name: "public", Type: sqlkite.COLUMN_TYPE_INT},
+		Columns: []*sqlkite.Column{
+			&sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
+			&sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
+			&sqlkite.Column{Name: "public", Type: sqlkite.COLUMN_TYPE_INT},
 		},
 		Access: sqlkite.TableAccess{
 			Select: &sqlkite.TableAccessSelect{
@@ -199,11 +199,11 @@ func setupDynamicProject() {
 		Name:           "products",
 		MaxDeleteCount: optional.NewInt(5),
 		MaxUpdateCount: optional.NewInt(6),
-		Columns: []sqlkite.Column{
-			sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
-			sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
-			sqlkite.Column{Name: "rating", Type: sqlkite.COLUMN_TYPE_REAL, Nullable: true},
-			sqlkite.Column{Name: "image", Type: sqlkite.COLUMN_TYPE_BLOB, Nullable: true},
+		Columns: []*sqlkite.Column{
+			&sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
+			&sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
+			&sqlkite.Column{Name: "rating", Type: sqlkite.COLUMN_TYPE_REAL, Nullable: true},
+			&sqlkite.Column{Name: "image", Type: sqlkite.COLUMN_TYPE_BLOB, Nullable: true},
 		},
 	})
 
@@ -235,9 +235,9 @@ func setupLimitedProject() {
 	project := MustGetProject(id)
 	err := project.CreateTable(project.Env(), &sqlkite.Table{
 		Name: "t1",
-		Columns: []sqlkite.Column{
-			sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
-			sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
+		Columns: []*sqlkite.Column{
+			&sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
+			&sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
 		},
 	})
 	if err != nil {
@@ -247,8 +247,8 @@ func setupLimitedProject() {
 	project = MustGetProject(id)
 	err = project.CreateTable(project.Env(), &sqlkite.Table{
 		Name: "t2",
-		Columns: []sqlkite.Column{
-			sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
+		Columns: []*sqlkite.Column{
+			&sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
 		},
 	})
 	if err != nil {

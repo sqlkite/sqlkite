@@ -114,7 +114,7 @@ func Test_Project_CreateTable(t *testing.T) {
 	project := dynamicProject()
 	err := project.CreateTable(project.Env(), &Table{
 		Name: "tab1",
-		Columns: []Column{
+		Columns: []*Column{
 			BuildColumn().Name("c1").Type("text").Nullable().Column(),
 			BuildColumn().Name("c2").Type("int").Nullable().Column(),
 			BuildColumn().Name("c3").Type("real").Nullable().Column(),
@@ -126,7 +126,7 @@ func Test_Project_CreateTable(t *testing.T) {
 	project = mustGetProject(project.Id)
 	err = project.CreateTable(project.Env(), &Table{
 		Name: "tab2",
-		Columns: []Column{
+		Columns: []*Column{
 			BuildColumn().Name("c1").Type("text").NotNullable().Default("def-1").Column(),
 			BuildColumn().Name("c2").Type("int").NotNullable().Default(9001).Column(),
 			BuildColumn().Name("c3").Type("real").NotNullable().Default(8999.9).Column(),
@@ -212,7 +212,7 @@ func Test_Project_UpdateTable_Success(t *testing.T) {
 	project := mustGetProject(id)
 	err := project.CreateTable(project.Env(), &Table{
 		Name: "tab_update",
-		Columns: []Column{
+		Columns: []*Column{
 			BuildColumn().Name("c1").Type("text").Nullable().Column(),
 			BuildColumn().Name("c2").Type("int").Nullable().Column(),
 			BuildColumn().Name("c3").Type("real").Nullable().Column(),
@@ -284,7 +284,7 @@ func Test_Project_DeleteTable_Success(t *testing.T) {
 	project := mustGetProject(id)
 	err := project.CreateTable(project.Env(), &Table{
 		Name: "tab_delete",
-		Columns: []Column{
+		Columns: []*Column{
 			BuildColumn().Name("c1").Type("text").Nullable().Column(),
 		},
 	})
@@ -305,7 +305,7 @@ func dynamicProject() *Project {
 func Test_ApplyTableChanges(t *testing.T) {
 	t1 := &Table{
 		Name: "test1",
-		Columns: []Column{
+		Columns: []*Column{
 			BuildColumn().Name("c1").Column(),
 			BuildColumn().Name("c2").Column(),
 			BuildColumn().Name("c3").Column(),

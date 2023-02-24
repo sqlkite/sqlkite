@@ -706,9 +706,9 @@ func UnknownTable(tableName string) *validation.Invalid {
 func applyTableChanges(table *Table, existing *Table, alter TableAlter) {
 	// tables / columns are immutable, we need to clone the columns to make sure
 	// changes we make here aren't reflected in any existing references
-	columns := make([]Column, len(existing.Columns))
+	columns := make([]*Column, len(existing.Columns))
 	for i, c := range existing.Columns {
-		columns[i] = c
+		columns[i] = c.Clone()
 	}
 
 	renamed := false

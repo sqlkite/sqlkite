@@ -24,11 +24,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 
 	"src.goblgobl.com/sqlite"
 	"src.goblgobl.com/utils/buffer"
 	"src.goblgobl.com/utils/kdr"
+	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/optional"
 	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite/sql"
@@ -58,25 +60,25 @@ const (
 )
 
 var (
-	defaultColumnExtended = &ColumnExtended{}
+	noopValidator = validation.Noop[*Env]()
 )
 
 type Table struct {
 	Name           string       `json:"name"`
 	PrimaryKey     []string     `json:"primary_key"`
 	Access         TableAccess  `json:"access"`
-	Columns        []Column     `json:"columns"`
+	Columns        []*Column    `json:"columns"`
 	MaxDeleteCount optional.Int `json:"max_delete_count"`
 	MaxUpdateCount optional.Int `json:"max_update_count"`
 }
 
-func (t *Table) Column(name string) (Column, bool) {
+func (t *Table) Column(name string) *Column {
 	for _, c := range t.Columns {
 		if c.Name == name {
-			return c, true
+			return c
 		}
 	}
-	return Column{}, false
+	return nil
 }
 
 func (t *Table) Write(b *buffer.Buffer) {
@@ -121,8 +123,8 @@ func (t *Table) hasAutoIncrement(pk []string) bool {
 			continue
 		}
 
-		if ex := column.Extended; ex != nil {
-			return ex.AutoIncrement.Value != AUTO_INCREMENT_TYPE_NONE
+		if ie, ok := column.Extension.(*ColumnIntExtension); ok {
+			return ie.AutoIncrement.Value != AUTO_INCREMENT_TYPE_NONE
 		}
 	}
 
@@ -130,38 +132,46 @@ func (t *Table) hasAutoIncrement(pk []string) bool {
 }
 
 type Column struct {
-	Default    any             `json:"dflt"`
-	Validation any             `json:"val",omitempty`
-	Extended   *ColumnExtended `json:"-"`
-	Name       string          `json:"name"`
-	Type       ColumnType      `json:"type"`
-	Nullable   bool            `json:"null"`
-	Unique     bool            `json:"uniq"`
-	DenyInsert bool            `json:"xi"`
-	DenyUpdate bool            `json:"xu"`
+	Field      *validation.Field `json:"-"`
+	Default    any               `json:"dflt"`
+	Extension  ColumnExtension   `json:"ext",omitempty`
+	Name       string            `json:"name"`
+	Type       ColumnType        `json:"type"`
+	Nullable   bool              `json:"null"`
+	Unique     bool              `json:"uniq"`
+	DenyInsert bool              `json:"xi"`
+	DenyUpdate bool              `json:"xu"`
+}
+
+func (c *Column) Clone() *Column {
+	name := c.Name
+	return &Column{
+		Default:    c.Default,
+		Extension:  c.Extension, // TODO: probably need to Clone this too
+		Name:       name,
+		Type:       c.Type,
+		Nullable:   c.Nullable,
+		Unique:     c.Unique,
+		DenyInsert: c.DenyInsert,
+		DenyUpdate: c.DenyUpdate,
+		Field:      &validation.Field{Flat: name},
+	}
 }
 
 func (c *Column) Write(b *buffer.Buffer) {
-	extended := c.Extended
-	if extended == nil {
-		extended = defaultColumnExtended
-	}
-
 	b.WriteUnsafe(c.Name)
 	b.WriteByte(' ')
 
 	tpe := c.Type
 	switch tpe {
 	case COLUMN_TYPE_INT:
-		if ai := extended.AutoIncrement; !ai.Exists {
+		switch autoIncrementType(c.Extension) {
+		case AUTO_INCREMENT_TYPE_REUSE:
+			b.Write([]byte("integer primary key"))
+		case AUTO_INCREMENT_TYPE_STRICT:
+			b.Write([]byte("integer primary key autoincrement"))
+		default:
 			b.Write([]byte("int"))
-		} else {
-			switch ai.Value {
-			case AUTO_INCREMENT_TYPE_REUSE:
-				b.Write([]byte("integer primary key"))
-			case AUTO_INCREMENT_TYPE_STRICT:
-				b.Write([]byte("integer primary key autoincrement"))
-			}
 		}
 	case COLUMN_TYPE_REAL:
 		b.Write([]byte("real"))
@@ -200,7 +210,7 @@ func (c *Column) Write(b *buffer.Buffer) {
 	}
 }
 
-// If there's a better way to do this, please tell me. The column validator
+// If there's a better way to do this, please tell me. The column extension
 // is polymorphic, and we need to know the column.Type in order to know what
 // to deserialize it into. The part that's obviously awful about this is having
 // to repeat the entire struct (including the json field names) for our temp
@@ -208,9 +218,8 @@ func (c *Column) Write(b *buffer.Buffer) {
 func (c *Column) UnmarshalJSON(data []byte) error {
 	var t = struct {
 		Default    any             `json:"dflt"`
-		Extended   *ColumnExtended `json:"-"`
 		Name       string          `json:"name"`
-		Validation json.RawMessage `json:"val"`
+		Extension  json.RawMessage `json:"ext"`
 		Type       ColumnType      `json:"type"`
 		Nullable   bool            `json:"null"`
 		Unique     bool            `json:"uniq"`
@@ -222,33 +231,162 @@ func (c *Column) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	var validation any
-	switch t.Type {
-	case COLUMN_TYPE_INT:
-		validation = new(IntValidation)
-	case COLUMN_TYPE_REAL:
-		validation = new(FloatValidation)
-	case COLUMN_TYPE_TEXT:
-		validation = new(StringValidation)
-	case COLUMN_TYPE_BLOB:
-		validation = new(StringValidation)
+	var extension ColumnExtension
+	if ext := t.Extension; ext != nil {
+		switch t.Type {
+		case COLUMN_TYPE_INT:
+			extension = new(ColumnIntExtension)
+		case COLUMN_TYPE_REAL:
+			extension = new(ColumnFloatExtension)
+		case COLUMN_TYPE_TEXT:
+			extension = new(ColumnTextExtension)
+		case COLUMN_TYPE_BLOB:
+			extension = new(ColumnBlobExtension)
+		}
+
+		if err := json.Unmarshal(t.Extension, &extension); err != nil {
+			return err
+		}
+		if extension != nil {
+			extension.setup()
+		}
+	} else {
+		extension = ColumnNoopExtension{}
 	}
 
-	if err := json.Unmarshal(t.Validation, &validation); err != nil {
-		return err
-	}
-
-	c.Name = t.Name
+	name := t.Name
+	c.Name = name
 	c.Type = t.Type
 	c.Default = t.Default
 	c.Nullable = t.Nullable
 	c.Unique = t.Unique
-	c.Validation = validation
+	c.Extension = extension
+	c.Field = &validation.Field{Flat: name}
 	return nil
 }
 
-type ColumnExtended struct {
+func (c *Column) Validate(value any, ctx *validation.Context[*Env]) {
+	ctx.Field = c.Field
+	c.Extension.Validator().Validate(value, ctx)
+}
+
+type ColumnExtension interface {
+	setup()
+	Validator() validation.Validator[*Env]
+}
+
+type ColumnNoopExtension struct {
+}
+
+func (_ ColumnNoopExtension) Validator() validation.Validator[*Env] {
+	return noopValidator
+}
+
+func (_ ColumnNoopExtension) setup() {
+}
+
+type ColumnIntExtension struct {
+	validator     *validation.IntValidator[*Env]    `json:"-"`
 	AutoIncrement optional.Value[AutoIncrementType] `json:"autoincrement`
+	Min           optional.Int                      `json:"min"`
+	Max           optional.Int                      `json:"max"`
+}
+
+func (c *ColumnIntExtension) Validator() validation.Validator[*Env] {
+	return c.validator
+}
+
+func (c *ColumnIntExtension) setup() {
+	validator := validation.Int[*Env]()
+	if min := c.Min; min.Exists {
+		validator.Min(min.Value)
+	}
+	if max := c.Max; max.Exists {
+		validator.Max(max.Value)
+	}
+	c.validator = validator
+}
+
+type ColumnFloatExtension struct {
+	validator *validation.FloatValidator[*Env] `json:"-"`
+	Min       optional.Float                   `json:"min"`
+	Max       optional.Float                   `json:"max"`
+}
+
+func (c *ColumnFloatExtension) Validator() validation.Validator[*Env] {
+	return c.validator
+}
+
+func (c *ColumnFloatExtension) setup() {
+	validator := validation.Float[*Env]()
+	if min := c.Min; min.Exists {
+		validator.Min(min.Value)
+	}
+	if max := c.Max; max.Exists {
+		validator.Max(max.Value)
+	}
+	c.validator = validator
+}
+
+type ColumnTextExtension struct {
+	Pattern   string                            `json:"pattern",omitempty`
+	validator *validation.StringValidator[*Env] `json:"-"`
+	Choices   []string                          `json:"choices",omitempty`
+	Min       optional.Int                      `json:"min"`
+	Max       optional.Int                      `json:"max"`
+}
+
+func (c *ColumnTextExtension) Validator() validation.Validator[*Env] {
+	return c.validator
+}
+
+func (c *ColumnTextExtension) setup() {
+	validator := validation.String[*Env]()
+	if min := c.Min; min.Exists {
+		validator.Min(min.Value)
+	}
+	if max := c.Max; max.Exists {
+		validator.Max(max.Value)
+	}
+	if pattern := c.Pattern; pattern != "" {
+		p, err := regexp.Compile(pattern)
+		if err != nil {
+			// TODO: This should be impossible, but it's a bit of a disaster if it
+			// happens, as (a) we have no good way to report this error to the project
+			// and (b) we're just ignoring the configured pattern and that might let
+			// bad data ins=
+			log.Error("column_pattern").Err(err).String("pattern", pattern).Log()
+		} else {
+			validator.Regexp(p)
+		}
+	}
+
+	if choices := c.Choices; choices != nil {
+		validator.Choice(choices...)
+	}
+
+	c.validator = validator
+}
+
+type ColumnBlobExtension struct {
+	validator *validation.StringValidator[*Env] `json:"-"`
+	Min       optional.Int                      `json:"min"`
+	Max       optional.Int                      `json:"max"`
+}
+
+func (c *ColumnBlobExtension) Validator() validation.Validator[*Env] {
+	return c.validator
+}
+
+func (c *ColumnBlobExtension) setup() {
+	validator := validation.String[*Env]()
+	if min := c.Min; min.Exists {
+		validator.Min(min.Value)
+	}
+	if max := c.Max; max.Exists {
+		validator.Max(max.Value)
+	}
+	c.validator = validator
 }
 
 type TableAccess struct {
@@ -362,7 +500,7 @@ func (a *TableAlter) Write(b *buffer.Buffer) {
 }
 
 type TableAlterAddColumn struct {
-	Column Column `json:"column"`
+	Column *Column `json:"column"`
 }
 
 func (a TableAlterAddColumn) Write(b *buffer.Buffer) {
@@ -400,22 +538,11 @@ func (r TableAlterRenameColumn) Write(b *buffer.Buffer) {
 	b.WriteUnsafe(r.To)
 }
 
-type IntValidation struct {
-	validator *validation.IntValidator[*Env] `json:"-""`
-	min       optional.Int                   `json:"min"`
-	max       optional.Int                   `json:"max"`
-}
+func autoIncrementType(extension ColumnExtension) AutoIncrementType {
+	ie, ok := extension.(*ColumnIntExtension)
+	if !ok || ie == nil || !ie.AutoIncrement.Exists {
+		return AUTO_INCREMENT_TYPE_NONE
 
-type FloatValidation struct {
-	validator *validation.FloatValidator[*Env] `json:"-""`
-	min       optional.Float                   `json:"min"`
-	max       optional.Float                   `json:"max"`
-}
-
-type StringValidation struct {
-	pattern   string                            `json:"pattern",omitempty`
-	validator *validation.StringValidator[*Env] `json:"-""`
-	choices   []string                          `json:"choices",omitempty`
-	min       optional.Int                      `json:"min"`
-	max       optional.Int                      `json:"max"`
+	}
+	return ie.AutoIncrement.Value
 }
