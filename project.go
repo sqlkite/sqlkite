@@ -693,14 +693,6 @@ func ReloadProject(id string) (*Project, error) {
 	return project, nil
 }
 
-func UnknownTable(tableName string) *validation.Invalid {
-	return &validation.Invalid{
-		Code:  codes.VAL_UNKNOWN_TABLE,
-		Error: "Unknown table: " + tableName,
-		Data:  validation.ValueData(tableName),
-	}
-}
-
 // Take an existin Table and return a new Table which merges the changes
 // from the TableAlter
 func applyTableChanges(table *Table, existing *Table, alter TableAlter) {

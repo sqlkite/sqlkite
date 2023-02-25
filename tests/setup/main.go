@@ -85,7 +85,7 @@ func setupStandardProject() {
 		Name: "products",
 		Columns: []*sqlkite.Column{
 			&sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
-			&sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
+			&sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT, Extension: &sqlkite.ColumnTextExtension{Min: optional.New(2), Max: optional.New(10)}},
 			&sqlkite.Column{Name: "rating", Type: sqlkite.COLUMN_TYPE_REAL, Nullable: true},
 			&sqlkite.Column{Name: "image", Type: sqlkite.COLUMN_TYPE_BLOB, Nullable: true},
 		},
@@ -201,7 +201,7 @@ func setupDynamicProject() {
 		MaxUpdateCount: optional.NewInt(6),
 		Columns: []*sqlkite.Column{
 			&sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT},
-			&sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT},
+			&sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT, Extension: &sqlkite.ColumnTextExtension{Min: optional.New(2), Max: optional.New(10)}},
 			&sqlkite.Column{Name: "rating", Type: sqlkite.COLUMN_TYPE_REAL, Nullable: true},
 			&sqlkite.Column{Name: "image", Type: sqlkite.COLUMN_TYPE_BLOB, Nullable: true},
 		},

@@ -75,10 +75,11 @@ While placeholders are more rare in a select column list, the
 column-or-placeholder duality is apparent in where conditions.
 */
 type DataField struct {
-	Alias *Alias        `json:"as",omitempty`    // can be empty
-	Table string        `json:"table",omitempty` // either the full table name, or the table alias, or empty
-	Name  string        `json:"name"`            // the column name or placeholder
-	Type  DataFieldType `json:"type"`
+	Alias   *Alias        `json:"as",omitempty`    // can be empty
+	Table   string        `json:"table",omitempty` // either the full table name, or the table alias, or empty
+	Name    string        `json:"name"`            // the column name or placeholder
+	Type    DataFieldType `json:"type"`
+	Ordinal int           `json:"ord"` // Only valid when Type == DATA_FIELD_PLACEHOLDER. This is the parsed Name field, e.g. ?4 -> 4
 }
 
 func (df DataField) Write(b *buffer.Buffer) {

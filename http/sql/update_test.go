@@ -19,15 +19,22 @@ func Test_Update_InvalidBody(t *testing.T) {
 }
 
 func Test_Update_InvalidData(t *testing.T) {
-	// required fields
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("{}").
 		Post(Update).
-		ExpectValidation("target", utils.VAL_REQUIRED, "set", utils.VAL_REQUIRED).ExpectNoValidation("returning", "from", "limit", "offset", "order", "where")
+		ExpectValidation("target", utils.VAL_REQUIRED)
 
+	// we really need a valid table
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
-			"target":     1,
+			"target": 1,
+		}).
+		Post(Update).
+		ExpectValidation("target", codes.VAL_INVALID_TABLE_NAME)
+
+	request.ReqT(t, standardProject.Env()).
+		Body(map[string]any{
+			"target":     "products",
 			"set":        true,
 			"returning":  3.18,
 			"where":      3,
@@ -36,16 +43,18 @@ func Test_Update_InvalidData(t *testing.T) {
 			"offset":     []int{},
 		}).
 		Post(Update).
-		ExpectValidation("target", codes.VAL_INVALID_TABLE_NAME, "set", utils.VAL_OBJECT_TYPE, "returning", utils.VAL_ARRAY_TYPE, "from", utils.VAL_ARRAY_TYPE, "where", utils.VAL_ARRAY_TYPE, "parameters", utils.VAL_ARRAY_TYPE, "offset", utils.VAL_INT_TYPE)
+		ExpectValidation("set", utils.VAL_OBJECT_TYPE, "returning", utils.VAL_ARRAY_TYPE, "from", utils.VAL_ARRAY_TYPE, "where", utils.VAL_ARRAY_TYPE, "parameters", utils.VAL_ARRAY_TYPE, "offset", utils.VAL_INT_TYPE)
 
 	request.ReqT(t, standardProject.Env()).
 		Body(map[string]any{
-			"target":    "",
+			"target":    "products",
 			"set":       map[string]any{"$hi": "$", "valid": 32},
 			"returning": []any{"ok", "$"},
 		}).
 		Post(Update).
-		ExpectValidation("target", codes.VAL_INVALID_TABLE_NAME, "set.$hi", codes.VAL_INVALID_COLUMN_NAME, "set.valid", 301_018)
+		// Inspect().
+		ExpectValidation("set", codes.VAL_INVALID_COLUMN_NAME, "returning.1", codes.VAL_INVALID_COLUMN_NAME).
+		ExpectNoValidation("returning", "from", "limit", "offset", "order", "where")
 
 	// We don't fully test the parser. The parser has tests for that. We just
 	// want to test that we handle parser errors correctly.
@@ -104,6 +113,37 @@ func Test_Update_AtLimits(t *testing.T) {
 		OK()
 
 	assert.Equal(t, res.Body, `{"affected":0}`)
+}
+
+func Test_Update_Placeholder_Invalid_Index(t *testing.T) {
+	request.ReqT(t, standardProject.Env()).
+		Body(map[string]any{
+			"target":     "products",
+			"set":        map[string]any{"name": "?3"},
+			"parameters": []any{"leto"},
+		}).
+		Post(Update).
+		ExpectValidation("row.name", codes.VAL_PLACEHOLDER_INDEX_OUT_OF_RANGE)
+}
+
+func Test_Update_Validates_Column(t *testing.T) {
+	request.ReqT(t, standardProject.Env()).
+		Body(map[string]any{
+			"target":     "products",
+			"set":        map[string]any{"name": "?1"},
+			"parameters": []any{55},
+		}).
+		Post(Update).
+		ExpectValidation("row.name", utils.VAL_STRING_TYPE)
+
+	request.ReqT(t, standardProject.Env()).
+		Body(map[string]any{
+			"target":     "products",
+			"set":        map[string]any{"name": "?1"},
+			"parameters": []any{"a"},
+		}).
+		Post(Update).
+		ExpectValidation("row.name", utils.VAL_STRING_LEN)
 }
 
 func Test_Update_SingleRow(t *testing.T) {

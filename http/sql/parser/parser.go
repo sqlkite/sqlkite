@@ -301,24 +301,30 @@ func (p *parser) dataField(invalidFactory InvalidFactory) (sql.DataField, *valid
 		return p.qualifiedColumn(invalidFactory)
 	}
 
+	ord := 0
+	len := 0
 	start := p.pos
 	input := p.input
+	ordinalOffset := start + 1
 
-	i := start + 1
-	for ; i < len(input); i++ {
-		if !isDigit(input[i]) {
+	for _, b := range []byte(input[ordinalOffset:]) {
+		b -= '0'
+		if b > 9 {
 			break
 		}
+		ord = ord*10 + int(b)
+		len += 1
 	}
 
-	if i == start+1 {
+	if len == 0 {
 		return sql.DataField{}, invalidPlaceholder(p)
 	}
 
-	p.pos = i
+	p.pos = ordinalOffset + len
 	return sql.DataField{
-		Name: input[start:i],
-		Type: sql.DATA_FIELD_PLACEHOLDER,
+		Ordinal: ord,
+		Name:    input[start : start+len+1],
+		Type:    sql.DATA_FIELD_PLACEHOLDER,
 	}, nil
 }
 

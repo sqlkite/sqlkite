@@ -33,6 +33,7 @@ import (
 	"src.goblgobl.com/utils/log"
 	"src.goblgobl.com/utils/optional"
 	"src.goblgobl.com/utils/validation"
+	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/sql"
 )
 
@@ -154,7 +155,10 @@ func (c *Column) Clone() *Column {
 		Unique:     c.Unique,
 		DenyInsert: c.DenyInsert,
 		DenyUpdate: c.DenyUpdate,
-		Field:      &validation.Field{Flat: name},
+		Field: &validation.Field{
+			Flat: "row." + name,
+			Path: []string{"row", "", name},
+		},
 	}
 }
 
@@ -250,7 +254,8 @@ func (c *Column) UnmarshalJSON(data []byte) error {
 		if extension != nil {
 			extension.setup()
 		}
-	} else {
+	}
+	if extension == nil {
 		extension = ColumnNoopExtension{}
 	}
 
@@ -261,7 +266,10 @@ func (c *Column) UnmarshalJSON(data []byte) error {
 	c.Nullable = t.Nullable
 	c.Unique = t.Unique
 	c.Extension = extension
-	c.Field = &validation.Field{Flat: name}
+	c.Field = &validation.Field{
+		Flat: "row." + name,
+		Path: []string{"row", "", name},
+	}
 	return nil
 }
 
@@ -545,4 +553,20 @@ func autoIncrementType(extension ColumnExtension) AutoIncrementType {
 
 	}
 	return ie.AutoIncrement.Value
+}
+
+func UnknownTable(tableName string) *validation.Invalid {
+	return &validation.Invalid{
+		Code:  codes.VAL_UNKNOWN_TABLE,
+		Error: "Unknown table: " + tableName,
+		Data:  validation.ValueData(tableName),
+	}
+}
+
+func UnknownColumn(columnName string) *validation.Invalid {
+	return &validation.Invalid{
+		Code:  codes.VAL_UNKNOWN_COLUMN,
+		Error: "Unknown column: " + columnName,
+		Data:  validation.ValueData(columnName),
+	}
 }

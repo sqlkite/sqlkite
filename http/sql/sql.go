@@ -231,8 +231,7 @@ func parseOffset(input any, ctx *validation.Context[*sqlkite.Env]) optional.Int 
 // The limit logic for update/delete is different than for select. For select,
 // the's _always_ an enforced limit (project.Limits.MaxSelectCount). For update/delete,
 // the logic is a bit more complicated.
-// Every table has an optional MaxUpdateRow or MaxDeleteRow setting which
-// (this is TODO, but definitely something we'll add ASAP). Furthermore, if
+// Every table has an optional MaxUpdateRow or MaxDeleteRow setting. Furthermore, if
 // the statement includes a returning clause, then (project.Limits.MaxSelectCount) must
 // also be considered (we'll take the Min(MaxUpdateRow, MaxSelectCount))
 // If the table has no MaxUpdateRow (or MaxDeleteRow) and there's no returning
@@ -244,31 +243,48 @@ func mutateParseLimit(input any, ctx *validation.Context[*sqlkite.Env], hasRetur
 		return maxMutate
 	}
 
-	max := maxMutate
-	hasMax := max.Exists
-	if hasReturning {
-		// there's a returning statement, our max will be the min of maxMutate and maxSelect
-		if !hasMax || int(maxSelect) < max.Value {
-			hasMax = true
-			max = optional.NewInt(int(maxSelect))
+	// we start with a limit that will either come from the input or from the table's
+	// maxMutate. Either could be nil, which means, no limit. That's fine.
+	limit := maxMutate
+	if input != nil {
+		l, ok := input.(float64)
+		if !ok {
+			ctx.InvalidWithField(validation.TypeInt, limitField)
+			return optional.NullInt
 		}
+		n := int(l)
+		max := maxMutate.Value
+		if maxMutate.Exists && n > max {
+			ctx.InvalidWithField(&validation.Invalid{
+				Code:  codes.VAL_SQL_LIMIT_TOO_HIGH,
+				Error: fmt.Sprintf("limit cannot exceed %d", max),
+				Data:  validation.MaxData(max),
+			}, limitField)
+			return optional.NullInt
+		}
+		limit = optional.New(n)
 	}
 
-	limit, ok := input.(float64)
-	if !ok {
-		ctx.InvalidWithField(validation.TypeInt, limitField)
-		return optional.NullInt
+	// Not returning anythig? Then we don't need to check anything else.
+	if !hasReturning {
+		return limit
 	}
 
-	n := int(limit)
-	if maxValue := max.Value; hasMax && n > maxValue {
+	// OK, this has a "returning" statement. We need to consinder maxSelect too now
+
+	max := int(maxSelect)
+	if !limit.Exists {
+		return optional.New(max)
+	}
+
+	if limit.Value > max {
 		ctx.InvalidWithField(&validation.Invalid{
-			Code:  codes.VAL_SQL_LIMIT_TOO_HIGH,
-			Error: fmt.Sprintf("limit cannot exceed %d", maxValue),
-			Data:  validation.MaxData(maxValue),
+			Code:  codes.VAL_SQL_LIMIT_TOO_HIGH_RETURNING,
+			Error: fmt.Sprintf("limit cannot exceed %d", max),
+			Data:  validation.MaxData(max),
 		}, limitField)
 		return optional.NullInt
 	}
 
-	return optional.NewInt(n)
+	return limit
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"src.goblgobl.com/tests/assert"
+	"src.goblgobl.com/utils/ascii"
 	"src.sqlkite.com/sqlkite/codes"
 	"src.sqlkite.com/sqlkite/tests"
 )
@@ -30,6 +31,11 @@ func Test_DataField_Valid(t *testing.T) {
 		dataField, err := DataField(input)
 		assert.Nil(t, err)
 		tests.AssertSQL(t, dataField, expectedSQL)
+
+		if expectedSQL[0] == '?' {
+			actualOrdinal, _ := ascii.Atoi(expectedSQL[1:])
+			assert.Equal(t, dataField.Ordinal, actualOrdinal)
+		}
 	}
 
 	assertDataField("?1", "?1")

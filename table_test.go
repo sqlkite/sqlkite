@@ -161,31 +161,31 @@ alter table test1 rename to test2;
 
 func Test_Column_Validation_Int(t *testing.T) {
 	column := testColumnJsonTrip(BuildColumn().Type("int").Name("cx").Min(3).Max(5).Column())
-	testValidateColumn(t, column, "a").Field("cx", validation.TypeInt)
-	testValidateColumn(t, column, 2).Field("cx", validation.InvalidIntRange(optional.New(3), optional.New(5)))
-	testValidateColumn(t, column, 4).FieldsHaveNoErrors("cx")
+	testValidateColumn(t, column, "a").Field("row.cx", validation.TypeInt)
+	testValidateColumn(t, column, 2).Field("row.cx", validation.InvalidIntRange(optional.New(3), optional.New(5)))
+	testValidateColumn(t, column, 4).FieldsHaveNoErrors("row.cx")
 }
 
 func Test_Column_Validation_Real(t *testing.T) {
 	column := testColumnJsonTrip(BuildColumn().Type("real").Name("cx").Min(3.1).Max(5.2).Column())
-	testValidateColumn(t, column, "a").Field("cx", validation.TypeFloat)
-	testValidateColumn(t, column, 3).Field("cx", validation.InvalidFloatRange(optional.New(3.1), optional.New(5.2)))
-	testValidateColumn(t, column, 5.2).FieldsHaveNoErrors("cx")
+	testValidateColumn(t, column, "a").Field("row.cx", validation.TypeFloat)
+	testValidateColumn(t, column, 3).Field("row.cx", validation.InvalidFloatRange(optional.New(3.1), optional.New(5.2)))
+	testValidateColumn(t, column, 5.2).FieldsHaveNoErrors("row.cx")
 }
 
 func Test_Column_Validation_Text(t *testing.T) {
 	column := testColumnJsonTrip(BuildColumn().Type("text").Name("cx").Min(2).Max(6).Pattern("^\\d+$").Choices("123", "456").Column())
-	testValidateColumn(t, column, 1).Field("cx", validation.TypeString)
-	testValidateColumn(t, column, "a").Field("cx", validation.InvalidStringLength(2, 6))
-	testValidateColumn(t, column, "a34").Field("cx", validation.StringPattern)
-	testValidateColumn(t, column, "555").Field("cx", validation.InvalidStringChoice([]string{"123", "456"}))
-	testValidateColumn(t, column, "456").FieldsHaveNoErrors("cx")
+	testValidateColumn(t, column, 1).Field("row.cx", validation.TypeString)
+	testValidateColumn(t, column, "a").Field("row.cx", validation.InvalidStringLength(2, 6))
+	testValidateColumn(t, column, "a34").Field("row.cx", validation.StringPattern)
+	testValidateColumn(t, column, "555").Field("row.cx", validation.InvalidStringChoice([]string{"123", "456"}))
+	testValidateColumn(t, column, "456").FieldsHaveNoErrors("row.cx")
 }
 
 func Test_Column_Validation_Blob(t *testing.T) {
 	column := testColumnJsonTrip(BuildColumn().Type("blob").Name("cz").Min(2).Max(6).Column())
-	testValidateColumn(t, column, 1).Field("cz", validation.TypeString)
-	testValidateColumn(t, column, "a").Field("cz", validation.InvalidStringLength(2, 6))
+	testValidateColumn(t, column, 1).Field("row.cz", validation.TypeString)
+	testValidateColumn(t, column, "a").Field("row.cz", validation.InvalidStringLength(2, 6))
 }
 
 func testColumnJsonTrip(column *Column) *Column {
