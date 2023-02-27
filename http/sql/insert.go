@@ -1,6 +1,8 @@
 package sql
 
 import (
+	"fmt"
+
 	"github.com/valyala/fasthttp"
 	"src.goblgobl.com/utils/http"
 	"src.goblgobl.com/utils/typed"
@@ -108,14 +110,27 @@ func insertParseColumns(input any, ctx *validation.Context[*sqlkite.Env], table 
 
 		column := table.Column(columnName)
 		if column == nil {
+			ctx.ArrayIndex(i)
 			ctx.InvalidWithField(sqlkite.UnknownColumn(columnName), columnsField)
 			continue
 		}
 
+		if column.DenyInsert {
+			ctx.ArrayIndex(i)
+			ctx.InvalidWithField(&validation.Invalid{
+				Code:  codes.VAL_COLUMN_INSERT_DENY,
+				Error: fmt.Sprintf("Inserting into '%s' is not allowed", columnName),
+				Data:  validation.ValueData(columnName),
+			}, columnsField)
+			continue
+		}
+
+		contextState := ctx.SuspendArray()
 		for row := 0; row < numberOfRows; row++ {
 			parameterIndex := row*numberOfCols + i
 			column.ValidateInRow(parameters[parameterIndex], ctx, row)
 		}
+		ctx.ResumeArray(contextState)
 
 		columns[i] = columnName
 

@@ -12,6 +12,13 @@ import (
 	"src.sqlkite.com/sqlkite/sql"
 )
 
+var (
+	valColumnUpdateDeny = &validation.Invalid{
+		Code:  codes.VAL_COLUMN_UPDATE_DENY,
+		Error: "Updating this column is not allowed",
+	}
+)
+
 func Update(conn *fasthttp.RequestCtx, env *sqlkite.Env) (http.Response, error) {
 	input, err := typed.Json(conn.PostBody())
 	if err != nil {
@@ -97,6 +104,11 @@ func updateParseSet(input any, ctx *validation.Context[*sqlkite.Env], table *sql
 		column := table.Column(columnName)
 		if column == nil {
 			ctx.InvalidWithField(sqlkite.UnknownColumn(columnName), setField)
+			continue
+		}
+
+		if column.DenyUpdate {
+			ctx.InvalidWithField(valColumnUpdateDeny, setField)
 			continue
 		}
 

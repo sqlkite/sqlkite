@@ -125,6 +125,20 @@ func Test_Update_Placeholder_Invalid_Index(t *testing.T) {
 		ExpectValidation("row.name", codes.VAL_PLACEHOLDER_INDEX_OUT_OF_RANGE)
 }
 
+func Test_Update_Column_Deny(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"target":     "products",
+			"set":        map[string]any{"id": "?1"},
+			"parameters": []any{55},
+		}).
+		Post(Update).
+		ExpectValidation("set", codes.VAL_COLUMN_UPDATE_DENY)
+}
+
 func Test_Update_Validates_Parameters(t *testing.T) {
 	id := tests.Factory.DynamicId()
 	project, _ := sqlkite.Projects.Get(id)

@@ -115,6 +115,34 @@ func Test_Insert_Parameters_Invalid_Multiple(t *testing.T) {
 	}
 }
 
+func Test_Insert_Unknown_Column(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"into":       "products",
+			"columns":    []any{"id", "nope"},
+			"parameters": []any{89, "hack"},
+		}).
+		Post(Insert).
+		ExpectValidation("columns.1", codes.VAL_UNKNOWN_COLUMN)
+}
+
+func Test_Insert_Column_Deny(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"into":       "products",
+			"columns":    []any{"id", "image"},
+			"parameters": []any{89, "hack"},
+		}).
+		Post(Insert).
+		ExpectValidation("columns.1", codes.VAL_COLUMN_INSERT_DENY)
+}
+
 func Test_Insert_Validates_Parameters(t *testing.T) {
 	id := tests.Factory.DynamicId()
 	project, _ := sqlkite.Projects.Get(id)
