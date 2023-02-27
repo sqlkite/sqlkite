@@ -43,7 +43,7 @@ func init() {
 }
 
 func Init(config config.Config) error {
-	Buffer = buffer.NewPoolFromConfig(*config.Buffer)
+	Buffer = buffer.NewPoolFromConfig(*config.Buffers)
 	validationContexts = validation.NewPool[*Env](config.Validation.PoolSize, config.Validation.MaxErrors)
 
 	Config = config

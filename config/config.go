@@ -13,7 +13,7 @@ import (
 
 type Config struct {
 	Migrations *bool          `json:"migrations"`
-	Buffer     *buffer.Config `json:"buffer"`
+	Buffers    *buffer.Config `json:"buffers"`
 	Super      super.Config   `json:"super"`
 	RootPath   string         `json:"root_path"`
 	HTTP       HTTP           `json:"http"`
@@ -76,8 +76,8 @@ func Configure(filePath string) (Config, error) {
 		config.RootPath += "/"
 	}
 
-	if config.Buffer == nil {
-		config.Buffer = &buffer.Config{
+	if config.Buffers == nil {
+		config.Buffers = &buffer.Config{
 			Count: 1000,
 			Min:   32768,   // 32K
 			Max:   1048576, // 1MB

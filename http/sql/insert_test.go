@@ -25,34 +25,42 @@ func Test_Insert_InvalidData(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body("{}").
 		Post(Insert).
-		ExpectValidation("into", utils.VAL_REQUIRED, "columns", utils.VAL_REQUIRED).ExpectNoValidation("returning")
+		ExpectValidation("into", utils.VAL_REQUIRED).ExpectNoValidation("returning")
+
+	for _, tableName := range []any{1, "", "$nope"} {
+		request.ReqT(t, sqlkite.BuildEnv().Env()).
+			Body(map[string]any{
+				"into": tableName,
+			}).
+			Post(Insert).
+			ExpectValidation("into", codes.VAL_INVALID_TABLE_NAME)
+	}
 
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
-			"into":      1,
+			"into": "",
+		}).
+		Post(Insert).
+		ExpectValidation("into", codes.VAL_INVALID_TABLE_NAME)
+
+	request.ReqT(t, standardProject.Env()).
+		Body(map[string]any{
+			"into":      "products",
 			"columns":   true,
 			"returning": 3.18,
 		}).
 		Post(Insert).
-		ExpectValidation("into", codes.VAL_INVALID_TABLE_NAME, "columns", utils.VAL_ARRAY_TYPE, "returning", utils.VAL_ARRAY_TYPE)
+		ExpectValidation("columns", utils.VAL_ARRAY_TYPE, "returning", utils.VAL_ARRAY_TYPE)
 
 	request.ReqT(t, standardProject.Env()).
 		Body(map[string]any{
-			"into":      "",
-			"columns":   []any{"", "$"},
-			"returning": []any{"ok", "$"},
+			"into":       "products",
+			"columns":    []any{"", "$"},
+			"returning":  []any{"ok", "$"},
+			"parameters": []any{1, 2},
 		}).
 		Post(Insert).
-		ExpectValidation("into", codes.VAL_INVALID_TABLE_NAME, "columns.0", codes.VAL_INVALID_COLUMN_NAME, "columns.1", codes.VAL_INVALID_COLUMN_NAME, "returning.1", codes.VAL_INVALID_COLUMN_NAME)
-
-	// We don't fully test the parser. The parser has tests for that. We just
-	// want to test that we handle parser errors correctly.
-	request.ReqT(t, standardProject.Env()).
-		Body(map[string]any{
-			"into": "$nope",
-		}).
-		Post(Insert).
-		ExpectValidation("into", codes.VAL_INVALID_TABLE_NAME)
+		ExpectValidation("columns.0", codes.VAL_INVALID_COLUMN_NAME, "columns.1", codes.VAL_INVALID_COLUMN_NAME, "returning.1", codes.VAL_INVALID_COLUMN_NAME)
 }
 
 func Test_Insert_InvalidTable(t *testing.T) {
@@ -87,6 +95,38 @@ func Test_Insert_AtLimits(t *testing.T) {
 		OK()
 
 	assert.Equal(t, res.Body, `{"affected":1}`)
+}
+
+func Test_Insert_Parameters_Invalid_Multiple(t *testing.T) {
+	cases := [][]any{
+		[]any{},
+		[]any{1},
+		[]any{1, "soap", 2},
+	}
+	for _, parameters := range cases {
+		request.ReqT(t, standardProject.Env()).
+			Body(map[string]any{
+				"into":       "products",
+				"columns":    []any{"id", "name"},
+				"parameters": parameters,
+			}).
+			Post(Insert).
+			ExpectValidation("parameters", codes.VAL_INSERT_PLACEHOLDER_MULTIPLE)
+	}
+}
+
+func Test_Insert_Validates_Parameters(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"into":       "products",
+			"columns":    []any{"id", "name", "rating"},
+			"parameters": []any{2, 55, 9.9, 3, "x", 10.1},
+		}).
+		Post(Insert).
+		ExpectValidation("row.0.name", utils.VAL_STRING_TYPE, "row.1.name", utils.VAL_STRING_LEN)
 }
 
 func Test_Insert_A_SingleRow(t *testing.T) {

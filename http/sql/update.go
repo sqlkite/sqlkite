@@ -85,10 +85,6 @@ func updateParseSet(input any, ctx *validation.Context[*sqlkite.Env], table *sql
 		return nil
 	}
 
-	// TODO: validate that len(m) <= len(table.Columns)
-	// TODO: every Table.Column should have a validation.Field so we aren't building
-	// this over and over again. Just gonna get this done first, then look at
-	// adding validation, at which point I'll add the field.
 	i := 0
 	set := make([]sql.UpdateSet, len(m))
 	for key, value := range m {

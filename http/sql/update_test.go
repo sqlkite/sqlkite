@@ -24,7 +24,6 @@ func Test_Update_InvalidData(t *testing.T) {
 		Post(Update).
 		ExpectValidation("target", utils.VAL_REQUIRED)
 
-	// we really need a valid table
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
 			"target": 1,
@@ -126,8 +125,11 @@ func Test_Update_Placeholder_Invalid_Index(t *testing.T) {
 		ExpectValidation("row.name", codes.VAL_PLACEHOLDER_INDEX_OUT_OF_RANGE)
 }
 
-func Test_Update_Validates_Column(t *testing.T) {
-	request.ReqT(t, standardProject.Env()).
+func Test_Update_Validates_Parameters(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+
+	request.ReqT(t, project.Env()).
 		Body(map[string]any{
 			"target":     "products",
 			"set":        map[string]any{"name": "?1"},
@@ -136,7 +138,7 @@ func Test_Update_Validates_Column(t *testing.T) {
 		Post(Update).
 		ExpectValidation("row.name", utils.VAL_STRING_TYPE)
 
-	request.ReqT(t, standardProject.Env()).
+	request.ReqT(t, project.Env()).
 		Body(map[string]any{
 			"target":     "products",
 			"set":        map[string]any{"name": "?1"},

@@ -155,10 +155,7 @@ func (c *Column) Clone() *Column {
 		Unique:     c.Unique,
 		DenyInsert: c.DenyInsert,
 		DenyUpdate: c.DenyUpdate,
-		Field: &validation.Field{
-			Flat: "row." + name,
-			Path: []string{"row", "", name},
-		},
+		Field:      validation.SimpleField("row." + name),
 	}
 }
 
@@ -266,16 +263,20 @@ func (c *Column) UnmarshalJSON(data []byte) error {
 	c.Nullable = t.Nullable
 	c.Unique = t.Unique
 	c.Extension = extension
-	c.Field = &validation.Field{
-		Flat: "row." + name,
-		Path: []string{"row", "", name},
-	}
+	c.Field = validation.SimpleField("row." + name)
 	return nil
 }
 
 func (c *Column) Validate(value any, ctx *validation.Context[*Env]) {
 	ctx.Field = c.Field
 	c.Extension.Validator().Validate(value, ctx)
+}
+
+func (c *Column) ValidateInRow(value any, ctx *validation.Context[*Env], row int) {
+	state := ctx.SuspendArray()
+	ctx.Field = &validation.Field{Flat: "row." + strconv.Itoa(row) + "." + c.Name}
+	c.Extension.Validator().Validate(value, ctx)
+	ctx.ResumeArray(state)
 }
 
 type ColumnExtension interface {
