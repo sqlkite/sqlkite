@@ -154,7 +154,7 @@ func Test_Insert_Validates_Parameters(t *testing.T) {
 			"parameters": []any{2, 55, 9.9, 3, "x", 10.1},
 		}).
 		Post(Insert).
-		ExpectValidation("row.0.name", utils.VAL_STRING_TYPE, "row.1.name", utils.VAL_STRING_LEN)
+		ExpectValidation("row.0.name", utils.VAL_STRING_TYPE, "row.1.name", utils.VAL_STRING_LENGTH)
 }
 
 func Test_Insert_A_SingleRow(t *testing.T) {

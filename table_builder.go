@@ -19,12 +19,9 @@ type ColumnBuilder struct {
 func BuildColumn() *ColumnBuilder {
 	return &ColumnBuilder{
 		column: &Column{
-			Name:       uuid.String(),
-			Nullable:   true,
-			Unique:     false,
-			DenyInsert: false,
-			DenyUpdate: false,
-			Type:       COLUMN_TYPE_TEXT,
+			Name:     uuid.String(),
+			Nullable: true,
+			Type:     COLUMN_TYPE_TEXT,
 		},
 	}
 }
@@ -42,7 +39,7 @@ func (cb *ColumnBuilder) Type(tpe string) *ColumnBuilder {
 		cb.column.Extension = new(ColumnIntExtension)
 	case "real":
 		cb.column.Type = COLUMN_TYPE_REAL
-		cb.column.Extension = new(ColumnFloatExtension)
+		cb.column.Extension = new(ColumnRealExtension)
 	case "text":
 		cb.column.Type = COLUMN_TYPE_TEXT
 		cb.column.Extension = new(ColumnTextExtension)
@@ -70,13 +67,13 @@ func (cb *ColumnBuilder) Unique() *ColumnBuilder {
 	return cb
 }
 
-func (cb *ColumnBuilder) DenyInsert() *ColumnBuilder {
-	cb.column.DenyInsert = true
+func (cb *ColumnBuilder) InsertAccess(access int) *ColumnBuilder {
+	cb.column.InsertAccess = access
 	return cb
 }
 
-func (cb *ColumnBuilder) DenyUpdate() *ColumnBuilder {
-	cb.column.DenyUpdate = true
+func (cb *ColumnBuilder) UpdateAccess(access int) *ColumnBuilder {
+	cb.column.UpdateAccess = access
 	return cb
 }
 
@@ -90,7 +87,7 @@ func (cb *ColumnBuilder) Min(min any) *ColumnBuilder {
 	case COLUMN_TYPE_INT:
 		cb.column.Extension.(*ColumnIntExtension).Min = optional.New(min.(int))
 	case COLUMN_TYPE_REAL:
-		cb.column.Extension.(*ColumnFloatExtension).Min = optional.New(min.(float64))
+		cb.column.Extension.(*ColumnRealExtension).Min = optional.New(min.(float64))
 	case COLUMN_TYPE_TEXT:
 		cb.column.Extension.(*ColumnTextExtension).Min = optional.New(min.(int))
 	case COLUMN_TYPE_BLOB:
@@ -104,7 +101,7 @@ func (cb *ColumnBuilder) Max(max any) *ColumnBuilder {
 	case COLUMN_TYPE_INT:
 		cb.column.Extension.(*ColumnIntExtension).Max = optional.New(max.(int))
 	case COLUMN_TYPE_REAL:
-		cb.column.Extension.(*ColumnFloatExtension).Max = optional.New(max.(float64))
+		cb.column.Extension.(*ColumnRealExtension).Max = optional.New(max.(float64))
 	case COLUMN_TYPE_TEXT:
 		cb.column.Extension.(*ColumnTextExtension).Max = optional.New(max.(int))
 	case COLUMN_TYPE_BLOB:

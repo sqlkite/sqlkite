@@ -79,7 +79,7 @@ func Test_UserCreate_InvalidData(t *testing.T) {
 			"password": "1234567",
 		}).
 		Post(UserCreate).
-		ExpectValidation("password", utils.VAL_STRING_LEN)
+		ExpectValidation("password", utils.VAL_STRING_LENGTH)
 }
 
 func Test_UserCreate_Success(t *testing.T) {

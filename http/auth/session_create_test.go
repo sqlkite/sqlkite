@@ -53,7 +53,7 @@ func Test_SessionCreate_InvalidData(t *testing.T) {
 			"password": "1234567",
 		}).
 		Post(SessionCreate).
-		ExpectValidation("password", utils.VAL_STRING_LEN)
+		ExpectValidation("password", utils.VAL_STRING_LENGTH)
 }
 
 func Test_SessionCreate_UnknownEmail(t *testing.T) {

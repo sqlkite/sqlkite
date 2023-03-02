@@ -159,7 +159,7 @@ func Test_Update_Validates_Parameters(t *testing.T) {
 			"parameters": []any{"a"},
 		}).
 		Post(Update).
-		ExpectValidation("row.name", utils.VAL_STRING_LEN)
+		ExpectValidation("row.name", utils.VAL_STRING_LENGTH)
 }
 
 func Test_Update_SingleRow(t *testing.T) {

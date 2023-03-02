@@ -85,7 +85,7 @@ func Test_CreateTable_AutoIncrement_Strict(t *testing.T) {
 		Name:       "tab1",
 		PrimaryKey: []string{"id"},
 		Columns: []*Column{
-			&Column{Name: "id", Type: COLUMN_TYPE_INT, Extension: &ColumnIntExtension{AutoIncrement: optional.New(AUTO_INCREMENT_TYPE_STRICT)}},
+			&Column{Name: "id", Type: COLUMN_TYPE_INT, Extension: &ColumnIntExtension{AutoIncrement: AUTO_INCREMENT_TYPE_STRICT}},
 			&Column{Name: "name", Type: COLUMN_TYPE_TEXT},
 		},
 	}
@@ -101,7 +101,7 @@ func Test_CreateTable_AutoIncrement_Reuse(t *testing.T) {
 		Name:       "tab1",
 		PrimaryKey: []string{"id"},
 		Columns: []*Column{
-			&Column{Name: "id", Type: COLUMN_TYPE_INT, Extension: &ColumnIntExtension{AutoIncrement: optional.New(AUTO_INCREMENT_TYPE_REUSE)}},
+			&Column{Name: "id", Type: COLUMN_TYPE_INT, Extension: &ColumnIntExtension{AutoIncrement: AUTO_INCREMENT_TYPE_REUSE}},
 			&Column{Name: "name", Type: COLUMN_TYPE_TEXT},
 		},
 	}

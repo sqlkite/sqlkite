@@ -3,7 +3,6 @@ package tables
 import (
 	"github.com/valyala/fasthttp"
 	"src.goblgobl.com/utils/http"
-	"src.goblgobl.com/utils/optional"
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite"
@@ -79,44 +78,15 @@ func mapColumns(input []typed.Typed) []*sqlkite.Column {
 
 func mapColumn(input typed.Typed) *sqlkite.Column {
 	c := &sqlkite.Column{
-		Name:     input.String("name"),
-		Unique:   input.Bool("unique"),
-		Nullable: input.Bool("nullable"),
-		Default:  input["default"],
-		Type:     input["type"].(sqlkite.ColumnType),
-	}
-
-	switch c.Type {
-	case sqlkite.COLUMN_TYPE_INT:
-		c.Extension = mapColumnIntExtension(input)
-	case sqlkite.COLUMN_TYPE_REAL:
-		c.Extension = mapColumnFloatExtension(input)
-	case sqlkite.COLUMN_TYPE_TEXT:
-		c.Extension = mapColumnTextExtension(input)
-	case sqlkite.COLUMN_TYPE_BLOB:
-		c.Extension = mapColumnBlobExtension(input)
+		Name:         input.String("name"),
+		Unique:       input.Bool("unique"),
+		Nullable:     input.Bool("nullable"),
+		Default:      input["default"],
+		Type:         input["type"].(sqlkite.ColumnType),
+		InsertAccess: input.Int("insert_access"),
+		UpdateAccess: input.Int("update_access"),
+		Extension:    input["extension"].(sqlkite.ColumnExtension),
 	}
 
 	return c
-}
-
-func mapColumnIntExtension(input typed.Typed) *sqlkite.ColumnIntExtension {
-	if ai, ok := input["autoincrement"].(sqlkite.AutoIncrementType); ok {
-		return &sqlkite.ColumnIntExtension{
-			AutoIncrement: optional.New(ai),
-		}
-	}
-	return nil
-}
-
-func mapColumnFloatExtension(input typed.Typed) *sqlkite.ColumnFloatExtension {
-	return nil
-}
-
-func mapColumnTextExtension(input typed.Typed) *sqlkite.ColumnTextExtension {
-	return nil
-}
-
-func mapColumnBlobExtension(input typed.Typed) *sqlkite.ColumnBlobExtension {
-	return nil
 }

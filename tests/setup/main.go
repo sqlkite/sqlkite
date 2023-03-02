@@ -200,10 +200,10 @@ func setupDynamicProject() {
 		MaxDeleteCount: optional.NewInt(5),
 		MaxUpdateCount: optional.NewInt(6),
 		Columns: []*sqlkite.Column{
-			&sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT, DenyUpdate: true},
+			&sqlkite.Column{Name: "id", Type: sqlkite.COLUMN_TYPE_INT, UpdateAccess: 1},
 			&sqlkite.Column{Name: "name", Type: sqlkite.COLUMN_TYPE_TEXT, Extension: &sqlkite.ColumnTextExtension{Min: optional.New(2), Max: optional.New(10)}},
 			&sqlkite.Column{Name: "rating", Type: sqlkite.COLUMN_TYPE_REAL, Nullable: true},
-			&sqlkite.Column{Name: "image", Type: sqlkite.COLUMN_TYPE_BLOB, Nullable: true, DenyInsert: true},
+			&sqlkite.Column{Name: "image", Type: sqlkite.COLUMN_TYPE_BLOB, Nullable: true, InsertAccess: 1},
 		},
 	})
 

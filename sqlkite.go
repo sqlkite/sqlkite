@@ -19,8 +19,8 @@ import (
 )
 
 var Config config.Config
-var Buffer *buffer.Pool
-var validationContexts *validation.Pool[*Env]
+var Buffer buffer.Pool
+var validationContexts validation.Pool[*Env]
 
 func init() {
 	// This is a hack, but I really dislike go's lack of circular

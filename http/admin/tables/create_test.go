@@ -1,6 +1,7 @@
 package tables
 
 import (
+	"strings"
 	"testing"
 
 	"src.goblgobl.com/tests/assert"
@@ -98,29 +99,17 @@ func Test_Create_InvalidDefault(t *testing.T) {
 		ExpectValidation("columns.0.default", utils.VAL_STRING_TYPE, "columns.1.default", utils.VAL_INT_TYPE, "columns.2.default", utils.VAL_FLOAT_TYPE, "columns.3.default", codes.VAL_NON_BASE64_COLUMN_DEFAULT)
 }
 
-func Test_Create_AutoIncrement_NonInt(t *testing.T) {
-	request.ReqT(t, sqlkite.BuildEnv().Env()).
-		Body(map[string]any{
-			"name": "tab1",
-			"columns": []any{
-				map[string]any{"name": "c1", "type": "text", "nullable": true, "autoincrement": "reuse"},
-			},
-		}).
-		Post(Create).
-		ExpectValidation("columns.0.autoincrement", codes.VAL_AUTOINCREMENT_NOT_INT)
-}
-
 func Test_Create_AutoIncrement_NonPK(t *testing.T) {
 	request.ReqT(t, sqlkite.BuildEnv().Env()).
 		Body(map[string]any{
 			"name":        "tab1",
 			"primary_key": []any{"name"},
 			"columns": []any{
-				map[string]any{"name": "id", "type": "int", "nullable": true, "autoincrement": "strict"},
+				map[string]any{"name": "id", "type": "int", "nullable": true, "extension": map[string]any{"autoincrement": "strict"}},
 			},
 		}).
 		Post(Create).
-		ExpectValidation("columns.0.autoincrement", codes.VAL_AUTOINCREMENT_NON_PK)
+		ExpectValidation("columns.0.extension.autoincrement", codes.VAL_AUTOINCREMENT_NON_PK)
 }
 
 func Test_Create_AutoIncrement_MultiplePK(t *testing.T) {
@@ -130,11 +119,11 @@ func Test_Create_AutoIncrement_MultiplePK(t *testing.T) {
 			"primary_key": []any{"id", "name"},
 			"columns": []any{
 				map[string]any{"name": "name", "type": "text", "nullable": true},
-				map[string]any{"name": "id", "type": "int", "nullable": true, "autoincrement": "strict"},
+				map[string]any{"name": "id", "type": "int", "nullable": true, "extension": map[string]any{"autoincrement": "strict"}},
 			},
 		}).
 		Post(Create).
-		ExpectValidation("columns.1.autoincrement", codes.VAL_AUTOINCREMENT_COMPOSITE_PK)
+		ExpectValidation("columns.1.extension.autoincrement", codes.VAL_AUTOINCREMENT_COMPOSITE_PK)
 }
 
 func Test_Create_TooManyTables(t *testing.T) {
@@ -240,7 +229,7 @@ begin
 end`)
 
 	createDDL := tests.Row(project, "select sql from sqlite_master where name = 'test_create_success_defaults'")
-	tests.AssertSQL(t, createDDL.String("sql"), `CREATE TABLE test_create_success_defaults(
+	tests.AssertSQL(t, createDDL.String("sql"), `create table test_create_success_defaults(
 		C1 text null default('a'),
 		c2 int null default(32) unique,
 		C3 real null default(9000.1),
@@ -352,7 +341,7 @@ func Test_Create_Success_Explicit_PK(t *testing.T) {
 		OK()
 
 	createDDL := tests.Row(project, "select sql from sqlite_master where name = 'test_create_success_pk_1'")
-	tests.AssertSQL(t, createDDL.String("sql"), `CREATE TABLE test_create_success_pk_1(
+	tests.AssertSQL(t, createDDL.String("sql"), `create table test_create_success_pk_1(
 		c1 text null,
 		primary key (c1)
 	)`)
@@ -374,7 +363,7 @@ func Test_Create_Success_Composite_PK(t *testing.T) {
 		OK()
 
 	createDDL := tests.Row(project, "select sql from sqlite_master where name = 'test_create_success_pk_2'")
-	tests.AssertSQL(t, createDDL.String("sql"), `CREATE TABLE test_create_success_pk_2(
+	tests.AssertSQL(t, createDDL.String("sql"), `create table test_create_success_pk_2(
 		c1 text null,
 		c2 int null,
 		primary key (c1,c2)
@@ -388,14 +377,14 @@ func Test_Create_Success_AutoIncrement_Reuse(t *testing.T) {
 		Body(map[string]any{
 			"name": "test_create_success_pk_air",
 			"columns": []any{
-				map[string]any{"name": "id", "type": "int", "nullable": true, "autoincrement": "reuse"},
+				map[string]any{"name": "id", "type": "int", "nullable": true, "extension": map[string]any{"autoincrement": "reuse"}},
 			},
 		}).
 		Post(Create).
 		OK()
 
 	createDDL := tests.Row(project, "select sql from sqlite_master where name = 'test_create_success_pk_air'")
-	tests.AssertSQL(t, createDDL.String("sql"), `CREATE TABLE test_create_success_pk_air(
+	tests.AssertSQL(t, createDDL.String("sql"), `create table test_create_success_pk_air(
 		id integer primary key null
 	)`)
 }
@@ -407,14 +396,213 @@ func Test_Create_Success_AutoIncrement_Strict(t *testing.T) {
 		Body(map[string]any{
 			"name": "test_create_success_pk_ais",
 			"columns": []any{
-				map[string]any{"name": "id", "type": "int", "nullable": true, "autoincrement": "strict"},
+				map[string]any{"name": "id", "type": "int", "nullable": true, "extension": map[string]any{"autoincrement": "strict"}},
 			},
 		}).
 		Post(Create).
 		OK()
 
 	createDDL := tests.Row(project, "select sql from sqlite_master where name = 'test_create_success_pk_ais'")
-	tests.AssertSQL(t, createDDL.String("sql"), `CREATE TABLE test_create_success_pk_ais(
+	tests.AssertSQL(t, createDDL.String("sql"), `create table test_create_success_pk_ais(
 		id integer primary key autoincrement null
 	)`)
+}
+
+func Test_Create_Int_Extension_Invalid(t *testing.T) {
+	request.ReqT(t, sqlkite.BuildEnv().Env()).
+		Body(map[string]any{
+			"name": "anything",
+			"columns": []any{
+				map[string]any{"name": "id", "type": "int", "nullable": true, "extension": map[string]any{"autoincrement": "nope", "min": "x", "max": 1.2}},
+			},
+		}).
+		Post(Create).
+		ExpectValidation(
+			"columns.0.extension.min", utils.VAL_INT_TYPE,
+			"columns.0.extension.max", utils.VAL_INT_TYPE,
+			"columns.0.extension.autoincrement", utils.VAL_STRING_CHOICE,
+		)
+}
+
+func Test_Create_Int_Extension_Valid(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"name": "t1",
+			"columns": []any{
+				map[string]any{"name": "id", "type": "int", "nullable": true, "extension": map[string]any{"min": 10, "max": 99, "autoincrement": "strict"}},
+			},
+		}).
+		Post(Create).
+		OK()
+
+		// reload the project, because in-memory projects are immutable
+	project, _ = sqlkite.Projects.Get(id)
+	table := project.Table("t1")
+	column := table.Column("id").Extension.(*sqlkite.ColumnIntExtension)
+	assert.Equal(t, column.Min.Value, 10)
+	assert.Equal(t, column.Max.Value, 99)
+	assert.Equal(t, column.AutoIncrement, sqlkite.AUTO_INCREMENT_TYPE_STRICT)
+}
+
+func Test_Create_Real_Extension_Invalid(t *testing.T) {
+	request.ReqT(t, sqlkite.BuildEnv().Env()).
+		Body(map[string]any{
+			"name": "anything",
+			"columns": []any{
+				map[string]any{"name": "id", "type": "real", "nullable": true, "extension": map[string]any{"min": "x", "max": "y"}},
+			},
+		}).
+		Post(Create).
+		ExpectValidation(
+			"columns.0.extension.min", utils.VAL_FLOAT_TYPE,
+			"columns.0.extension.max", utils.VAL_FLOAT_TYPE,
+		)
+}
+
+func Test_Create_Real_Extension_Valid(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"name": "t1",
+			"columns": []any{
+				map[string]any{"name": "id", "type": "real", "nullable": true, "extension": map[string]any{"min": 10.1, "max": 99.9}},
+			},
+		}).
+		Post(Create).
+		OK()
+
+		// reload the project, because in-memory projects are immutable
+	project, _ = sqlkite.Projects.Get(id)
+	table := project.Table("t1")
+	column := table.Column("id").Extension.(*sqlkite.ColumnRealExtension)
+	assert.Equal(t, column.Min.Value, 10.1)
+	assert.Equal(t, column.Max.Value, 99.9)
+}
+
+func Test_Create_Blob_Extension_Invalid(t *testing.T) {
+	request.ReqT(t, sqlkite.BuildEnv().Env()).
+		Body(map[string]any{
+			"name": "anything",
+			"columns": []any{
+				map[string]any{"name": "id", "type": "blob", "nullable": true, "extension": map[string]any{"min": "x", "max": 1.2}},
+			},
+		}).
+		Post(Create).
+		ExpectValidation(
+			"columns.0.extension.min", utils.VAL_INT_TYPE,
+			"columns.0.extension.max", utils.VAL_INT_TYPE,
+		)
+}
+
+func Test_Create_Blob_Extension_Valid(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"name": "t1",
+			"columns": []any{
+				map[string]any{"name": "id", "type": "blob", "nullable": true, "extension": map[string]any{"min": 10, "max": 99}},
+			},
+		}).
+		Post(Create).
+		OK()
+
+		// reload the project, because in-memory projects are immutable
+	project, _ = sqlkite.Projects.Get(id)
+	table := project.Table("t1")
+	column := table.Column("id").Extension.(*sqlkite.ColumnBlobExtension)
+	assert.Equal(t, column.Min.Value, 10)
+	assert.Equal(t, column.Max.Value, 99)
+}
+
+func Test_Create_Text_Extension_Invalid(t *testing.T) {
+	column := map[string]any{"name": "id", "type": "text", "nullable": true}
+
+	column["extension"] = map[string]any{"min": "x", "max": 1.2, "choices": false, "pattern": []any{}}
+	request.ReqT(t, sqlkite.BuildEnv().Env()).
+		Body(map[string]any{
+			"name":    "anything",
+			"columns": []any{column},
+		}).
+		Post(Create).
+		ExpectValidation(
+			"columns.0.extension.min", utils.VAL_INT_TYPE,
+			"columns.0.extension.max", utils.VAL_INT_TYPE,
+			"columns.0.extension.choices", utils.VAL_ARRAY_TYPE,
+			"columns.0.extension.pattern", utils.VAL_STRING_TYPE,
+		)
+
+	// pattern too long (does it make sense to limit the pattern lenght?)
+	column["extension"] = map[string]any{"pattern": strings.Repeat("a", 51)}
+	request.ReqT(t, sqlkite.BuildEnv().Env()).
+		Body(map[string]any{
+			"name":    "anything",
+			"columns": []any{column},
+		}).
+		Post(Create).
+		ExpectValidation(
+			"columns.0.extension.pattern", utils.VAL_STRING_LENGTH,
+		)
+
+	// pattern is invalid
+	column["extension"] = map[string]any{"pattern": "a("}
+	request.ReqT(t, sqlkite.BuildEnv().Env()).
+		Body(map[string]any{
+			"name":    "anything",
+			"columns": []any{column},
+		}).
+		Post(Create).
+		ExpectValidation(
+			"columns.0.extension.pattern", codes.VAL_INVALID_PATTERN,
+		)
+
+	// too many choices
+	column["extension"] = map[string]any{"choices": make([]string, 51)}
+	request.ReqT(t, sqlkite.BuildEnv().Env()).
+		Body(map[string]any{
+			"name":    "anything",
+			"columns": []any{column},
+		}).
+		Post(Create).
+		ExpectValidation(
+			"columns.0.extension.choices", utils.VAL_ARRAY_MAX_LENGTH,
+		)
+
+	// non-string choice
+	column["extension"] = map[string]any{"choices": []any{"dsa", 32}}
+	request.ReqT(t, sqlkite.BuildEnv().Env()).
+		Body(map[string]any{
+			"name":    "anything",
+			"columns": []any{column},
+		}).
+		Post(Create).
+		ExpectValidation(
+			"columns.0.extension.choices.1", utils.VAL_STRING_TYPE,
+		)
+}
+
+func Test_Create_Text_Extension_Valid(t *testing.T) {
+	id := tests.Factory.DynamicId()
+	project, _ := sqlkite.Projects.Get(id)
+	request.ReqT(t, project.Env()).
+		Body(map[string]any{
+			"name": "t1",
+			"columns": []any{
+				map[string]any{"name": "id", "type": "text", "nullable": true, "extension": map[string]any{"min": 3, "max": 5, "pattern": "\\w$", "choices": []any{"one", "two", "three"}}},
+			},
+		}).
+		Post(Create).
+		OK()
+
+		// reload the project, because in-memory projects are immutable
+	project, _ = sqlkite.Projects.Get(id)
+	table := project.Table("t1")
+	column := table.Column("id").Extension.(*sqlkite.ColumnTextExtension)
+	assert.Equal(t, column.Min.Value, 3)
+	assert.Equal(t, column.Max.Value, 5)
+	assert.List(t, column.Choices, []string{"one", "two", "three"})
+	assert.Equal(t, column.Pattern, "\\w$")
 }

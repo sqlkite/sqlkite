@@ -107,7 +107,7 @@ func updateParseSet(input any, ctx *validation.Context[*sqlkite.Env], table *sql
 			continue
 		}
 
-		if column.DenyUpdate {
+		if column.UpdateAccess&sqlkite.COLUMN_PERMISSION_DENY_SQL_API == sqlkite.COLUMN_PERMISSION_DENY_SQL_API {
 			ctx.InvalidWithField(valColumnUpdateDeny, setField)
 			continue
 		}

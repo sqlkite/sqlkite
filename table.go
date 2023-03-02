@@ -60,6 +60,10 @@ const (
 	TABLE_ACCESS_MUTATE_DELETE
 )
 
+const (
+	COLUMN_PERMISSION_DENY_SQL_API = 1 << iota
+)
+
 var (
 	noopValidator = validation.Noop[*Env]()
 )
@@ -125,7 +129,7 @@ func (t *Table) hasAutoIncrement(pk []string) bool {
 		}
 
 		if ie, ok := column.Extension.(*ColumnIntExtension); ok {
-			return ie.AutoIncrement.Value != AUTO_INCREMENT_TYPE_NONE
+			return ie.AutoIncrement != AUTO_INCREMENT_TYPE_NONE
 		}
 	}
 
@@ -133,29 +137,29 @@ func (t *Table) hasAutoIncrement(pk []string) bool {
 }
 
 type Column struct {
-	Field      *validation.Field `json:"-"`
-	Default    any               `json:"dflt"`
-	Extension  ColumnExtension   `json:"ext",omitempty`
-	Name       string            `json:"name"`
-	Type       ColumnType        `json:"type"`
-	Nullable   bool              `json:"null"`
-	Unique     bool              `json:"uniq"`
-	DenyInsert bool              `json:"xi"`
-	DenyUpdate bool              `json:"xu"`
+	Field        *validation.Field `json:"-"`
+	Default      any               `json:"dflt"`
+	Extension    ColumnExtension   `json:"ext",omitempty`
+	Name         string            `json:"name"`
+	Type         ColumnType        `json:"type"`
+	Nullable     bool              `json:"null"`
+	Unique       bool              `json:"uniq"`
+	InsertAccess int               `json:"xi"`
+	UpdateAccess int               `json:"xu"`
 }
 
 func (c *Column) Clone() *Column {
 	name := c.Name
 	return &Column{
-		Default:    c.Default,
-		Extension:  c.Extension, // TODO: probably need to Clone this too
-		Name:       name,
-		Type:       c.Type,
-		Nullable:   c.Nullable,
-		Unique:     c.Unique,
-		DenyInsert: c.DenyInsert,
-		DenyUpdate: c.DenyUpdate,
-		Field:      validation.SimpleField("row." + name),
+		Default:      c.Default,
+		Extension:    c.Extension, // TODO: probably need to Clone this too
+		Name:         name,
+		Type:         c.Type,
+		Nullable:     c.Nullable,
+		Unique:       c.Unique,
+		InsertAccess: c.InsertAccess,
+		UpdateAccess: c.UpdateAccess,
+		Field:        validation.SimpleField("row." + name),
 	}
 }
 
@@ -218,14 +222,14 @@ func (c *Column) Write(b *buffer.Buffer) {
 // struct.
 func (c *Column) UnmarshalJSON(data []byte) error {
 	var t = struct {
-		Default    any             `json:"dflt"`
-		Name       string          `json:"name"`
-		Extension  json.RawMessage `json:"ext"`
-		Type       ColumnType      `json:"type"`
-		Nullable   bool            `json:"null"`
-		Unique     bool            `json:"uniq"`
-		DenyInsert bool            `json:"xi"`
-		DenyUpdate bool            `json:"xu"`
+		Default      any             `json:"dflt"`
+		Name         string          `json:"name"`
+		Extension    json.RawMessage `json:"ext"`
+		Type         ColumnType      `json:"type"`
+		Nullable     bool            `json:"null"`
+		Unique       bool            `json:"uniq"`
+		InsertAccess int             `json:"xi"`
+		UpdateAccess int             `json:"xu"`
 	}{}
 
 	if err := json.Unmarshal(data, &t); err != nil {
@@ -238,7 +242,7 @@ func (c *Column) UnmarshalJSON(data []byte) error {
 		case COLUMN_TYPE_INT:
 			extension = new(ColumnIntExtension)
 		case COLUMN_TYPE_REAL:
-			extension = new(ColumnFloatExtension)
+			extension = new(ColumnRealExtension)
 		case COLUMN_TYPE_TEXT:
 			extension = new(ColumnTextExtension)
 		case COLUMN_TYPE_BLOB:
@@ -263,8 +267,8 @@ func (c *Column) UnmarshalJSON(data []byte) error {
 	c.Nullable = t.Nullable
 	c.Unique = t.Unique
 	c.Extension = extension
-	c.DenyInsert = t.DenyInsert
-	c.DenyUpdate = t.DenyUpdate
+	c.InsertAccess = t.InsertAccess
+	c.UpdateAccess = t.UpdateAccess
 	c.Field = validation.SimpleField("row." + name)
 	return nil
 }
@@ -296,10 +300,10 @@ func (_ ColumnNoopExtension) setup() {
 }
 
 type ColumnIntExtension struct {
-	validator     *validation.IntValidator[*Env]    `json:"-"`
-	AutoIncrement optional.Value[AutoIncrementType] `json:"autoincrement`
-	Min           optional.Int                      `json:"min"`
-	Max           optional.Int                      `json:"max"`
+	validator     *validation.IntValidator[*Env] `json:"-"`
+	AutoIncrement AutoIncrementType              `json:"autoincrement`
+	Min           optional.Int                   `json:"min"`
+	Max           optional.Int                   `json:"max"`
 }
 
 func (c *ColumnIntExtension) Validator() validation.Validator[*Env] {
@@ -317,17 +321,17 @@ func (c *ColumnIntExtension) setup() {
 	c.validator = validator
 }
 
-type ColumnFloatExtension struct {
+type ColumnRealExtension struct {
 	validator *validation.FloatValidator[*Env] `json:"-"`
 	Min       optional.Float                   `json:"min"`
 	Max       optional.Float                   `json:"max"`
 }
 
-func (c *ColumnFloatExtension) Validator() validation.Validator[*Env] {
+func (c *ColumnRealExtension) Validator() validation.Validator[*Env] {
 	return c.validator
 }
 
-func (c *ColumnFloatExtension) setup() {
+func (c *ColumnRealExtension) setup() {
 	validator := validation.Float[*Env]()
 	if min := c.Min; min.Exists {
 		validator.Min(min.Value)
@@ -550,11 +554,11 @@ func (r TableAlterRenameColumn) Write(b *buffer.Buffer) {
 
 func autoIncrementType(extension ColumnExtension) AutoIncrementType {
 	ie, ok := extension.(*ColumnIntExtension)
-	if !ok || ie == nil || !ie.AutoIncrement.Exists {
+	if !ok || ie == nil {
 		return AUTO_INCREMENT_TYPE_NONE
 
 	}
-	return ie.AutoIncrement.Value
+	return ie.AutoIncrement
 }
 
 func UnknownTable(tableName string) *validation.Invalid {

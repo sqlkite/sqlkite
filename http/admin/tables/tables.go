@@ -2,9 +2,11 @@ package tables
 
 import (
 	"encoding/base64"
+	"regexp"
 	"strings"
 
 	"src.goblgobl.com/utils/ascii"
+	"src.goblgobl.com/utils/optional"
 	"src.goblgobl.com/utils/typed"
 	"src.goblgobl.com/utils/validation"
 	"src.sqlkite.com/sqlkite"
@@ -26,6 +28,8 @@ var (
 				Length(1, 100).
 				Pattern(dataFieldPattern, dataFieldError)
 
+	columnPermssionValidation = validation.Int[*sqlkite.Env]().Min(0).Max(1)
+
 	columnValidation = validation.Object[*sqlkite.Env]().
 				Required().
 				Field("name", columnNameValidation).
@@ -33,7 +37,9 @@ var (
 				Field("nullable", validation.Bool[*sqlkite.Env]().Required()).
 				Field("default", validation.Any[*sqlkite.Env]().Func(validateDefault)).
 				Field("unique", validation.Bool[*sqlkite.Env]().Default(false)).
-				Field("autoincrement", validation.String[*sqlkite.Env]().Choice("strict", "reuse").Func(autoIncrementValidation))
+				Field("insert_access", columnPermssionValidation).
+				Field("update_access", columnPermssionValidation).
+				Field("extension", validation.Object[*sqlkite.Env]().Func(validateExtension).Default(sqlkite.ColumnNoopExtension{}))
 
 	columnsValidation = validation.Array[*sqlkite.Env]().Min(1).Max(100).Required().Validator(columnValidation)
 
@@ -50,14 +56,36 @@ var (
 				Field("delete", mutateAccessValiation)
 
 	maxMutateCountValidation = validation.Int[*sqlkite.Env]().Min(0)
+
+	intExtensionValidation = validation.Object[*sqlkite.Env]().
+				Func(intExtensionConverter).
+				Field("min", validation.Int[*sqlkite.Env]()).
+				Field("max", validation.Int[*sqlkite.Env]()).
+				Field("autoincrement", validation.String[*sqlkite.Env]().Choice("strict", "reuse").Func(autoIncrementValidation)).
+				ForceField(validation.BuildField("columns.#.extension"))
+
+	floatExtensionValidation = validation.Object[*sqlkite.Env]().
+					Func(floatExtensionConverter).
+					Field("min", validation.Float[*sqlkite.Env]()).
+					Field("max", validation.Float[*sqlkite.Env]()).
+					ForceField(validation.BuildField("columns.#.extension"))
+
+	textExtensionValidation = validation.Object[*sqlkite.Env]().
+				Func(textExtensionConverter).
+				Field("min", validation.Int[*sqlkite.Env]()).
+				Field("max", validation.Int[*sqlkite.Env]()).
+				Field("pattern", validation.String[*sqlkite.Env]().Max(50).Func(patternValidation)).
+				Field("choices", validation.Array[*sqlkite.Env]().Max(50).Validator(validation.String[*sqlkite.Env]().Max(50)).ConvertToType()).
+				ForceField(validation.BuildField("columns.#.extension"))
+
+	blobExtensionValidation = validation.Object[*sqlkite.Env]().
+				Func(blobExtensionConverter).
+				Field("min", validation.Int[*sqlkite.Env]()).
+				Field("max", validation.Int[*sqlkite.Env]()).
+				ForceField(validation.BuildField("columns.#.extension"))
 )
 
 var (
-	valAutoIncrementNonInt = &validation.Invalid{
-		Code:  codes.VAL_AUTOINCREMENT_NOT_INT,
-		Error: "Autoincrement can only be defined on a column of type 'int'",
-	}
-
 	valAutoIncrementMultiplePK = &validation.Invalid{
 		Code:  codes.VAL_AUTOINCREMENT_COMPOSITE_PK,
 		Error: "Autoincrement cannot be used as part of a composite primary key",
@@ -70,7 +98,12 @@ var (
 
 	valBlobDefault = &validation.Invalid{
 		Code:  codes.VAL_NON_BASE64_COLUMN_DEFAULT,
-		Error: "blob default should be base64 encoded",
+		Error: "Blob default should be base64 encoded",
+	}
+
+	valInvalidPattern = &validation.Invalid{
+		Code:  codes.VAL_INVALID_PATTERN,
+		Error: "The regular expression could not be compiled",
 	}
 )
 
@@ -90,7 +123,7 @@ func validateDefault(value any, ctx *validation.Context[*sqlkite.Env]) any {
 		return nil // no default, no problem
 	}
 
-	object := ctx.Object
+	object := ctx.CurrentObject()
 	tpe, ok := object["type"].(sqlkite.ColumnType)
 	if !ok {
 		// not even a valid type
@@ -155,25 +188,72 @@ func columnTypeConverter(value string, ctx *validation.Context[*sqlkite.Env]) an
 	return sqlkite.COLUMN_TYPE_INVALID
 }
 
-func autoIncrementValidation(value string, ctx *validation.Context[*sqlkite.Env]) any {
-	object := ctx.Object
+func createTableAccessMutate(tableName string, tpe sqlkite.TableAccessMutateType, input typed.Typed) *sqlkite.TableAccessMutate {
+	return sqlkite.NewTableAccessMutate(tableName, tpe, input.String("trigger"), input.String("when"))
+}
 
-	tpe, _ := object["type"].(sqlkite.ColumnType)
-	// either not an int, or not even a valid type
-	if tpe != sqlkite.COLUMN_TYPE_INT {
-		ctx.InvalidField(valAutoIncrementNonInt)
-		return value
+func validateExtension(input map[string]any, ctx *validation.Context[*sqlkite.Env]) any {
+	tpe, ok := ctx.Objects()[1]["type"].(sqlkite.ColumnType)
+	if !ok {
+		// not even a valid type
+		return nil
 	}
 
+	var extension any
+	switch tpe {
+	case sqlkite.COLUMN_TYPE_TEXT:
+		extension, _ = ctx.Validate(nil, input, textExtensionValidation)
+	case sqlkite.COLUMN_TYPE_INT:
+		extension, _ = ctx.Validate(nil, input, intExtensionValidation)
+	case sqlkite.COLUMN_TYPE_REAL:
+		extension, _ = ctx.Validate(nil, input, floatExtensionValidation)
+	case sqlkite.COLUMN_TYPE_BLOB:
+		extension, _ = ctx.Validate(nil, input, blobExtensionValidation)
+	}
+	return extension
+}
+
+func intExtensionConverter(value map[string]any, ctx *validation.Context[*sqlkite.Env]) any {
+	return &sqlkite.ColumnIntExtension{
+		Min:           optional.FromAny[int](value["min"]),
+		Max:           optional.FromAny[int](value["max"]),
+		AutoIncrement: typed.Or(value["autoincrement"], sqlkite.AUTO_INCREMENT_TYPE_NONE),
+	}
+}
+
+func floatExtensionConverter(value map[string]any, ctx *validation.Context[*sqlkite.Env]) any {
+	return &sqlkite.ColumnRealExtension{
+		Min: optional.FromAny[float64](value["min"]),
+		Max: optional.FromAny[float64](value["max"]),
+	}
+}
+
+func textExtensionConverter(value map[string]any, ctx *validation.Context[*sqlkite.Env]) any {
+	return &sqlkite.ColumnTextExtension{
+		Min:     optional.FromAny[int](value["min"]),
+		Max:     optional.FromAny[int](value["max"]),
+		Choices: typed.Or[[]string](value["choices"], nil),
+		Pattern: typed.Or(value["pattern"], ""),
+	}
+}
+
+func blobExtensionConverter(value map[string]any, ctx *validation.Context[*sqlkite.Env]) any {
+	return &sqlkite.ColumnBlobExtension{
+		Min: optional.FromAny[int](value["min"]),
+		Max: optional.FromAny[int](value["max"]),
+	}
+}
+
+func autoIncrementValidation(value string, ctx *validation.Context[*sqlkite.Env]) any {
 	// Autoincrement can only be added to a column if it's the only primary key.
 	pk := ctx.Input.Strings("primary_key")
 	if len(pk) > 1 {
 		ctx.InvalidField(valAutoIncrementMultiplePK)
-		return value
+		return sqlkite.AUTO_INCREMENT_TYPE_NONE
 	} else if len(pk) == 1 {
-		if pk[0] != object.String("name") {
+		if pk[0] != ctx.Objects()[1].String("name") {
 			ctx.InvalidField(valAutoIncrementNonPK)
-			return value
+			return sqlkite.AUTO_INCREMENT_TYPE_NONE
 		}
 	}
 
@@ -192,6 +272,9 @@ func autoIncrementValidation(value string, ctx *validation.Context[*sqlkite.Env]
 	return sqlkite.AUTO_INCREMENT_TYPE_NONE
 }
 
-func createTableAccessMutate(tableName string, tpe sqlkite.TableAccessMutateType, input typed.Typed) *sqlkite.TableAccessMutate {
-	return sqlkite.NewTableAccessMutate(tableName, tpe, input.String("trigger"), input.String("when"))
+func patternValidation(value string, ctx *validation.Context[*sqlkite.Env]) any {
+	if _, err := regexp.Compile(value); err != nil {
+		ctx.InvalidField(valInvalidPattern)
+	}
+	return value
 }

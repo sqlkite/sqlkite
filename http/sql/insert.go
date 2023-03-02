@@ -115,7 +115,7 @@ func insertParseColumns(input any, ctx *validation.Context[*sqlkite.Env], table 
 			continue
 		}
 
-		if column.DenyInsert {
+		if column.InsertAccess&sqlkite.COLUMN_PERMISSION_DENY_SQL_API == sqlkite.COLUMN_PERMISSION_DENY_SQL_API {
 			ctx.ArrayIndex(i)
 			ctx.InvalidWithField(&validation.Invalid{
 				Code:  codes.VAL_COLUMN_INSERT_DENY,
